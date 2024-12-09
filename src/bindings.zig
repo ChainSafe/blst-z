@@ -551,3 +551,77 @@ pub fn blst_p2_affine_is_inf(a: *const blst_p2_affine) bool {
 pub fn blst_p2_affine_generator() *blst_p2_affine {
     return c.blst_p2_affine_generator();
 }
+
+/// Multi-scalar multiplications and other multi-point operations.
+
+pub fn blst_p1s_to_affine(dst: []blst_p1_affline, points: []const blst_p1, npoints: usize) void {
+    c.blst_p1s_to_affine(dst, points, npoints);
+}
+
+pub fn blst_p1s_add(ret: *blst_p1, points: []const blst_p1_affline, npoints: usize) void {
+    c.blst_p1s_add(ret, points, npoints);
+}
+
+pub fn blst_p1s_mult_wbits_precompute_sizeof(wbits: usize, npoints: usize) usize {
+    return c.blst_p1s_mult_wbits_precompute_sizeof(wbits, npoints);
+}
+
+pub fn blst_p1s_mult_wbits_precompute(table: []blst_p1_affline, wbits: usize, points: []*const blst_p1_affline, npoints: usize) void {
+    c.blst_p1s_mult_wbits_precompute(table, wbits, points, npoints);
+}
+
+pub fn blst_p1s_mult_wbits_scratch_sizeof(npoints: usize) usize {
+    return c.blst_p1s_mult_wbits_scratch_sizeof(npoints);
+}
+
+pub fn blst_p1s_mult_wbits(ret: *blst_p1, table: []const blst_p1_affline, wbits: usize, npoints: usize, scalars: []*const byte, nbits: usize, scratch: *limb_t) void {
+    c.blst_p1s_mult_wbits(ret, table, wbits, npoints, scalars, nbits, scratch);
+}
+
+pub fn blst_p1s_mult_pippenger_scratch_sizeof(npoints: usize) usize {
+    return c.blst_p1s_mult_pippenger_scratch_sizeof(npoints);
+}
+
+pub fn blst_p1s_mult_pippenger(ret: *blst_p1, points: []*const blst_p1_affline, npoints: usize, scalars: []*const byte, nbits: usize, scratch: *limb_t) void {
+    c.blst_p1s_mult_pippenger(ret, points, npoints, scalars, nbits, scratch);
+}
+
+pub fn blst_p1s_tile_pippenger(ret: *blst_t1, points: []*const blst_p1_affline, npoints: usize, scalars: []*const byte, nbits: usize, scratch: *limb_t, bit0: usize, window: usize) void {
+    c.blst_p1s_tile_pippenger(ret, points, npoints, scalars, nbits, scratch, bit0, window);
+}
+
+pub fn blst_p2s_to_affine(dst: []blst_p2_affline, points: []*const blst_p2, npoints: usize) void {
+    c.blst_p2s_to_affine(dst, points, npoints);
+}
+
+pub fn blst_p2s_add(ret: *blst_p2, points: []*const blst_p2_affline, npoints: usize) void {
+    c.blst_p2s_add(ret, points, npoints);
+}
+
+pub fn blst_p2s_mult_wbits_precompute_sizeof(wbits: usize, npoints: usize) usize {
+    return c.blst_p2s_mult_wbits_precompute_sizeof(wbits, npoints);
+}
+
+pub fn blst_p2s_mult_wbits_precompute(table: []blst_p2_affline, wbits: usize, points: []*const blst_p2_affline, npoints: usize) void {
+    c.blst_p2s_mult_wbits_precompute(table, wbits, points, npoints);
+}
+
+pub fn blst_p2s_mult_wbits_scratch_sizeof(npoints: usize) usize {
+    return c.blst_p2s_mult_wbits_scratch_sizeof(npoints);
+}
+
+pub fn blst_p2s_mult_wbits(ret: *blst_p2, table: []const blst_p2_affline, wbits: usize, npoints: usize, scalars: []*const byte, nbits: usize, scratch: *limb_t) void {
+    c.blst_p2s_mult_wbits(ret, table, wbits, npoints, scalars, nbits, scratch);
+}
+
+pub fn blst_p2s_mult_pippenger_scratch_sizeof(npoints: usize) usize {
+    return c.blst_p2s_mult_pippenger_scratch_sizeof(npoints);
+}
+
+pub fn blst_p2s_mult_pippenger(ret: *blst_p2, points: []*const blst_p2_affline, npoints: usize, scalars: []*const byte, nbits: usize, scratch: *limb_t) void {
+    c.blst_p2s_mult_pippenger(ret, points, npoints, scalars, nbits, scratch);
+}
+
+pub fn blst_p2s_tile_pippenger(ret: *blst_p2, points: []*const blst_p2_affline, npoints: usize, scalars: []*const byte, nbits: usize, scratch: *limb_t, bit0: usize, window: usize) void {
+    c.blst_p2s_tile_pippenger(ret, points, npoints, scalars, nbits, scratch, bit0, window);
+}
