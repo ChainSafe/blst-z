@@ -774,3 +774,35 @@ pub fn blst_sk_to_pk_in_g2(blst_p2: *out_pk, sk: *const blst_scalar) void {
 pub fn blst_sign_pk_in_g2(out_sig: *blst_p1, hash: *const blst_p1, sk: *const blst_scalar) void {
     c.blst_sign_pk_in_g2(out_sig, hash, sk);
 }
+
+/// Pairing interface.
+
+pub fn blst_miller_loop(ret: *blst_fp12, q: *const blst_p2_affline, p: *const blst_p1_affline) void {
+    c.blst_miller_loop(ret, q, p);
+}
+
+pub fn blst_miller_loop_n(ret: *blst_fp12, qs: []*const blst_p2_affline, ps: []*const blst_p1_affline, n: usize) void {
+    c.blst_miller_loop_n(ret, qs, ps, n);
+}
+
+pub fn blst_final_exp(ret: *blst_fp12, f: *const blst_fp12) void {
+    c.blst_final_exp(ret, f);
+}
+
+pub fn blst_precompute_lines(qlines: []blst_fp6, q: *const blst_p2_affline) IncorrectLen!void {
+    if (qlines.len != 68) {
+        return error.IncorrectLen;
+    }
+    c.blst_precompute_lines(qlines, q);
+}
+
+pub fn blst_miller_loop_lines(ret: *blst_fp12, qlines: []const blst_fp6, p: *const blst_p1_affline) IncorrectLen!void {
+    if (qlines.len != 68) {
+        return error.IncorrectLen;
+    }
+    c.blst_miller_loop_lines(ret, qlines, p);
+}
+
+pub fn blst_fp12_finalverify(gt1: *const blst_fp12, gt2: *const blst_fp12) bool {
+    return c.blst_fp12_finalverify(gt1, gt2);
+}
