@@ -625,3 +625,32 @@ pub fn blst_p2s_mult_pippenger(ret: *blst_p2, points: []*const blst_p2_affline, 
 pub fn blst_p2s_tile_pippenger(ret: *blst_p2, points: []*const blst_p2_affline, npoints: usize, scalars: []*const byte, nbits: usize, scratch: *limb_t, bit0: usize, window: usize) void {
     c.blst_p2s_tile_pippenger(ret, points, npoints, scalars, nbits, scratch, bit0, window);
 }
+
+/// Hash-to-curve operations.
+
+pub fn blst_map_to_g1(out: *blst_p1, u: *const blst_fp, v: ?*const blst_fp) void {
+    // TODO: do we need to unwrap value of v if it's not null?
+    // same for below
+    c.blst_map_to_g1(out, u, v);
+}
+
+pub fn blst_map_to_g2(out: *blst_p2, u: *const blst_fp2, v: ?*const blst_fp2) void {
+    // TODO: do we need to unwrap value of v if it's not null?
+    c.blst_map_to_g2(out, u, v);
+}
+
+pub fn blst_encode_to_g1(out: *blst_p1, msg: *const byte, msg_len: usize, dst: ?*const byte, dst_len: ?usize, aug: ?*const byte, aug_len: ?usize) void {
+    c.blst_encode_to_g1(out, msg, msg_len, dst, dst_len, aug, aug_len);
+}
+
+pub fn blst_hash_to_g1(out: *blst_p1, msg: *const byte, msg_len: usize, dst: ?*const byte, dst_len: ?usize, aug: ?*const byte, aug_len: ?usize) void {
+    c.blst_hash_to_g1(out, msg, msg_len, dst, dst_len, aug, aug_len);
+}
+
+pub fn blst_encode_to_g2(out: *blst_p2, msg: *const byte, msg_len: usize, dst:?*const byte, dst_len: ?usize, aug: ?*const byte, aug_len: ?usize) void {
+    c.blst_encode_to_g2(out, msg, msg_len, dst, dst_len, aug, aug_len);
+}
+
+pub fn blst_hash_to_g2(out: *blst_p2, msg: *const byte, msg_len: usize, dst: ?*const byte, dst_len: ?usize, aug: ?*const byte, aug_len: ?usize) void {
+    c.blst_hash_to_g2(out, msg, msg_len, dst, dst_len, aug, aug_len);
+}
