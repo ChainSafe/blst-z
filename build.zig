@@ -32,6 +32,9 @@ pub fn build(b: *std.Build) void {
     // Add the static library, this point to the output file
     lib.addObjectFile(b.path("blst/libblst.a"));
 
+    // the folder where blst.h is located
+    lib.addIncludePath(b.path("blst/bindings"));
+
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
     // running `zig build`).
