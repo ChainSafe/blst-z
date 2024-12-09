@@ -751,3 +751,26 @@ pub const blst_p2_deserialize(out: *blst_p2_affline, in: []const byte) Incorrect
     }
     return c.blst_p2_deserialize(out, in);
 }
+
+/// Secret-key operations.
+
+pub fn blst_keygen(out_sk: *blst_scalar, ikm: *const byte, ikm_len: usize, info: ?*const byte, info_len: ?usize) void {
+    // TODO: unwrap option types?
+    c.blst_keygen(out_sk, ikm, ikm_len, info, info_len);
+}
+
+pub fn blst_sk_to_pk_in_g1(out_pk: *blst_p1, sk: *const blst_scalar) void {
+    c.blst_sk_to_pk_in_g1(out_pk, sk);
+}
+
+pub fn blst_sign_pk_in_g1(out_sig: *blst_p2, hash: *const blst_p2, sk: *const blst_scalar) void {
+    c.blst_sign_pk_in_g1(out_sig, hash, sk);
+}
+
+pub fn blst_sk_to_pk_in_g2(blst_p2: *out_pk, sk: *const blst_scalar) void {
+    c.blst_sk_to_pk_in_g2(out_pk, sk);
+}
+
+pub fn blst_sign_pk_in_g2(out_sig: *blst_p1, hash: *const blst_p1, sk: *const blst_scalar) void {
+    c.blst_sign_pk_in_g2(out_sig, hash, sk);
+}
