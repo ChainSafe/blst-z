@@ -464,3 +464,90 @@ pub fn blst_p1_affine_is_inf(a: *const blst_p1_affine) bool {
 pub fn blst_p1_affine_generator() *blst_p1_affine {
     return c.blst_p1_affine_generator();
 }
+
+const blst_p2 = struct {
+    x: blst_fp2,
+    y: blst_fp2,
+    z: blst_fp2,
+};
+
+const blst_p2_affine = struct {
+    x: blst_fp2,
+    y: blst_fp2,
+};
+
+pub fn blst_p2_add(out: *blst_p2, a: *const blst_p2, b: *const blst_p2) void {
+    c.blst_p2_add(out, a, b);
+}
+
+pub fn blst_p2_add_or_double(out: *blst_p2, a: *const blst_p2, b: *const blst_p2) void {
+    c.blst_p2_add_or_double(out, a, b);
+}
+
+pub fn blst_p2_add_affine(out: *blst_p2, a: *const blst_p2, b: *const blst_p2_affine) void {
+    c.blst_p2_add_affine(out, a, b);
+}
+
+pub fn blst_p2_add_or_double_affine(out: *blst_p2, a: *const blst_p2, b: *const blst_p2_affine) void {
+    c.blst_p2_add_or_double_affine(out, a, b);
+}
+
+pub fn blst_p2_double(out: *blst_p2, a: *const blst_p2) void {
+    c.blst_p2_double(out, a);
+}
+
+pub fn blst_p2_mult(out: *blst_p2, p: *const blst_p2, scalar: *const byte, nbits: usize) void {
+    c.blst_p2_mult(out, p, scalar, nbits);
+}
+
+pub fn blst_p2_cneg(p: *blst_p2, cbit: bool) void {
+    c.blst_p2_cneg(p, cbit);
+}
+
+pub fn blst_p2_to_affine(out *blst_p2_affline, in: *const blst_p2) void {
+    c.blst_p2_to_affine(out, in);
+}
+
+pub fn blst_p2_from_affine(out: *blst_p2, in: *const blst_p2_affine) void {
+    c.blst_p2_from_affine(out, in);
+}
+
+pub fn blst_p2_on_curve(p: *const blst_p2) bool {
+    return c.blst_p2_on_curve(p);
+}
+
+pub fn blst_p2_in_g2(p: *const blst_p2) bool {
+    return c.blst_p2_in_g2(p);
+}
+
+pub fn blst_p2_is_equal(a: *const blst_p2, b: *const blst_p2) bool {
+    return c.blst_p2_is_equal(a, b);
+}
+
+pub fn blst_p2_is_inf(a: *const blst_p2) bool {
+    return c.blst_p2_is_inf(a);
+}
+
+pub fn blst_p2_generator() *blst_p2 {
+    return c.blst_p2_generator();
+}
+
+pub fn blst_p2_affine_on_curve(p: *const blst_p2_affine) bool {
+    return c.blst_p2_affine_on_curve(p);
+}
+
+pub fn blst_p2_affine_in_g2(p: *const blst_p2_affine) bool {
+    return c.blst_p2_affine_in_g2(p);
+}
+
+pub fn blst_p2_affine_is_equal(a: *const blst_p2_affine, b: *const blst_p2_affine) bool {
+    return c.blst_p2_affine_is_equal(a, b);
+}
+
+pub fn blst_p2_affine_is_inf(a: *const blst_p2_affine) bool {
+    return c.blst_p2_affine_is_inf(a);
+}
+
+pub fn blst_p2_affine_generator() *blst_p2_affine {
+    return c.blst_p2_affine_generator();
+}
