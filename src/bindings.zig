@@ -654,3 +654,100 @@ pub fn blst_encode_to_g2(out: *blst_p2, msg: *const byte, msg_len: usize, dst:?*
 pub fn blst_hash_to_g2(out: *blst_p2, msg: *const byte, msg_len: usize, dst: ?*const byte, dst_len: ?usize, aug: ?*const byte, aug_len: ?usize) void {
     c.blst_hash_to_g2(out, msg, msg_len, dst, dst_len, aug, aug_len);
 }
+
+/// Zcash-compatible serialization/deserialization.
+
+pub fn blst_p1_serialize(out: []byte, a: *const blst_p1) IncorrectLen!void {
+    if (out.len != 96) {
+        return error.IncorrectLen;
+    }
+    c.blst_p1_serialize(out, a);
+}
+
+pub fn blst_p1_compress(out: []byte, a: *const blst_p1) IncorrectLen!void {
+    if (out.len != 48) {
+        return error.IncorrectLen;
+    }
+    c.blst_p1_compress(out, a);
+}
+
+pub fn blst_p1_affine_serialize(out: []byte, in: *const blst_p1_affine) IncorrectLen!void {
+    if (out.len != 96) {
+        return error.IncorrectLen;
+    }
+    c.blst_p1_affine_serialize(out, in);
+}
+
+pub fn blst_p1_affine_compress(out: []byte, in: *const blst_p1_affine) IncorrectLen!void {
+    if (out.len != 48) {
+        return error.IncorrectLen;
+    }
+    c.blst_p1_affine_compress(out, in);
+}
+
+const BLST_ERROR = enum(u8) {
+    SUCCESS = 0,
+    BAD_ENCODING,
+    POINT_NOT_ON_CURVE,
+    POINT_NOT_IN_GROUP,
+    AGGR_TYPE_MISMATCH,
+    VERIFY_FAIL,
+    PK_IS_INFINITY,
+    BAD_SCALAR,
+};
+
+pub fn blst_p1_uncompress(out: *blst_p1_affline, in: []const byte) IncorrectLen!BLST_ERROR {
+    if (in.len != 48) {
+        return error.IncorrectLen;
+    }
+    return c.blst_p1_uncompress(out, in);
+}
+
+pub fn blst_p1_deserialize(out: *blst_p1, in: []const byte) IncorrectLen!BLST_ERROR {
+    if (in.len != 96) {
+        return error.IncorrectLen;
+    }
+    return c.blst_p1_deserialize(out, in);
+}
+
+pub fn blst_p2_serialize(out: []byte, in: *const blst_p2) IncorrectLen!void {
+    if (out.len != 192) {
+        return error.IncorrectLen;
+    }
+    c.blst_p2_serialize(out, in);
+}
+
+pub fn blst_p2_compress(out: []byte, in: *const blst_p2) IncorrectLen!void {
+    if (out.len != 96) {
+        return error.IncorrectLen;
+    }
+    c.blst_p2_compress(out, in);
+}
+
+pub fn blst_p2_affine_serialize(out: []byte, in: *const blst_p2_affine) IncorrectLen!void {
+    if (out.len != 192) {
+        return error.IncorrectLen;
+    }
+    c.blst_p2_affine_serialize(out, in);
+}
+
+pub fn blst_p2_affine_compress(out: []byte, in: *const blst_p2_affine) IncorrectLen!void {
+    if (out.len != 96) {
+        return error.IncorrectLen;
+    }
+    c.blst_p2_affine_compress(out, in);
+}
+
+pub const blst_p2_uncompress(out: *blst_p2_affline, in: []const byte) IncorrectLen!BLST_ERROR {
+    if (in.len != 96) {
+        return error.IncorrectLen;
+    }
+    return c.blst_p2_uncompress(out, in);
+}
+
+pub const blst_p2_deserialize(out: *blst_p2_affline, in: []const byte) IncorrectLen!BLST_ERROR {
+    if (in.len != 192) {
+        return error.IncorrectLen;
+    }
+    return c.blst_p2_deserialize(out, in);
+}
