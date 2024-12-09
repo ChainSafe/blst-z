@@ -377,9 +377,90 @@ pub fn blst_fp12_one(ret: *blst_fp12) void {
     c.blst_fp12_one(ret);
 }
 
-// /// BLS12-381-specific point operations.
-// const blst_p1 = extern struct {
-//     x: blst_fp,
-//     y: blst_fp,
-//     z: blst_fp,
-// };
+/// BLS12-381-specific point operations.
+const blst_p1 = struct {
+    x: blst_fp,
+    y: blst_fp,
+    z: blst_fp,
+};
+
+const blst_p1_affine = struct {
+    x: blst_fp,
+    y: blst_fp,
+};
+
+pub fn blst_p1_add(out: *blst_p1, a: *const blst_p1, b: *const blst_p1) void {
+    c.blst_p1_add(out, a, b);
+}
+
+pub fn blst_p1_add_or_double(out: *blst_p1, a: *const blst_p1, b: *const blst_p1) void {
+    c.blst_p1_add_or_double(out, a, b);
+}
+
+pub fn blst_p1_add_affine(out: *blst_p1, a: *const blst_p1, b: *const blst_p1_affine) void {
+    c.blst_p1_add_affine(out, a, b);
+}
+
+pub fn blst_p1_add_or_double_affine(out: *blst_p1, a: *const blst_p1, b: *const blst_p1_affine) void {
+    c.blst_p1_add_or_double_affine(out, a, b);
+}
+
+pub fn blst_p1_double(out: *blst_p1, a: *const blst_p1) void {
+    c.blst_p1_double(out, a);
+}
+
+pub fn blst_p1_mult(out: *blst_p1, a: *const blst_p1, scalar: *const byte, nbits: usize) void {
+    c.blst_p1_mult(out, a, scalar, nbits);
+}
+
+pub fn blst_p1_cneg(out: *blst_p1, cbit: bool) void {
+    c.blst_p1_cneg(out, cbit);
+}
+
+pub fn blst_p1_to_affine(out: *blst_p1_affine, a: *const blst_p1) void {
+    c.blst_p1_to_affine(out, a);
+}
+
+pub fn blst_p1_from_affine(out: *blst_p1, a: *const blst_p1_affine) void {
+    c.blst_p1_from_affine(out, a);
+}
+
+pub fn blst_p1_on_curve(a: *const blst_p1) bool {
+    return c.blst_p1_on_curve(a);
+}
+
+pub fn blst_p1_in_g1(p: *const blst_p1) bool {
+    return c.blst_p1_in_g1(p);
+}
+
+pub fn blst_p1_is_equal(a: *const blst_p1, b: *const blst_p1) bool {
+    return c.blst_p1_is_equal(a, b);
+}
+
+pub fn blst_p1_is_inf(a: *const blst_p1) bool {
+    return c.blst_p1_is_inf(a);
+}
+
+pub fn blst_p1_generator() *blst_p1 {
+    return c.blst_p1_generator();
+}
+
+pub fn blst_p1_affine_on_curve(p: *const blst_p1_affine) bool {
+    return c.blst_p1_affine_on_curve(p);
+}
+
+pub fn blst_p1_affine_in_g1(p: *const blst_p1_affine) bool {
+    return c.blst_p1_affine_in_g1(p);
+}
+
+pub fn blst_p1_affine_is_equal(a: *const blst_p1_affine, b: *const blst_p1_affine) bool {
+    return c.blst_p1_affine_is_equal(a, b);
+}
+
+pub fn blst_p1_affine_is_inf(a: *const blst_p1_affine) bool {
+    return c.blst_p1_affine_is_inf(a);
+}
+
+pub fn blst_p1_affine_generator() *blst_p1_affine {
+    return c.blst_p1_affine_generator();
+}
