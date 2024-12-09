@@ -24,6 +24,14 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    // TODO: build.bat for windows
+    const blst_step = b.addSystemCommand(([_][]const u8{"./build.sh"})[0..]);
+    blst_step.cwd = b.path("blst");
+    lib.step.dependOn(&blst_step.step);
+
+    // Add the static library, this point to the output file
+    lib.addObjectFile(b.path("blst/libblst.a"));
+
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
     // running `zig build`).
