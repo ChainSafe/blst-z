@@ -806,3 +806,80 @@ pub fn blst_miller_loop_lines(ret: *blst_fp12, qlines: []const blst_fp6, p: *con
 pub fn blst_fp12_finalverify(gt1: *const blst_fp12, gt2: *const blst_fp12) bool {
     return c.blst_fp12_finalverify(gt1, gt2);
 }
+
+const blst_pairing = extern struct {
+    // This is intentionally left empty since it is opaque.
+    // Fields are not accessible in Zig or any other language.
+};
+
+pub fn blst_pairing_sizeof() usize {
+    return c.blst_pairing_sizeof();
+}
+
+pub fn blst_pairing_init(new_ctx: *blst_pairing, hash_or_encode: bool, dst: ?*const byte, dst_len: ?usize) void {
+    c.blst_pairing_init(new_ctx, hash_or_encode, dst, dst_len);
+}
+
+pub fn blst_pairing_get_dst(ctx: *const blst_pairing) *const byte {
+    return c.blst_pairing_get_dst(ctx);
+}
+
+pub fn blst_pairing_commit(ctx: *blst_pairing) void {
+    c.blst_pairing_commit(ctx);
+}
+
+pub fn blst_pairing_aggregate_pk_in_g2(ctx: *blst_pairing, pk: *const blst_p2_affline, signature: *const blst_p1_affline, msg: *const byte, msg_len: usize, aug: *const byte, aug_len: usize) BLST_ERROR {
+    return c.blst_pairing_aggregate_pk_in_g2(ctx, pk, signature, msg, msg_len, aug, aug_len);
+}
+
+pub fn blst_pairing_chk_n_aggr_pk_in_g2(ctx: *blst_pairing, pk: *const blst_p2_affline, pk_grpchk: bool, signature: *const blst_p1_affline, sig_grpchk: bool, msg: *const byte, msg_len: usize, aug: ?*const byte, aug_len: ?usize) BLST_ERROR {
+    return c.blst_pairing_chk_n_aggr_pk_in_g2(ctx, pk, pk_grpchk, signature, sig_grpchk, msg, msg_len, aug, aug_len);
+}
+
+pub fn blst_pairing_mul_n_aggregate_pk_in_g2(ctx: *blst_pairing, pk: *const blst_p2_affline, sig: *const blst_p1_affline, scalar: *const byte, nbits: usize, msg: *const byte, msg_len: usize, aug: ?*const byte, aug_len: ?usize) BLST_ERROR {
+    return c.blst_pairing_mul_n_aggregate_pk_in_g2(ctx, pk, sig, scalar, nbits, msg, msg_len, aug, aug_len);
+}
+
+pub fn blst_pairing_chk_n_mul_n_aggr_pk_in_g2(ctx: *blst_pairing, pk: *const blst_p2_affline, pk_grpchk: bool, sig: *const blst_p1_affline, sig_grpchk: bool, scalar: *const byte, nbits: usize, msg: *const byte, msg_len: usize, aug: ?*const byte, aug_len: ?usize) BLST_ERROR {
+    return c.blst_pairing_chk_n_mul_n_aggr_pk_in_g2(ctx, pk, pk_grpchk, sig, sig_grpchk, scalar, nbits, msg, msg_len, aug, aug_len);
+}
+
+pub fn blst_pairing_aggregate_pk_in_g1(ctx: *blst_pairing, pk: *const blst_p1_affline, signature: *const blst_p2_affline, msg: *const byte, msg_len: usize, aug: ?*const byte, aug_len: ?usize) BLST_ERROR {
+    return c.blst_pairing_aggregate_pk_in_g1(ctx, pk, signature, msg, msg_len, aug, aug_len);
+}
+
+pub fn blst_pairing_chk_n_aggr_pk_in_g1(ctx: *blst_pairing, pi: *const blst_p1_affline, pk_grpchk: bool, signature: *const blst_p2_affline, sig_grpchk: bool, msg: *const byte, msg_len: usize, aug: ?*const byte, aug_len: ?usize) BLST_ERROR {
+    return c.blst_pairing_chk_n_aggr_pk_in_g1(ctx, pi, pk_grpchk, signature, sig_grpchk, msg, msg_len, aug, aug_len);
+}
+
+pub fn blst_pairing_mul_n_aggregate_pk_in_g1(ctx: *blst_pairing, pk: *const blst_p1_affline, sig: *const blst_p2_affline, scalar: *const byte, nbits: usize, msg: *const byte, msg_len: usize, aug: ?*const byte, aug_len: ?usize) BLST_ERROR {
+    return c.blst_pairing_mul_n_aggregate_pk_in_g1(ctx, pk, sig, scalar, nbits, msg, msg_len, aug, aug_len);
+}
+
+pub fn blst_pairing_chk_n_mul_n_aggr_pk_in_g1(ctx: *blst_pairing, pk: *const blst_p1_affline, pk_grpchk: bool, sig: *const blst_p2_affline, sig_grpchk: bool, scalar: *const byte, nbits: usize, msg: *const byte, msg_len: usize, aug: ?*const byte, aug_len: ?usize) BLST_ERROR {
+    return c.blst_pairing_chk_n_mul_n_aggr_pk_in_g1(ctx, pk, pk_grpchk, sig, sig_grpchk, scalar, nbits, msg, msg_len, aug, aug_len);
+}
+
+pub fn blst_pairing_merge(ctx: *blst_pairing, ctx1: *const blst_pairing) BLST_ERROR {
+    return c.blst_pairing_merge(ctx, ctx1);
+}
+
+pub fn blst_pairing_finalverify(ctx: *blst_pairing, gtsig: ?*const blst_fp12) bool {
+    return c.blst_pairing_finalverify(ctx, gtsig);
+}
+
+pub fn blst_aggregate_in_g1(out: *blst_p1, in: *const blst_p1, zwire: *const byte) BLST_ERROR {
+    return c.blst_aggregate_in_g1(out, in, zwire);
+}
+
+pub fn blst_aggregate_in_g2(out: *blst_p2, in: *const blst_p2, zwire: *const byte) BLST_ERROR {
+    return c.blst_aggregate_in_g2(out, in, zwire);
+}
+
+pub fn blst_aggregated_in_g1(out: *blst_fp12, signature: *const blst_p1_affline) void {
+    c.blst_aggregated_in_g1(out, signature);
+}
+
+pub fn blst_aggregated_in_g2(out: *blst_fp12, signature: *const blst_p2_affline) void {
+    c.blst_aggregated_in_g2(out, signature);
+}
