@@ -883,3 +883,13 @@ pub fn blst_aggregated_in_g1(out: *blst_fp12, signature: *const blst_p1_affline)
 pub fn blst_aggregated_in_g2(out: *blst_fp12, signature: *const blst_p2_affline) void {
     c.blst_aggregated_in_g2(out, signature);
 }
+
+/// "One-shot" CoreVerify entry points
+
+pub fn blst_core_verify_pk_in_g1(pk: *const blst_p1_affline, signature: *const blst_p2_affline, hash_or_encode: bool, msg: *const byte, msg_len: usize, dst: ?*const byte, dst_len: ?usize, aug: ?*const byte, aug_len: ?usize) BLST_ERROR {
+    return c.blst_core_verify_pk_in_g1(pk, signature, hash_or_encode, msg, msg_len, dst, dst_len, aug, aug_len);
+}
+
+pub fn blst_core_verify_pk_in_g2(pk: *const blst_p2_affline, signature: *const blst_p1_affline, hash_or_encode: bool, msg: *const byte, msg_len: usize, dst: ?*const byte, dst_len: ?usize, aug: ?*const byte, aug_len: ?usize) BLST_ERROR {
+    return c.blst_core_verify_pk_in_g2(pk, signature, hash_or_encode, msg, msg_len, dst, dst_len, aug, aug_len);
+}
