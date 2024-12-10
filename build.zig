@@ -3,7 +3,7 @@ const std = @import("std");
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
 // runner.
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
     // means any target is allowed, and the default is native. Other options
@@ -25,12 +25,25 @@ pub fn build(b: *std.Build) void {
     });
 
     // TODO: build.bat for windows
-    const blst_step = b.addSystemCommand(([_][]const u8{"./build.sh"})[0..]);
-    blst_step.cwd = b.path("blst");
-    lib.step.dependOn(&blst_step.step);
+
+    const blst_file_path = "blst/libblst.a";
+    const fs = std.fs.cwd();
+    const file_exist = blk: {
+        fs.access(blst_file_path, .{}) catch |err| switch (err) {
+            error.FileNotFound => break :blk false,
+            else => return err,
+        };
+        break :blk true;
+    };
+
+    if (!file_exist) {
+        const blst_step = b.addSystemCommand(([_][]const u8{"./build.sh"})[0..]);
+        blst_step.cwd = b.path("blst");
+        lib.step.dependOn(&blst_step.step);
+    }
 
     // Add the static library, this point to the output file
-    lib.addObjectFile(b.path("blst/libblst.a"));
+    lib.addObjectFile(b.path(blst_file_path));
 
     // the folder where blst.h is located
     lib.addIncludePath(b.path("blst/bindings"));
@@ -82,6 +95,9 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+
+    lib_unit_tests.linkLibrary(lib);
+    lib_unit_tests.addIncludePath(b.path("blst/bindings"));
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 
