@@ -228,6 +228,101 @@ const AggregatePublicKey = struct {
     }
 };
 
+const Signature = struct {
+    point: c.blst_p2_affine,
+
+    // sig_infcheck, check for infinity, is a way to avoid going
+    // into resource-consuming verification. Passing 'false' is
+    // always cryptographically safe, but application might want
+    // to guard against obviously bogus individual[!] signatures.
+    pub fn validate(self: *const Signature, sig_infcheck: bool) BLST_ERROR!void {
+        if (sig_infcheck and c.blst_p2_affine_is_inf(&self.point)) {
+            return BLST_ERROR.PK_IS_INFINITY;
+        }
+
+        if (!c.blst_p2_affine_in_g2(&self.point)) {
+            return BLST_ERROR.POINT_NOT_IN_GROUP;
+        }
+    }
+
+    pub fn sigValidate(sig_in: []const u8, sig_infcheck: bool) BLST_ERROR!Signature {
+        var sig = Signature.fromBytes(sig_in);
+        sig.validate(sig_infcheck);
+        return sig;
+    }
+
+    pub fn verify(self: *const Signature, sig_groupcheck: bool, msg: []const u8, dst: []const u8, aug: []const u8, pk: *const PublicKey, pk_validate: bool) BLST_ERROR!void {
+        if (sig_groupcheck) {
+            try self.validate(false);
+        }
+
+        if (pk_validate) {
+            try pk.validate();
+        }
+
+        c.blst_core_verify_pk_in_g1(&pk.point, &self.point, true, &msg[0], msg.len, &dst[0], dst.len, &aug[0], aug.len);
+    }
+
+    // TODO: need thread pool
+    // verify
+    // aggregate_verify
+    // fast_aggregate_verify
+    // verify_multiple_aggregate_signatures
+    // TODO: need AggregateSignature
+    // fromAggregate
+
+    pub fn compress(self: *const Signature) [96]u8 {
+        var sig_comp = [_]u8{0} ** 96;
+        c.blst_p2_affine_compress(&sig_comp[0], &self.point);
+        return sig_comp;
+    }
+
+    pub fn serialize(self: *const Signature) [192]u8 {
+        var sig_out = [_]u8{0} ** 192;
+        c.blst_p2_affine_serialize(&sig_out[0], &self.point);
+        return sig_out;
+    }
+
+    pub fn uncompress(sig_comp: []const u8) BLST_ERROR!Signature {
+        if (sig_comp.len == 96 and (sig_comp[0] & 0x80) != 0) {
+            var sig = Signature.default();
+            const res = c.blst_p2_uncompress(&sig.point, &sig_comp[0]);
+            if (res != null) {
+                return res;
+            }
+            return sig;
+        }
+
+        return BLST_ERROR.BAD_ENCODING;
+    }
+
+    pub fn deserialize(sig_in: []const u8) BLST_ERROR!Signature {
+        if ((sig_in.len == 192 and (sig_in[0] & 0x80) == 0) or (sig_in.len == 96 and sig_in[0] & 0x80) != 0) {
+            var sig = Signature.default();
+            const res = c.blst_p2_deserialize(&sig.point, &sig_in[0]);
+            const err = toBlstError(res);
+            if (err != null) {
+                return err;
+            }
+            return sig;
+        }
+
+        return BLST_ERROR.BAD_ENCODING;
+    }
+
+    pub fn fromBytes(sig_in: []const u8) BLST_ERROR!Signature {
+        return Signature.deserialize(sig_in);
+    }
+
+    pub fn toBytes(self: *const Signature) [96]u8 {
+        return self.compress();
+    }
+
+    pub fn subgroupCheck(self: *const Signature) bool {
+        return c.blst_p2_affine_in_g2(&self.point);
+    }
+};
+
 test "SecretKey" {
     std.debug.print("size of SecretKey: {}, align is {}\n", .{ @sizeOf(SecretKey), @alignOf(SecretKey) });
     const zero_bytes = [_]u8{0} ** 32;
