@@ -51,3 +51,17 @@ pub fn default_blst_fp() c.blst_fp {
         .l = [_]u64{0} ** 6,
     };
 }
+
+pub fn default_blst_p2() c.blst_p2 {
+    return .{
+        .x = default_blst_fp2(),
+        .y = default_blst_fp2(),
+        .z = default_blst_fp2(),
+    };
+}
+
+pub fn default_blst_fp2() c.blst_fp2 {
+    return .{
+        .fp = [_]c.blst_fp{ default_blst_fp(), default_blst_fp() },
+    };
+}

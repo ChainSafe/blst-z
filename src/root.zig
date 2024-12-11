@@ -101,8 +101,8 @@ const PublicKey = struct {
     }
 
     pub fn key_validate(key: []const u8) BLST_ERROR!void {
-        const pk = PublicKey.fromBytes(key);
-        return pk.validate();
+        const pk = try PublicKey.fromBytes(key);
+        try pk.validate();
     }
 
     // TODO: from_aggregate
@@ -185,13 +185,13 @@ const AggregatePublicKey = struct {
             return BLST_ERROR.AGGR_TYPE_MISMATCH;
         }
         if (pks.validate) {
-            pks[0].validate();
+            try pks[0].validate();
         }
 
         var agg_pk = AggregatePublicKey.fromPublicKey(pks[0]);
         for (pks[1..]) |pk| {
             if (pks_validate) {
-                pk.validate();
+                try pk.validate();
             }
 
             c.blst_p1_add_or_double_affine(&agg_pk.point, &agg_pk.point, &pk.point);
@@ -320,6 +320,90 @@ const Signature = struct {
 
     pub fn subgroupCheck(self: *const Signature) bool {
         return c.blst_p2_affine_in_g2(&self.point);
+    }
+};
+
+const AggregateSignature = struct {
+    point: c.blst_p2,
+
+    pub fn default() AggregateSignature {
+        return .{
+            .point = util.default_blst_p2(),
+        };
+    }
+
+    pub fn validate(self: *const AggregateSignature) BLST_ERROR!void {
+        const res = c.blst_p2_in_g2(&self.point);
+        const err = toBlstError(res);
+        if (err != null) {
+            return err;
+        }
+    }
+
+    pub fn fromSignature(sig: *const Signature) AggregateSignature {
+        var agg_sig = AggregateSignature.default();
+        c.blst_p2_from_affine(&agg_sig.point, &sig.point);
+        return agg_sig;
+    }
+
+    pub fn toSignature(self: *const AggregateSignature) Signature {
+        var sig = Signature.default();
+        c.blst_p2_to_affine(&sig.point, &self.point);
+        return sig;
+    }
+
+    // Aggregate
+    pub fn aggregate(sigs: []*const Signature, sigs_groupcheck: bool) BLST_ERROR!AggregateSignature {
+        if (sigs.len == 0) {
+            return BLST_ERROR.AGGR_TYPE_MISMATCH;
+        }
+        if (sigs_groupcheck) {
+            // We can't actually judge if input is individual or
+            // aggregated signature, so we can't enforce infinity
+            // check.
+            try sigs[0].validate(false);
+        }
+
+        var agg_sig = AggregateSignature.fromSignature(sigs[0]);
+        for (sigs[1..]) |s| {
+            if (sigs_groupcheck) {
+                try s.validate(false);
+            }
+            c.blst_p2_add_or_double_affine(&agg_sig.point, &agg_sig.point, &s.point);
+        }
+
+        return agg_sig;
+    }
+
+    pub fn aggregateSerialized(sigs: [][]const u8, sigs_groupcheck: bool) BLST_ERROR!AggregateSignature {
+        // TODO - threading
+        if (sigs.len() == 0) {
+            return BLST_ERROR.AGGR_TYPE_MISMATCH;
+        }
+
+        var sig = if (sigs_groupcheck) Signature.sigValidate(sigs[0], false) else Signature.fromBytes(sigs[0]);
+
+        var agg_sig = AggregateSignature.fromSignature(&sig);
+        for (sigs[1..]) |s| {
+            sig = if (sigs_groupcheck) Signature.sigValidate(s, false) else Signature.fromBytes(s);
+            c.blst_p2_add_or_double_affine(&agg_sig.point, &agg_sig.point, &sig.point);
+        }
+        return agg_sig;
+    }
+
+    pub fn addAggregate(self: *AggregateSignature, agg_sig: *const AggregateSignature) void {
+        c.blst_p2_add_or_double(&self.point, &self.point, &agg_sig.point);
+    }
+
+    pub fn addSignature(self: *AggregateSignature, sig: *const Signature, sig_groupcheck: bool) BLST_ERROR!void {
+        if (sig_groupcheck) {
+            try sig.validate(false);
+        }
+        c.blst_p2_add_or_double_affine(&self.point, &self.point, &sig.point);
+    }
+
+    pub fn subgroupCheck(self: *const AggregateSignature) bool {
+        return c.blst_p2_in_g2(&self.point);
     }
 };
 
