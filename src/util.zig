@@ -65,3 +65,10 @@ pub fn default_blst_fp2() c.blst_fp2 {
         .fp = [_]c.blst_fp{ default_blst_fp(), default_blst_fp() },
     };
 }
+
+pub fn default_blst_p2_affine() c.blst_p2_affine {
+    return .{
+        .x = default_blst_fp2(),
+        .y = default_blst_fp2(),
+    };
+}

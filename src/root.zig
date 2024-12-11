@@ -75,6 +75,58 @@ const SecretKey = struct {
         c.blst_derive_child_eip2333(&sk.value, &self.value, child_index);
         return sk;
     }
+
+    pub fn skToPk(self: *const SecretKey) PublicKey {
+        var pk_aff = PublicKey.default();
+        c.blst_sk_to_pk2_in_g1(null, &pk_aff.point, &self.value);
+        return pk_aff;
+    }
+
+    // Sign
+    pub fn sign(self: *const SecretKey, msg: []const u8, dst: []const u8, aug: []const u8) Signature {
+        // TODO - would the user like the serialized/compressed sig as well?
+        var q = util.default_blst_p2();
+        var sig_aff = Signature.default();
+        c.blst_hash_to_g2(&q, &msg[0], msg.len, &dst[0], dst.len, &aug[0], aug.len);
+        c.blst_sign_pk2_in_g1(null, &sig_aff.point, &q, &self.value);
+        return sig_aff;
+    }
+
+    // TODO - formally speaking application is entitled to have
+    // ultimate control over secret key storage, which means that
+    // corresponding serialization/deserialization subroutines
+    // should accept reference to where to store the result, as
+    // opposite to returning one.
+
+    // serialize
+    pub fn serialize(self: *const SecretKey) [32]u8 {
+        var sk_out = [_]u8{0} ** 32;
+        c.blst_bendian_from_scalar(&sk_out[0], &self.value);
+        return sk_out;
+    }
+
+    // deserialize
+    pub fn deserialize(sk_in: []const u8) BLST_ERROR!SecretKey {
+        var sk = SecretKey.default();
+        if (sk_in.len != 32) {
+            return BLST_ERROR.BAD_ENCODING;
+        }
+
+        c.blst_scalar_from_bendian(&sk.value, &sk_in[0]);
+        if (!c.blst_sk_check(&sk.value)) {
+            return BLST_ERROR.BAD_ENCODING;
+        }
+
+        return sk;
+    }
+
+    pub fn toBytes(self: *const SecretKey) [32]u8 {
+        return self.serialize();
+    }
+
+    pub fn fromBytes(sk_in: []const u8) BLST_ERROR!SecretKey {
+        return SecretKey.deserialize(sk_in);
+    }
 };
 
 // TODO: implement Clone, Copy, Equal
@@ -105,7 +157,11 @@ const PublicKey = struct {
         try pk.validate();
     }
 
-    // TODO: from_aggregate
+    pub fn fromAggregate(agg_pk: *const AggregatePublicKey) PublicKey {
+        var pk_aff = PublicKey.default();
+        c.blst_p1_to_affine(&pk_aff.point, &agg_pk.point);
+        return pk_aff;
+    }
 
     // Serdes
 
@@ -156,8 +212,11 @@ const PublicKey = struct {
     pub fn toBytes(self: *const PublicKey) [48]u8 {
         return self.compress();
     }
+
+    // TODO: Eq, PartialEq, Serialize, Deserialize?
 };
 
+// TODO: implement Debug, Clone, Copy?
 const AggregatePublicKey = struct {
     point: c.blst_p1,
 
@@ -231,6 +290,12 @@ const AggregatePublicKey = struct {
 const Signature = struct {
     point: c.blst_p2_affine,
 
+    pub fn default() Signature {
+        return .{
+            .point = util.default_blst_p2_affine,
+        };
+    }
+
     // sig_infcheck, check for infinity, is a way to avoid going
     // into resource-consuming verification. Passing 'false' is
     // always cryptographically safe, but application might want
@@ -268,8 +333,12 @@ const Signature = struct {
     // aggregate_verify
     // fast_aggregate_verify
     // verify_multiple_aggregate_signatures
-    // TODO: need AggregateSignature
-    // fromAggregate
+
+    pub fn fromAggregate(agg_sig: *const AggregateSignature) Signature {
+        var sig_aff = Signature.default();
+        c.blst_p2_to_affine(&sig_aff.point, &agg_sig.point);
+        return sig_aff;
+    }
 
     pub fn compress(self: *const Signature) [96]u8 {
         var sig_comp = [_]u8{0} ** 96;
@@ -321,6 +390,8 @@ const Signature = struct {
     pub fn subgroupCheck(self: *const Signature) bool {
         return c.blst_p2_affine_in_g2(&self.point);
     }
+
+    // TODO: Eq PartialEq, Serialize, Deserialize?
 };
 
 const AggregateSignature = struct {
@@ -406,6 +477,8 @@ const AggregateSignature = struct {
         return c.blst_p2_in_g2(&self.point);
     }
 };
+
+// TODO: implement MultiPoint
 
 test "SecretKey" {
     std.debug.print("size of SecretKey: {}, align is {}\n", .{ @sizeOf(SecretKey), @alignOf(SecretKey) });
