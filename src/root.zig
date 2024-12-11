@@ -158,6 +158,76 @@ const PublicKey = struct {
     }
 };
 
+const AggregatePublicKey = struct {
+    point: c.blst_p1,
+
+    pub fn default() AggregatePublicKey {
+        return .{
+            .point = util.default_blst_p1(),
+        };
+    }
+
+    pub fn fromPublicKey(pk: *const PublicKey) AggregatePublicKey {
+        var agg_pk = AggregatePublicKey.default();
+        c.blst_p1_from_affine(&agg_pk.point, &pk.point);
+
+        return agg_pk;
+    }
+
+    pub fn toPublicKey(self: *const AggregatePublicKey) PublicKey {
+        var pk = PublicKey.default();
+        c.blst_p1_to_affine(&pk.point, &self.point);
+    }
+
+    // Aggregate
+    pub fn aggregate(pks: []*const PublicKey, pks_validate: bool) BLST_ERROR!AggregatePublicKey {
+        if (pks.len == 0) {
+            return BLST_ERROR.AGGR_TYPE_MISMATCH;
+        }
+        if (pks.validate) {
+            pks[0].validate();
+        }
+
+        var agg_pk = AggregatePublicKey.fromPublicKey(pks[0]);
+        for (pks[1..]) |pk| {
+            if (pks_validate) {
+                pk.validate();
+            }
+
+            c.blst_p1_add_or_double_affine(&agg_pk.point, &agg_pk.point, &pk.point);
+        }
+
+        return agg_pk;
+    }
+
+    pub fn aggregateSerialized(pks: [][]const u8, pks_validate: bool) BLST_ERROR!AggregatePublicKey {
+        // TODO - threading
+        if (pks.len == 0) {
+            return BLST_ERROR.AGGR_TYPE_MISMATCH;
+        }
+        var pk = if (pks_validate) PublicKey.key_validate(pks[0]) else PublicKey.fromBytes(pks[0]);
+        var agg_pk = AggregatePublicKey.fromPublicKey(&pk);
+        for (pks[1..]) |s| {
+            pk = if (pks_validate) PublicKey.key_validate(s) else PublicKey.fromBytes(s);
+            c.blst_p1_add_or_double_affine(&agg_pk.point, &agg_pk.point, &pk.point);
+        }
+
+        return agg_pk;
+    }
+
+    pub fn addAggregate(self: *AggregatePublicKey, agg_pk: *const AggregatePublicKey) BLST_ERROR!void {
+        c.blst_p1_add_or_double_affine(&self.point, &self.point, &agg_pk.point);
+    }
+
+    pub fn addPublicKey(self: *AggregatePublicKey, pk: *const PublicKey, pk_validate: bool) BLST_ERROR!void {
+        if (pk_validate) {
+            try pk.validate();
+        }
+
+        c.blst_p1_add_or_double_affine(&self.point, &self.point, &pk.point);
+    }
+};
+
 test "SecretKey" {
     std.debug.print("size of SecretKey: {}, align is {}\n", .{ @sizeOf(SecretKey), @alignOf(SecretKey) });
     const zero_bytes = [_]u8{0} ** 32;

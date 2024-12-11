@@ -38,6 +38,14 @@ pub fn default_blst_p1_affline() c.blst_p1_affine {
     };
 }
 
+pub fn default_blst_p1() c.blst_p1 {
+    return .{
+        .x = default_blst_fp(),
+        .y = default_blst_fp(),
+        .z = default_blst_fp(),
+    };
+}
+
 pub fn default_blst_fp() c.blst_fp {
     return .{
         .l = [_]u64{0} ** 6,
