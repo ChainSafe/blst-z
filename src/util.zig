@@ -12,15 +12,15 @@ pub const BLST_ERROR = error{
     BAD_SCALAR,
 };
 
-pub fn toBlstError(err: c.uint) ?BLST_ERROR {
+pub fn toBlstError(err: c_uint) ?BLST_ERROR {
     switch (err) {
-        .BLST_BAD_ENCODING => return BLST_ERROR.BAD_ENCODING,
-        .BLST_POINT_NOT_ON_CURVE => return BLST_ERROR.POINT_NOT_ON_CURVE,
-        .BLST_POINT_NOT_IN_GROUP => return BLST_ERROR.POINT_NOT_IN_GROUP,
-        .BLST_AGGR_TYPE_MISMATCH => return BLST_ERROR.AGGR_TYPE_MISMATCH,
-        .BLST_VERIFY_FAIL => return BLST_ERROR.VERIFY_FAIL,
-        .BLST_PK_IS_INFINITY => return BLST_ERROR.PK_IS_INFINITY,
-        .BLST_BAD_SCALAR => return BLST_ERROR.BLST_BAD_SCALAR,
+        c.BLST_BAD_ENCODING => return BLST_ERROR.BAD_ENCODING,
+        c.BLST_POINT_NOT_ON_CURVE => return BLST_ERROR.POINT_NOT_ON_CURVE,
+        c.BLST_POINT_NOT_IN_GROUP => return BLST_ERROR.POINT_NOT_IN_GROUP,
+        c.BLST_AGGR_TYPE_MISMATCH => return BLST_ERROR.AGGR_TYPE_MISMATCH,
+        c.BLST_VERIFY_FAIL => return BLST_ERROR.VERIFY_FAIL,
+        c.BLST_PK_IS_INFINITY => return BLST_ERROR.PK_IS_INFINITY,
+        c.BLST_BAD_SCALAR => return BLST_ERROR.BAD_SCALAR,
         else => return null,
     }
 }

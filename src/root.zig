@@ -1,3 +1,4 @@
+/// this is equivalent of Rust binding in blst/bindings/rust/src/lib.rs
 const std = @import("std");
 const testing = std.testing;
 
@@ -20,13 +21,15 @@ const SecretKey = struct {
         };
     }
 
-    pub fn keyGen(ikm: []const u8, key_info: []const u8) BLST_ERROR!SecretKey {
+    pub fn keyGen(ikm: []const u8, key_info: ?[]const u8) BLST_ERROR!SecretKey {
         if (ikm.len < 32) {
             return BLST_ERROR.BAD_ENCODING;
         }
 
         var sk = SecretKey.default();
-        c.blst_keygen(&sk.value, &ikm[0], ikm.len, &key_info[0], key_info.len);
+        const key_info_ptr = if (key_info != null) &key_info.?[0] else null;
+        const key_info_len = if (key_info != null) key_info.?.len else 0;
+        c.blst_keygen(&sk.value, &ikm[0], ikm.len, key_info_ptr, key_info_len);
         return sk;
     }
 
@@ -83,11 +86,13 @@ const SecretKey = struct {
     }
 
     // Sign
-    pub fn sign(self: *const SecretKey, msg: []const u8, dst: []const u8, aug: []const u8) Signature {
+    pub fn sign(self: *const SecretKey, msg: []const u8, dst: []const u8, aug: ?[]const u8) Signature {
         // TODO - would the user like the serialized/compressed sig as well?
         var q = util.default_blst_p2();
         var sig_aff = Signature.default();
-        c.blst_hash_to_g2(&q, &msg[0], msg.len, &dst[0], dst.len, &aug[0], aug.len);
+        const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
+        const aug_len = if (aug != null) aug.?.len else 0;
+        c.blst_hash_to_g2(&q, &msg[0], msg.len, &dst[0], dst.len, aug_ptr, aug_len);
         c.blst_sign_pk2_in_g1(null, &sig_aff.point, &q, &self.value);
         return sig_aff;
     }
@@ -143,7 +148,7 @@ const PublicKey = struct {
 
     // key_validate
     pub fn validate(self: *const PublicKey) BLST_ERROR!void {
-        if (c.blst_p1_affine_is_inf(&self.point) == false) {
+        if (c.blst_p1_affine_is_inf(&self.point)) {
             return BLST_ERROR.PK_IS_INFINITY;
         }
 
@@ -292,7 +297,7 @@ const Signature = struct {
 
     pub fn default() Signature {
         return .{
-            .point = util.default_blst_p2_affine,
+            .point = util.default_blst_p2_affine(),
         };
     }
 
@@ -316,7 +321,7 @@ const Signature = struct {
         return sig;
     }
 
-    pub fn verify(self: *const Signature, sig_groupcheck: bool, msg: []const u8, dst: []const u8, aug: []const u8, pk: *const PublicKey, pk_validate: bool) BLST_ERROR!void {
+    pub fn verify(self: *const Signature, sig_groupcheck: bool, msg: []const u8, dst: []const u8, aug: ?[]const u8, pk: *const PublicKey, pk_validate: bool) BLST_ERROR!void {
         if (sig_groupcheck) {
             try self.validate(false);
         }
@@ -324,8 +329,14 @@ const Signature = struct {
         if (pk_validate) {
             try pk.validate();
         }
+        const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
+        const aug_len = if (aug != null) aug.?.len else 0;
 
-        c.blst_core_verify_pk_in_g1(&pk.point, &self.point, true, &msg[0], msg.len, &dst[0], dst.len, &aug[0], aug.len);
+        const res = c.blst_core_verify_pk_in_g1(&pk.point, &self.point, true, &msg[0], msg.len, &dst[0], dst.len, aug_ptr, aug_len);
+        const err = toBlstError(res);
+        if (err != null) {
+            return err.?;
+        }
     }
 
     // TODO: need thread pool
@@ -492,6 +503,24 @@ test "SecretKey" {
     _ = try sk.deriveChildEip2333(0);
 }
 
+// TODO: gen_random_key
+
 test "test_sign_n_verify" {
-    // TODO: add all tests from Rust bindings
+    const ikm: [32]u8 = [_]u8{
+        0x93, 0xad, 0x7e, 0x65, 0xde, 0xad, 0x05, 0x2a, 0x08, 0x3a,
+        0x91, 0x0c, 0x8b, 0x72, 0x85, 0x91, 0x46, 0x4c, 0xca, 0x56,
+        0x60, 0x5b, 0xb0, 0x56, 0xed, 0xfe, 0x2b, 0x60, 0xa6, 0x3c,
+        0x48, 0x99,
+    };
+    const sk = try SecretKey.keyGen(ikm[0..], null);
+    const pk = sk.skToPk();
+    std.debug.print("pk: {any}\n", .{pk.serialize()});
+
+    const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
+    const msg = "hello foo";
+    // aug is null
+    const sig = sk.sign(msg[0..], dst[0..], null);
+
+    // aug is null
+    try sig.verify(true, msg[0..], dst[0..], null, &pk, true);
 }
