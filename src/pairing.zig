@@ -45,6 +45,11 @@ const Pairing = struct {
         return obj;
     }
 
+    // Javascript can leverage this api to allocate a Pairing buffer on its own
+    pub fn sizeOf() usize {
+        return c.blst_pairing_sizeof();
+    }
+
     pub fn init(self: *Pairing, hash_or_encode: bool, dst: []u8) void {
         c.blst_pairing_init(self.ctx(), hash_or_encode, &dst[0], dst.len);
     }
@@ -144,8 +149,14 @@ const Pairing = struct {
 
 test "init Pairing" {
     const allocator = std.testing.allocator;
-    const buffer = allocator.alloc(u8, c.blst_pairing_sizeof());
+    const buffer = allocator.alloc(u8, Pairing.sizeOf());
     defer allocator.free(buffer);
 
     _ = try Pairing.new(buffer, true, "destination");
+}
+
+test "sizeOf Pairing" {
+    // this works on MacOS, adding this test to understand more about the size of Pairing
+    std.debug.print("Size of Pairing: {}", .{Pairing.sizeOf()});
+    std.testing.expectEqual(3192, Pairing.sizeOf());
 }
