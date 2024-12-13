@@ -1,0 +1,34 @@
+name: Zig Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  zig-build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive # Ensures submodules are cloned
+          fetch-depth: 0        # Fetches the entire history for all branches
+
+       - name: Verify Submodules
+        run: |
+          git submodule update --init --recursive
+          ls -la blst
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v1
+        with:
+          version: "0.13.0" # Set the required Zig version
+
+      - name: Build and Test
+        run: |
+          zig build test
