@@ -24,6 +24,15 @@ jobs:
           git submodule update --init --recursive
           ls -la blst
 
+      - name: Run blst/build.sh
+        run: |
+          cd blst
+          ./build.sh
+
+      - name: Verify built blst
+        run: |
+          ls -la blst/blst/libblst.a
+
       - name: Install Zig
         uses: mlugg/setup-zig@v1
         with:
