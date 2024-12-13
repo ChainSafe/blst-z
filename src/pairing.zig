@@ -8,7 +8,7 @@ const c = @cImport({
     @cInclude("blst.h");
 });
 
-const PairingError = error{BufferTooSmall};
+const PairingError = error{ BufferTooSmall, DstTooSmall };
 
 const PTag = enum {
     p1,
@@ -28,13 +28,21 @@ const Pairing = struct {
     /// - it does not have allocator in its api
     /// - can use stack allocation at consumer side
     /// - can reuse memory if it makes sense at consumer side
-    pub fn new(buffer: []u8) PairingError!Pairing {
+    pub fn new(buffer: []u8, hash_or_encode: bool, dst: []u8) PairingError!Pairing {
         if (buffer.len < c.blst_pairing_sizeof()) {
             return PairingError.BufferTooSmall;
         }
-        return Pairing{
+
+        if (dst.len == 0) {
+            return PairingError.DstTooSmall;
+        }
+
+        const obj = Pairing{
             .v = buffer[0..c.blst_pairing_sizeof()],
         };
+        obj.init(hash_or_encode, &dst[0]);
+
+        return obj;
     }
 
     pub fn init(self: *Pairing, hash_or_encode: bool, dst: []u8) void {
@@ -133,3 +141,11 @@ const Pairing = struct {
         return c.blst_pairing_as_fp12(self.ctx());
     }
 };
+
+test "init Pairing" {
+    const allocator = std.testing.allocator;
+    const buffer = allocator.alloc(u8, c.blst_pairing_sizeof());
+    defer allocator.free(buffer);
+
+    _ = try Pairing.new(buffer, true, "destination");
+}
