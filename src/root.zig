@@ -650,3 +650,7 @@ test "test_aggregate" {
     //     .aggregate_verify(false, &msgs_refs, dst, &pks_rev, false);
     // assert_ne!(result, BLST_ERROR::BLST_SUCCESS);
 }
+
+test "blst size of pairing" {
+    std.debug.print("size of pairing {} \n", .{c.blst_pairing_sizeof()});
+}
