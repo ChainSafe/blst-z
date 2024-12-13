@@ -31,7 +31,7 @@ jobs:
 
       - name: Verify built blst
         run: |
-          ls -la blst/blst/libblst.a
+          ls -la blst/libblst.a
 
       - name: Install Zig
         uses: mlugg/setup-zig@v1
