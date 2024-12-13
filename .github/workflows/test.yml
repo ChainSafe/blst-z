@@ -19,7 +19,7 @@ jobs:
           submodules: recursive # Ensures submodules are cloned
           fetch-depth: 0        # Fetches the entire history for all branches
 
-       - name: Verify Submodules
+      - name: Verify Submodules
         run: |
           git submodule update --init --recursive
           ls -la blst
