@@ -1,6 +1,7 @@
 /// this is equivalent of Rust binding in blst/bindings/rust/src/lib.rs
 const std = @import("std");
 const testing = std.testing;
+const Xoshiro256 = std.rand.Xoshiro256;
 const SecretKey = @import("./secret_key.zig").SecretKey;
 const PublicKey = @import("./public_key.zig").PublicKey;
 const Signature = @import("./signature.zig").Signature;
@@ -17,52 +18,13 @@ const toBlstError = util.toBlstError;
 
 // TODO: implement MultiPoint
 
-/// this is a simulation of get_random_key() in Rust without having to use chacha20 random
-/// this is not nice but good enough to start with
-/// TODO: use zig equivalent way, could produce different data
-/// equivalent Rust code
-/// ```rust
-/// let seed = [0u8; 32];
-///  let mut rng = ChaCha20Rng::from_seed(seed);
-/// let num_msgs = 10;
-/// (0..num_msgs).for_each(|i| {
-///   let mut msg = [0u8; 32];
-///   rng.fill_bytes(&mut msg);
-/// });
-///
-/// let mut msgs: Vec<Vec<u8>> = vec![vec![]; num_msgs];
-/// (0..num_msgs).for_each(|i| {
-///   let msg_len = (rng.next_u64() & 0x3F) + 1;
-///   msgs[i] = vec![0u8; msg_len as usize];
-///   rng.fill_bytes(&mut msgs[i]);
-/// })
-const RandomKeyFn = *const fn () SecretKey;
-fn getChacha20Rng() RandomKeyFn {
-    const T = struct {
-        threadlocal var i: u8 = 0;
-        fn getRandomKey() SecretKey {
-            const value: [32]u8 = switch (i) {
-                0 => [_]u8{ 118, 184, 224, 173, 160, 241, 61, 144, 64, 93, 106, 229, 83, 134, 189, 40, 189, 210, 25, 184, 160, 141, 237, 26, 168, 54, 239, 204, 139, 119, 13, 199 },
-                1 => [_]u8{ 218, 65, 89, 124, 81, 87, 72, 141, 119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28, 195, 135, 182, 105, 178, 238, 101, 134 },
-                2 => [_]u8{ 159, 7, 231, 190, 85, 81, 56, 122, 152, 186, 151, 124, 115, 45, 8, 13, 203, 15, 41, 160, 72, 227, 101, 105, 18, 198, 83, 62, 50, 238, 122, 237 },
-                3 => [_]u8{ 41, 183, 33, 118, 156, 230, 78, 67, 213, 113, 51, 176, 116, 216, 57, 213, 49, 237, 31, 40, 81, 10, 251, 69, 172, 225, 10, 31, 75, 121, 77, 111 },
-                4 => [_]u8{ 45, 9, 160, 230, 99, 38, 108, 225, 174, 126, 209, 8, 25, 104, 160, 117, 142, 113, 142, 153, 123, 211, 98, 198, 176, 195, 70, 52, 169, 160, 179, 93 },
-                5 => [_]u8{ 1, 39, 55, 104, 31, 123, 93, 15, 40, 30, 58, 253, 228, 88, 188, 30, 115, 210, 211, 19, 201, 207, 148, 192, 95, 243, 113, 98, 64, 162, 72, 242 },
-                6 => [_]u8{ 19, 32, 160, 88, 215, 179, 86, 107, 213, 32, 218, 170, 62, 210, 191, 10, 197, 184, 177, 32, 251, 133, 39, 115, 195, 99, 151, 52, 180, 92, 145, 164 },
-                7 => [_]u8{ 45, 212, 203, 131, 248, 132, 13, 46, 237, 177, 88, 19, 16, 98, 172, 63, 31, 44, 248, 255, 109, 205, 24, 86, 232, 106, 30, 108, 49, 103, 22, 126 },
-                8 => [_]u8{ 229, 166, 136, 116, 43, 71, 197, 173, 251, 89, 212, 223, 118, 253, 29, 177, 229, 30, 224, 59, 28, 169, 248, 42, 202, 23, 62, 219, 139, 114, 147, 71 },
-                9 => [_]u8{ 78, 190, 152, 15, 144, 77, 16, 201, 22, 68, 43, 71, 131, 160, 233, 132, 134, 12, 182, 201, 87, 179, 156, 56, 237, 143, 81, 207, 250, 166, 138, 77 },
-                else => @panic("getRadomKey() is not implemented for big number"),
-            };
-            i += 1;
-            const sk = SecretKey.keyGen(value[0..], null) catch {
-                @panic("SecretKey.keyGen() failed\n");
-            };
-            return sk;
-        }
+fn getRandomKey(rng: *Xoshiro256) SecretKey {
+    var value: [32]u8 = [_]u8{0} ** 32;
+    rng.random().bytes(value[0..]);
+    const sk = SecretKey.keyGen(value[0..], null) catch {
+        @panic("SecretKey.keyGen() failed\n");
     };
-
-    return T.getRandomKey;
+    return sk;
 }
 
 test "test_sign_n_verify" {
@@ -88,10 +50,10 @@ test "test_aggregate" {
     const num_msgs = 10;
     const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
 
-    const getRandomKey = getChacha20Rng();
+    var rng = std.rand.DefaultPrng.init(12345);
     var sks = [_]SecretKey{SecretKey.default()} ** num_msgs;
     for (0..num_msgs) |i| {
-        sks[i] = getRandomKey();
+        sks[i] = getRandomKey(&rng);
     }
 
     var pks: [num_msgs]PublicKey = undefined;
@@ -111,12 +73,13 @@ test "test_aggregate" {
     _ = try PublicKey.uncompress(pk_comp[0..]);
 
     var msgs: [num_msgs][]u8 = undefined;
+    // random message len
     const msg_lens: [num_msgs]u64 = comptime .{ 33, 34, 39, 22, 43, 1, 24, 60, 2, 41 };
 
     inline for (0..num_msgs) |i| {
         var msg = [_]u8{0} ** msg_lens[i];
         msgs[i] = msg[0..];
-        std.crypto.random.bytes(msgs[i]);
+        rng.random().bytes(msgs[i]);
     }
 
     var sigs: [num_msgs]Signature = undefined;
@@ -158,12 +121,4 @@ test "test_aggregate" {
         BLST_ERROR.VERIFY_FAIL => {},
         else => try std.testing.expect(false),
     }
-    // TODO aggregate_verify
-    // let mut result = agg_sig
-    //   .aggregate_verify(false, &msgs_refs, dst, &pks_refs, false);
-    // assert_eq!(result, BLST_ERROR::BLST_SUCCESS);
-    // // Swap message/public key pairs to create bad signature
-    // result = agg_sig
-    //     .aggregate_verify(false, &msgs_refs, dst, &pks_rev, false);
-    // assert_ne!(result, BLST_ERROR::BLST_SUCCESS);
 }

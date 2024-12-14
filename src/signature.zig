@@ -109,7 +109,10 @@ pub const Signature = struct {
 
         // TODO - check msg uniqueness?
 
-        var pairing = Pairing.new(pairing_buffer, true, dst);
+        const pairing_res = Pairing.new(pairing_buffer, true, dst);
+        var pairing = if (pairing_res) |pairing| pairing else |err| switch (err) {
+            else => return BLST_ERROR.FAILED_PAIRING,
+        };
 
         for (0..n_elems) |i| {
             try pairing.mulAndAggregateG1(&pks[i].point, pks_validate, &sigs[i].point, sigs_groupcheck, rands[i], rand_bits, msgs[i], null);
