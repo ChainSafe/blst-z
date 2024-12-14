@@ -112,10 +112,10 @@ test "test_aggregate" {
     defer allocator.free(pairing_buffer);
 
     // positive test
-    try agg_sig.aggregate_verify(false, msgs[0..], dst, pks_ptr[0..], false, pairing_buffer);
+    try agg_sig.aggregateVerify(false, msgs[0..], dst, pks_ptr[0..], false, pairing_buffer);
 
     // Swap message/public key pairs to create bad signature
-    if (agg_sig.aggregate_verify(false, msgs[0..], dst, pks_ptr_rev[0..], false, pairing_buffer)) {
+    if (agg_sig.aggregateVerify(false, msgs[0..], dst, pks_ptr_rev[0..], false, pairing_buffer)) {
         try std.testing.expect(false);
     } else |err| switch (err) {
         BLST_ERROR.VERIFY_FAIL => {},

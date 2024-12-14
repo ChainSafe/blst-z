@@ -60,7 +60,7 @@ pub const Signature = struct {
     // TODO: consider thread pool implementation
 
     /// same to non-std aggregate_verify in Rust, with extra `pairing_buffer` parameter
-    pub fn aggregate_verify(self: *const Signature, sig_groupcheck: bool, msgs: [][]const u8, dst: []const u8, pks: []const *PublicKey, pks_validate: bool, pairing_buffer: []u8) BLST_ERROR!void {
+    pub fn aggregateVerify(self: *const Signature, sig_groupcheck: bool, msgs: [][]const u8, dst: []const u8, pks: []const *PublicKey, pks_validate: bool, pairing_buffer: []u8) BLST_ERROR!void {
         const n_elems = pks.len;
         if (n_elems == 0 or msgs.len != n_elems) {
             return BLST_ERROR.VERIFY_FAIL;
@@ -85,23 +85,23 @@ pub const Signature = struct {
     }
 
     /// same to fast_aggregate_verify in Rust with extra `pairing_buffer` parameter
-    pub fn fast_aggregate_verify(self: *const Signature, sig_groupcheck: bool, msg: []const u8, dst: []const u8, pks: []const *PublicKey, pairing_buffer: []u8) BLST_ERROR!void {
+    pub fn fastAggregateVerify(self: *const Signature, sig_groupcheck: bool, msg: []const u8, dst: []const u8, pks: []const *PublicKey, pairing_buffer: []u8) BLST_ERROR!void {
         const agg_pk = try AggregatedPublicKey.aggregate(pks, false);
         const pk = agg_pk.toPublicKey();
         const msgs: [][]const u8 = [_][]const u8{msg};
         const pksArr: [][]const *PublicKey = [_][]const *PublicKey{pk};
-        try self.aggregate_verify(sig_groupcheck, msgs[0..], dst, pksArr[0..], false, pairing_buffer);
+        try self.aggregateVerify(sig_groupcheck, msgs[0..], dst, pksArr[0..], false, pairing_buffer);
     }
 
     /// same to fast_aggregate_verify_pre_aggregated in Rust with extra `pairing_buffer` parameter
-    pub fn fast_aggregate_verify_pre_aggregated(self: *const Signature, sig_groupcheck: bool, msg: []const u8, dst: []const u8, pk: *PublicKey, pairing_buffer: []u8) BLST_ERROR!void {
+    pub fn fastAggregateVerifyPreAggregated(self: *const Signature, sig_groupcheck: bool, msg: []const u8, dst: []const u8, pk: *PublicKey, pairing_buffer: []u8) BLST_ERROR!void {
         const msgs: [][]const u8 = [_][]const u8{msg};
         const pks: [][]const *PublicKey = [_][]const *PublicKey{pk};
-        try self.aggregate_verify(sig_groupcheck, msgs[0..], dst, pks[0..], false, pairing_buffer);
+        try self.aggregateVerify(sig_groupcheck, msgs[0..], dst, pks[0..], false, pairing_buffer);
     }
 
     /// same to non-std verify_multiple_aggregate_signatures in Rust with extra `pairing_buffer` parameter
-    pub fn verify_multiple_aggregate_signatures(msgs: [][]const u8, dst: []const u8, pks: []const *PublicKey, pks_validate: bool, sigs: []const *Signature, sigs_groupcheck: bool, rands: [][]const u8, rand_bits: usize, pairing_buffer: []u8) BLST_ERROR!void {
+    pub fn verifyMultipleAggregateSignatures(msgs: [][]const u8, dst: []const u8, pks: []const *PublicKey, pks_validate: bool, sigs: []const *Signature, sigs_groupcheck: bool, rands: [][]const u8, rand_bits: usize, pairing_buffer: []u8) BLST_ERROR!void {
         const n_elems = pks.len;
         if (n_elems == 0 or msgs.len != n_elems or sigs.len != n_elems or rands.len != n_elems) {
             return BLST_ERROR.VERIFY_FAIL;
