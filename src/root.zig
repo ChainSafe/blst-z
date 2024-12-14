@@ -5,6 +5,7 @@ const SecretKey = @import("./secret_key.zig").SecretKey;
 const PublicKey = @import("./public_key.zig").PublicKey;
 const Signature = @import("./signature.zig").Signature;
 const AggregateSignature = @import("./signature.zig").AggregateSignature;
+const Pairing = @import("./pairing.zig").Pairing;
 
 const c = @cImport({
     @cInclude("blst.h");
@@ -132,7 +133,7 @@ test "test_aggregate" {
         if (sigs[i].verify(true, msgs[num_msgs - i - 1], dst, null, pks_ptr_rev[i], true)) {
             try std.testing.expect(false);
         } else |err| {
-            try std.testing.expectEqual(err, BLST_ERROR.VERIFY_FAIL);
+            try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
         }
     }
 
@@ -141,7 +142,22 @@ test "test_aggregate" {
         sig_ptrs[i] = sig_ptr;
     }
     const agg = try AggregateSignature.aggregate(sig_ptrs[0..], true);
-    _ = agg.toSignature();
+    const agg_sig = agg.toSignature();
+
+    var allocator = std.testing.allocator;
+    const pairing_buffer = try allocator.alloc(u8, Pairing.sizeOf());
+    defer allocator.free(pairing_buffer);
+
+    // positive test
+    try agg_sig.aggregate_verify(false, msgs[0..], dst, pks_ptr[0..], false, pairing_buffer);
+
+    // Swap message/public key pairs to create bad signature
+    if (agg_sig.aggregate_verify(false, msgs[0..], dst, pks_ptr_rev[0..], false, pairing_buffer)) {
+        try std.testing.expect(false);
+    } else |err| switch (err) {
+        BLST_ERROR.VERIFY_FAIL => {},
+        else => try std.testing.expect(false),
+    }
     // TODO aggregate_verify
     // let mut result = agg_sig
     //   .aggregate_verify(false, &msgs_refs, dst, &pks_refs, false);

@@ -1,4 +1,6 @@
 const PublicKey = @import("./public_key.zig").PublicKey;
+const AggregatedPublicKey = @import("./public_key.zig").AggregatedPublicKey;
+const Pairing = @import("./pairing.zig").Pairing;
 const c = @cImport({
     @cInclude("blst.h");
 });
@@ -36,6 +38,7 @@ pub const Signature = struct {
         return sig;
     }
 
+    // same to non-std verify in Rust
     pub fn verify(self: *const Signature, sig_groupcheck: bool, msg: []const u8, dst: []const u8, aug: ?[]const u8, pk: *const PublicKey, pk_validate: bool) BLST_ERROR!void {
         if (sig_groupcheck) {
             try self.validate(false);
@@ -54,11 +57,70 @@ pub const Signature = struct {
         }
     }
 
-    // TODO: need thread pool
-    // verify
-    // aggregate_verify
-    // fast_aggregate_verify
-    // verify_multiple_aggregate_signatures
+    // TODO: consider thread pool implementation
+
+    /// same to non-std aggregate_verify in Rust, with extra `pairing_buffer` parameter
+    pub fn aggregate_verify(self: *const Signature, sig_groupcheck: bool, msgs: [][]const u8, dst: []const u8, pks: []const *PublicKey, pks_validate: bool, pairing_buffer: []u8) BLST_ERROR!void {
+        const n_elems = pks.len;
+        if (n_elems == 0 or msgs.len != n_elems) {
+            return BLST_ERROR.VERIFY_FAIL;
+        }
+
+        const pairing_res = Pairing.new(pairing_buffer, true, dst);
+        var pairing = if (pairing_res) |pairing| pairing else |err| switch (err) {
+            else => return BLST_ERROR.FAILED_PAIRING,
+        };
+
+        try pairing.aggregateG1(&pks[0].point, pks_validate, &self.point, sig_groupcheck, msgs[0], null);
+
+        for (1..n_elems) |i| {
+            try pairing.aggregateG1(&pks[i].point, pks_validate, null, false, msgs[i], null);
+        }
+
+        pairing.commit();
+
+        if (!pairing.finalVerify(null)) {
+            return BLST_ERROR.VERIFY_FAIL;
+        }
+    }
+
+    /// same to fast_aggregate_verify in Rust with extra `pairing_buffer` parameter
+    pub fn fast_aggregate_verify(self: *const Signature, sig_groupcheck: bool, msg: []const u8, dst: []const u8, pks: []const *PublicKey, pairing_buffer: []u8) BLST_ERROR!void {
+        const agg_pk = try AggregatedPublicKey.aggregate(pks, false);
+        const pk = agg_pk.toPublicKey();
+        const msgs: [][]const u8 = [_][]const u8{msg};
+        const pksArr: [][]const *PublicKey = [_][]const *PublicKey{pk};
+        try self.aggregate_verify(sig_groupcheck, msgs[0..], dst, pksArr[0..], false, pairing_buffer);
+    }
+
+    /// same to fast_aggregate_verify_pre_aggregated in Rust with extra `pairing_buffer` parameter
+    pub fn fast_aggregate_verify_pre_aggregated(self: *const Signature, sig_groupcheck: bool, msg: []const u8, dst: []const u8, pk: *PublicKey, pairing_buffer: []u8) BLST_ERROR!void {
+        const msgs: [][]const u8 = [_][]const u8{msg};
+        const pks: [][]const *PublicKey = [_][]const *PublicKey{pk};
+        try self.aggregate_verify(sig_groupcheck, msgs[0..], dst, pks[0..], false, pairing_buffer);
+    }
+
+    /// same to non-std verify_multiple_aggregate_signatures in Rust with extra `pairing_buffer` parameter
+    pub fn verify_multiple_aggregate_signatures(msgs: [][]const u8, dst: []const u8, pks: []const *PublicKey, pks_validate: bool, sigs: []const *Signature, sigs_groupcheck: bool, rands: [][]const u8, rand_bits: usize, pairing_buffer: []u8) BLST_ERROR!void {
+        const n_elems = pks.len;
+        if (n_elems == 0 or msgs.len != n_elems or sigs.len != n_elems or rands.len != n_elems) {
+            return BLST_ERROR.VERIFY_FAIL;
+        }
+
+        // TODO - check msg uniqueness?
+
+        var pairing = Pairing.new(pairing_buffer, true, dst);
+
+        for (0..n_elems) |i| {
+            try pairing.mulAndAggregateG1(&pks[i].point, pks_validate, &sigs[i].point, sigs_groupcheck, rands[i], rand_bits, msgs[i], null);
+        }
+
+        pairing.commit();
+
+        if (!pairing.finalVerify()) {
+            return BLST_ERROR.VERIFY_FAIL;
+        }
+    }
 
     pub fn fromAggregate(agg_sig: *const AggregateSignature) Signature {
         var sig_aff = Signature.default();
