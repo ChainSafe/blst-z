@@ -4,6 +4,7 @@ const testing = std.testing;
 const Xoshiro256 = std.rand.Xoshiro256;
 const SecretKey = @import("./secret_key.zig").SecretKey;
 const PublicKey = @import("./public_key.zig").PublicKey;
+const AggregatePublicKey = @import("./public_key.zig").AggregatePublicKey;
 const Signature = @import("./signature.zig").Signature;
 const AggregateSignature = @import("./signature.zig").AggregateSignature;
 const Pairing = @import("./pairing.zig").Pairing;
@@ -120,5 +121,160 @@ test "test_aggregate" {
     } else |err| switch (err) {
         BLST_ERROR.VERIFY_FAIL => {},
         else => try std.testing.expect(false),
+    }
+}
+
+test "test_multiple_agg_sigs" {
+    var allocator = std.testing.allocator;
+    // single pairing_buffer allocation that could be reused multiple times
+    const pairing_buffer = try allocator.alloc(u8, Pairing.sizeOf());
+    defer allocator.free(pairing_buffer);
+
+    const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
+    const num_pks_per_sig = 10;
+    const num_sigs = 10;
+
+    var rng = std.rand.DefaultPrng.init(12345);
+
+    var msgs: [num_sigs][]u8 = undefined;
+    var sigs: [num_sigs]Signature = undefined;
+    var pks: [num_sigs]PublicKey = undefined;
+    var rands: [num_sigs][]u8 = undefined;
+
+    // random message len
+    const msg_lens: [num_sigs]u64 = comptime .{ 33, 34, 39, 22, 43, 1, 24, 60, 2, 41 };
+    const max_len = 64;
+
+    // use inline for to keep scopes of all variable in this function instead of block scope
+    inline for (0..num_sigs) |i| {
+        var msg = [_]u8{0} ** max_len;
+        msgs[i] = msg[0..];
+        var rand = [_]u8{0} ** 32;
+        rands[i] = rand[0..];
+    }
+
+    for (0..num_sigs) |i| {
+        // Create public keys
+        var sks_i: [num_pks_per_sig]SecretKey = undefined;
+        var pks_i: [num_pks_per_sig]PublicKey = undefined;
+        var pks_refs_i: [num_pks_per_sig]*PublicKey = undefined;
+        for (0..num_pks_per_sig) |j| {
+            sks_i[j] = getRandomKey(&rng);
+            pks_i[j] = sks_i[j].skToPk();
+            pks_refs_i[j] = &pks_i[j];
+        }
+
+        // Create random message for pks to all sign
+        const msg_len = msg_lens[i];
+        msgs[i] = msgs[i][0..msg_len];
+        rng.random().bytes(msgs[i]);
+
+        // Generate signature for each key pair
+        var sigs_i: [num_pks_per_sig]Signature = undefined;
+        for (0..num_pks_per_sig) |j| {
+            sigs_i[j] = sks_i[j].sign(msgs[i], dst, null);
+        }
+
+        // Test each current single signature
+        for (0..num_pks_per_sig) |j| {
+            try sigs_i[j].verify(true, msgs[i], dst, null, pks_refs_i[j], true);
+        }
+
+        var sig_refs_i: [num_pks_per_sig]*const Signature = undefined;
+        for (sigs_i[0..], 0..num_pks_per_sig) |*sig_ptr, j| {
+            sig_refs_i[j] = sig_ptr;
+        }
+
+        const agg_i = try AggregateSignature.aggregate(sig_refs_i[0..], false);
+
+        // Test current aggregate signature
+        sigs[i] = agg_i.toSignature();
+        try sigs[i].fastAggregateVerify(false, msgs[i], dst, pks_refs_i[0..], pairing_buffer);
+
+        // negative test
+        if (i != 0) {
+            const verify_res = sigs[i - 1].fastAggregateVerify(false, msgs[i], dst, pks_refs_i[0..], pairing_buffer);
+            if (verify_res) {
+                try std.testing.expect(false);
+            } else |err| {
+                try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
+            }
+        }
+
+        // aggregate public keys and push into vec
+        const pk_i = try AggregatePublicKey.aggregate(pks_refs_i[0..], false);
+        pks[i] = pk_i.toPublicKey();
+
+        // Test current aggregate signature with aggregated pks
+        try sigs[i].fastAggregateVerifyPreAggregated(false, msgs[i], dst, &pks[i], pairing_buffer);
+
+        // negative test
+        if (i != 0) {
+            const verify_res = sigs[i - 1].fastAggregateVerifyPreAggregated(false, msgs[i], dst, &pks[i], pairing_buffer);
+            if (verify_res) {
+                try std.testing.expect(false);
+            } else |err| {
+                try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
+            }
+        }
+
+        // create random values
+        var rand_i = rands[i];
+        // Reinterpret the buffer as an array of 4 u64
+        const u64_array = std.mem.bytesAsSlice(u64, rand_i[0..]);
+
+        while (u64_array[0] == 0) {
+            // Reject zero as it is used for multiplication.
+            rng.random().bytes(rand_i[0..]);
+        }
+    }
+
+    var pks_refs: [num_sigs]*PublicKey = undefined;
+    for (pks[0..], 0..num_sigs) |*pk, i| {
+        pks_refs[i] = pk;
+    }
+
+    var msgs_rev: [num_sigs][]u8 = undefined;
+    for (msgs[0..], 0..num_sigs) |msg, i| {
+        msgs_rev[num_sigs - i - 1] = msg;
+    }
+
+    var sigs_refs: [num_sigs]*Signature = undefined;
+    for (sigs[0..], 0..num_sigs) |*sig, i| {
+        sigs_refs[i] = sig;
+    }
+
+    var pks_rev: [num_sigs]*PublicKey = undefined;
+    for (pks_refs[0..], 0..num_sigs) |pk, i| {
+        pks_rev[num_sigs - i - 1] = pk;
+    }
+
+    var sig_rev_refs: [num_sigs]*Signature = undefined;
+    for (sigs_refs[0..], 0..num_sigs) |sig, i| {
+        sig_rev_refs[num_sigs - i - 1] = sig;
+    }
+
+    try Signature.verifyMultipleAggregateSignatures(msgs[0..], dst, pks_refs[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
+
+    // negative tests (use reverse msgs, pks, and sigs)
+    var verify_res = Signature.verifyMultipleAggregateSignatures(msgs_rev[0..], dst, pks_refs[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
+    if (verify_res) {
+        try std.testing.expect(false);
+    } else |err| {
+        try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
+    }
+
+    verify_res = Signature.verifyMultipleAggregateSignatures(msgs[0..], dst, pks_rev[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
+    if (verify_res) {
+        try std.testing.expect(false);
+    } else |err| {
+        try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
+    }
+
+    verify_res = Signature.verifyMultipleAggregateSignatures(msgs[0..], dst, pks_refs[0..], false, sig_rev_refs[0..], false, rands[0..], 64, pairing_buffer);
+    if (verify_res) {
+        try std.testing.expect(false);
+    } else |err| {
+        try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
     }
 }

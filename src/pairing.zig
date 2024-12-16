@@ -90,27 +90,29 @@ pub const Pairing = struct {
         }
     }
 
-    pub fn mulAndAggregateG1(self: *Pairing, pk: *const c.blst_p1_affine, pk_validate: bool, sig: *const c.blst_p2_affine, sig_groupcheck: bool, scalar: []u8, nbits: usize, msg: []u8, aug: ?[]u8) BLST_ERROR!void {
-        const aug_ptr = if (aug != null and aug.len > 0) &aug[0] else null;
-        const aug_len = if (aug != null) aug.len else null;
+    // TODO: msgs and scalar should have len > 0
+    // check for other apis as well
+    pub fn mulAndAggregateG1(self: *Pairing, pk: *const c.blst_p1_affine, pk_validate: bool, sig: *const c.blst_p2_affine, sig_groupcheck: bool, scalar: []const u8, nbits: usize, msg: []const u8, aug: ?[]u8) BLST_ERROR!void {
+        const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
+        const aug_len = if (aug != null) aug.?.len else 0;
 
-        const res = c.blst_pairing_chk_n_mul_n_aggr_pk_in_g1(self.ctx, pk, pk_validate, sig, sig_groupcheck, &scalar[0], nbits, &msg[0], msg.len, aug_ptr, aug_len);
+        const res = c.blst_pairing_chk_n_mul_n_aggr_pk_in_g1(self.ctx(), pk, pk_validate, sig, sig_groupcheck, &scalar[0], nbits, &msg[0], msg.len, aug_ptr, aug_len);
 
         const err = toBlstError(res);
         if (err != null) {
-            return err;
+            return err.?;
         }
     }
 
     pub fn mulAndAggregateG2(self: *Pairing, pk: *const c.blst_p2_affine, pk_validate: bool, sig: *const c.blst_p1_affine, sig_groupcheck: bool, scalar: []u8, nbits: usize, msg: []u8, aug: ?[]u8) BLST_ERROR!void {
-        const aug_ptr = if (aug != null and aug.len > 0) &aug[0] else null;
-        const aug_len = if (aug != null) aug.len else null;
+        const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
+        const aug_len = if (aug != null) aug.?.len else 0;
 
         const res = c.blst_pairing_chk_n_mul_n_aggr_pk_in_g2(self.ctx, pk, pk_validate, sig, sig_groupcheck, &scalar[0], nbits, &msg[0], msg.len, aug_ptr, aug_len);
 
         const err = toBlstError(res);
         if (err != null) {
-            return err;
+            return err.?;
         }
     }
 

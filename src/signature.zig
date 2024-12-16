@@ -1,5 +1,5 @@
 const PublicKey = @import("./public_key.zig").PublicKey;
-const AggregatedPublicKey = @import("./public_key.zig").AggregatedPublicKey;
+const AggregatePublicKey = @import("./public_key.zig").AggregatePublicKey;
 const Pairing = @import("./pairing.zig").Pairing;
 const c = @cImport({
     @cInclude("blst.h");
@@ -86,21 +86,27 @@ pub const Signature = struct {
 
     /// same to fast_aggregate_verify in Rust with extra `pairing_buffer` parameter
     pub fn fastAggregateVerify(self: *const Signature, sig_groupcheck: bool, msg: []const u8, dst: []const u8, pks: []const *PublicKey, pairing_buffer: []u8) BLST_ERROR!void {
-        const agg_pk = try AggregatedPublicKey.aggregate(pks, false);
-        const pk = agg_pk.toPublicKey();
-        const msgs: [][]const u8 = [_][]const u8{msg};
-        const pksArr: [][]const *PublicKey = [_][]const *PublicKey{pk};
-        try self.aggregateVerify(sig_groupcheck, msgs[0..], dst, pksArr[0..], false, pairing_buffer);
+        const agg_pk = try AggregatePublicKey.aggregate(pks, false);
+        var pk = agg_pk.toPublicKey();
+        var msg_arr = [_][]const u8{msg};
+        const msgs: [][]const u8 = msg_arr[0..];
+        const pk_arr = [_]*PublicKey{&pk};
+        try self.aggregateVerify(sig_groupcheck, msgs[0..], dst, pk_arr[0..], false, pairing_buffer);
     }
 
     /// same to fast_aggregate_verify_pre_aggregated in Rust with extra `pairing_buffer` parameter
+    /// TODO: make pk as *const PublicKey, then all other functions should make pks as []const *const PublicKey
     pub fn fastAggregateVerifyPreAggregated(self: *const Signature, sig_groupcheck: bool, msg: []const u8, dst: []const u8, pk: *PublicKey, pairing_buffer: []u8) BLST_ERROR!void {
-        const msgs: [][]const u8 = [_][]const u8{msg};
-        const pks: [][]const *PublicKey = [_][]const *PublicKey{pk};
+        var msgs = [_][]const u8{msg};
+        var pks = [_]*PublicKey{pk};
         try self.aggregateVerify(sig_groupcheck, msgs[0..], dst, pks[0..], false, pairing_buffer);
     }
 
-    /// same to non-std verify_multiple_aggregate_signatures in Rust with extra `pairing_buffer` parameter
+    /// https://ethresear.ch/t/fast-verification-of-multiple-bls-signatures/5407
+    ///  similar to non-std verify_multiple_aggregate_signatures in Rust with:
+    /// - extra `pairing_buffer` parameter
+    /// - `rands` parameter type changed to `[][]const u8` instead of []blst_scalar because mulAndAggregateG1() accepts []const u8 anyway
+    /// rand_bits is always 64 in all tests
     pub fn verifyMultipleAggregateSignatures(msgs: [][]const u8, dst: []const u8, pks: []const *PublicKey, pks_validate: bool, sigs: []const *Signature, sigs_groupcheck: bool, rands: [][]const u8, rand_bits: usize, pairing_buffer: []u8) BLST_ERROR!void {
         const n_elems = pks.len;
         if (n_elems == 0 or msgs.len != n_elems or sigs.len != n_elems or rands.len != n_elems) {
@@ -120,7 +126,7 @@ pub const Signature = struct {
 
         pairing.commit();
 
-        if (!pairing.finalVerify()) {
+        if (!pairing.finalVerify(null)) {
             return BLST_ERROR.VERIFY_FAIL;
         }
     }
