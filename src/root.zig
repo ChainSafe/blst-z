@@ -278,3 +278,5 @@ test "test_multiple_agg_sigs" {
         try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
     }
 }
+
+// TODO test_serialization, test_serde, test_multi_point
