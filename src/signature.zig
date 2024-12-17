@@ -1,4 +1,6 @@
 const PublicKey = @import("./public_key.zig").PublicKey;
+const AggregatePublicKey = @import("./public_key.zig").AggregatePublicKey;
+const Pairing = @import("./pairing.zig").Pairing;
 const c = @cImport({
     @cInclude("blst.h");
 });
@@ -36,6 +38,7 @@ pub const Signature = struct {
         return sig;
     }
 
+    // same to non-std verify in Rust
     pub fn verify(self: *const Signature, sig_groupcheck: bool, msg: []const u8, dst: []const u8, aug: ?[]const u8, pk: *const PublicKey, pk_validate: bool) BLST_ERROR!void {
         if (sig_groupcheck) {
             try self.validate(false);
@@ -54,11 +57,79 @@ pub const Signature = struct {
         }
     }
 
-    // TODO: need thread pool
-    // verify
-    // aggregate_verify
-    // fast_aggregate_verify
-    // verify_multiple_aggregate_signatures
+    // TODO: consider thread pool implementation
+
+    /// same to non-std aggregate_verify in Rust, with extra `pairing_buffer` parameter
+    pub fn aggregateVerify(self: *const Signature, sig_groupcheck: bool, msgs: [][]const u8, dst: []const u8, pks: []const *PublicKey, pks_validate: bool, pairing_buffer: []u8) BLST_ERROR!void {
+        const n_elems = pks.len;
+        if (n_elems == 0 or msgs.len != n_elems) {
+            return BLST_ERROR.VERIFY_FAIL;
+        }
+
+        const pairing_res = Pairing.new(pairing_buffer, true, dst);
+        var pairing = if (pairing_res) |pairing| pairing else |err| switch (err) {
+            else => return BLST_ERROR.FAILED_PAIRING,
+        };
+
+        try pairing.aggregateG1(&pks[0].point, pks_validate, &self.point, sig_groupcheck, msgs[0], null);
+
+        for (1..n_elems) |i| {
+            try pairing.aggregateG1(&pks[i].point, pks_validate, null, false, msgs[i], null);
+        }
+
+        pairing.commit();
+
+        if (!pairing.finalVerify(null)) {
+            return BLST_ERROR.VERIFY_FAIL;
+        }
+    }
+
+    /// same to fast_aggregate_verify in Rust with extra `pairing_buffer` parameter
+    pub fn fastAggregateVerify(self: *const Signature, sig_groupcheck: bool, msg: []const u8, dst: []const u8, pks: []const *PublicKey, pairing_buffer: []u8) BLST_ERROR!void {
+        const agg_pk = try AggregatePublicKey.aggregate(pks, false);
+        var pk = agg_pk.toPublicKey();
+        var msg_arr = [_][]const u8{msg};
+        const msgs: [][]const u8 = msg_arr[0..];
+        const pk_arr = [_]*PublicKey{&pk};
+        try self.aggregateVerify(sig_groupcheck, msgs[0..], dst, pk_arr[0..], false, pairing_buffer);
+    }
+
+    /// same to fast_aggregate_verify_pre_aggregated in Rust with extra `pairing_buffer` parameter
+    /// TODO: make pk as *const PublicKey, then all other functions should make pks as []const *const PublicKey
+    pub fn fastAggregateVerifyPreAggregated(self: *const Signature, sig_groupcheck: bool, msg: []const u8, dst: []const u8, pk: *PublicKey, pairing_buffer: []u8) BLST_ERROR!void {
+        var msgs = [_][]const u8{msg};
+        var pks = [_]*PublicKey{pk};
+        try self.aggregateVerify(sig_groupcheck, msgs[0..], dst, pks[0..], false, pairing_buffer);
+    }
+
+    /// https://ethresear.ch/t/fast-verification-of-multiple-bls-signatures/5407
+    ///  similar to non-std verify_multiple_aggregate_signatures in Rust with:
+    /// - extra `pairing_buffer` parameter
+    /// - `rands` parameter type changed to `[][]const u8` instead of []blst_scalar because mulAndAggregateG1() accepts []const u8 anyway
+    /// rand_bits is always 64 in all tests
+    pub fn verifyMultipleAggregateSignatures(msgs: [][]const u8, dst: []const u8, pks: []const *PublicKey, pks_validate: bool, sigs: []const *Signature, sigs_groupcheck: bool, rands: [][]const u8, rand_bits: usize, pairing_buffer: []u8) BLST_ERROR!void {
+        const n_elems = pks.len;
+        if (n_elems == 0 or msgs.len != n_elems or sigs.len != n_elems or rands.len != n_elems) {
+            return BLST_ERROR.VERIFY_FAIL;
+        }
+
+        // TODO - check msg uniqueness?
+
+        const pairing_res = Pairing.new(pairing_buffer, true, dst);
+        var pairing = if (pairing_res) |pairing| pairing else |err| switch (err) {
+            else => return BLST_ERROR.FAILED_PAIRING,
+        };
+
+        for (0..n_elems) |i| {
+            try pairing.mulAndAggregateG1(&pks[i].point, pks_validate, &sigs[i].point, sigs_groupcheck, rands[i], rand_bits, msgs[i], null);
+        }
+
+        pairing.commit();
+
+        if (!pairing.finalVerify(null)) {
+            return BLST_ERROR.VERIFY_FAIL;
+        }
+    }
 
     pub fn fromAggregate(agg_sig: *const AggregateSignature) Signature {
         var sig_aff = Signature.default();

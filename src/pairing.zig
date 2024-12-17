@@ -20,15 +20,15 @@ const PairingPk = union(PTag) {
     p2: c.blst_p2_affine,
 };
 
-const Pairing = struct {
+pub const Pairing = struct {
     v: []u8,
 
-    /// Rust always use a heap allocation here, but adding an allocator is too complex
-    /// instead of that zig provide a buffer that's big enough for the struct to operate on so that:
+    /// Rust always use a heap allocation here, but adding an allocator as param for Zig is too complex
+    /// instead of that we provide a buffer that's big enough for the struct to operate on so that:
     /// - it does not have allocator in its api
     /// - can use stack allocation at consumer side
     /// - can reuse memory if it makes sense at consumer side
-    pub fn new(buffer: []u8, hash_or_encode: bool, dst: []u8) PairingError!Pairing {
+    pub fn new(buffer: []u8, hash_or_encode: bool, dst: []const u8) PairingError!Pairing {
         if (buffer.len < c.blst_pairing_sizeof()) {
             return PairingError.BufferTooSmall;
         }
@@ -37,10 +37,10 @@ const Pairing = struct {
             return PairingError.DstTooSmall;
         }
 
-        const obj = Pairing{
+        var obj = Pairing{
             .v = buffer[0..c.blst_pairing_sizeof()],
         };
-        obj.init(hash_or_encode, &dst[0]);
+        obj.init(hash_or_encode, dst);
 
         return obj;
     }
@@ -50,7 +50,7 @@ const Pairing = struct {
         return c.blst_pairing_sizeof();
     }
 
-    pub fn init(self: *Pairing, hash_or_encode: bool, dst: []u8) void {
+    pub fn init(self: *Pairing, hash_or_encode: bool, dst: []const u8) void {
         c.blst_pairing_init(self.ctx(), hash_or_encode, &dst[0], dst.len);
     }
 
@@ -64,51 +64,55 @@ const Pairing = struct {
         return ptr;
     }
 
-    pub fn aggregateG1(self: *Pairing, pk: *const c.blst_p1_affine, pk_validate: bool, sig: *const c.blst_p2_affine, sig_groupcheck: bool, msg: []u8, aug: ?[]u8) BLST_ERROR!void {
-        const aug_ptr = if (aug != null and aug.len > 0) &aug[0] else null;
-        const aug_len = if (aug != null) aug.len else null;
+    pub fn aggregateG1(self: *Pairing, pk: *const c.blst_p1_affine, pk_validate: bool, sig: ?*const c.blst_p2_affine, sig_groupcheck: bool, msg: []const u8, aug: ?[]u8) BLST_ERROR!void {
+        const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
+        const aug_len = if (aug != null) aug.?.len else 0;
+        const sig_ptr = if (sig != null) sig.? else null;
 
-        const res = c.blst_pairing_chk_n_aggr_pk_in_g1(self.ctx, pk, pk_validate, sig, sig_groupcheck, &msg[0], msg.len, aug_ptr, aug_len);
+        const res = c.blst_pairing_chk_n_aggr_pk_in_g1(self.ctx(), pk, pk_validate, sig_ptr, sig_groupcheck, &msg[0], msg.len, aug_ptr, aug_len);
 
         const err = toBlstError(res);
         if (err != null) {
-            return err;
+            return err.?;
         }
     }
 
-    pub fn aggregateG2(self: *Pairing, pk: *const c.blst_p2_affine, pk_validate: bool, sig: *const c.blst_p1_affine, sig_groupcheck: bool, msg: []u8, aug: ?[]u8) BLST_ERROR!void {
-        const aug_ptr = if (aug != null and aug.len > 0) &aug[0] else null;
-        const aug_len = if (aug != null) aug.len else null;
+    pub fn aggregateG2(self: *Pairing, pk: *const c.blst_p2_affine, pk_validate: bool, sig: ?*const c.blst_p1_affine, sig_groupcheck: bool, msg: []u8, aug: ?[]u8) BLST_ERROR!void {
+        const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
+        const aug_len = if (aug != null) aug.?.len else null;
+        const sig_ptr = if (sig != null) sig.? else null;
 
-        const res = c.blst_pairing_chk_n_aggr_pk_in_g2(self.ctx, pk, pk_validate, sig, sig_groupcheck, &msg[0], msg.len, aug_ptr, aug_len);
+        const res = c.blst_pairing_chk_n_aggr_pk_in_g2(self.ctx(), pk, pk_validate, sig_ptr, sig_groupcheck, &msg[0], msg.len, aug_ptr, aug_len);
 
         const err = toBlstError(res);
         if (err != null) {
-            return err;
+            return err.?;
         }
     }
 
-    pub fn mulAndAggregateG1(self: *Pairing, pk: *const c.blst_p1_affine, pk_validate: bool, sig: *const c.blst_p2_affine, sig_groupcheck: bool, scalar: []u8, nbits: usize, msg: []u8, aug: ?[]u8) BLST_ERROR!void {
-        const aug_ptr = if (aug != null and aug.len > 0) &aug[0] else null;
-        const aug_len = if (aug != null) aug.len else null;
+    // TODO: msgs and scalar should have len > 0
+    // check for other apis as well
+    pub fn mulAndAggregateG1(self: *Pairing, pk: *const c.blst_p1_affine, pk_validate: bool, sig: *const c.blst_p2_affine, sig_groupcheck: bool, scalar: []const u8, nbits: usize, msg: []const u8, aug: ?[]u8) BLST_ERROR!void {
+        const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
+        const aug_len = if (aug != null) aug.?.len else 0;
 
-        const res = c.blst_pairing_chk_n_mul_n_aggr_pk_in_g1(self.ctx, pk, pk_validate, sig, sig_groupcheck, &scalar[0], nbits, &msg[0], msg.len, aug_ptr, aug_len);
+        const res = c.blst_pairing_chk_n_mul_n_aggr_pk_in_g1(self.ctx(), pk, pk_validate, sig, sig_groupcheck, &scalar[0], nbits, &msg[0], msg.len, aug_ptr, aug_len);
 
         const err = toBlstError(res);
         if (err != null) {
-            return err;
+            return err.?;
         }
     }
 
     pub fn mulAndAggregateG2(self: *Pairing, pk: *const c.blst_p2_affine, pk_validate: bool, sig: *const c.blst_p1_affine, sig_groupcheck: bool, scalar: []u8, nbits: usize, msg: []u8, aug: ?[]u8) BLST_ERROR!void {
-        const aug_ptr = if (aug != null and aug.len > 0) &aug[0] else null;
-        const aug_len = if (aug != null) aug.len else null;
+        const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
+        const aug_len = if (aug != null) aug.?.len else 0;
 
         const res = c.blst_pairing_chk_n_mul_n_aggr_pk_in_g2(self.ctx, pk, pk_validate, sig, sig_groupcheck, &scalar[0], nbits, &msg[0], msg.len, aug_ptr, aug_len);
 
         const err = toBlstError(res);
         if (err != null) {
-            return err;
+            return err.?;
         }
     }
 
@@ -149,14 +153,15 @@ const Pairing = struct {
 
 test "init Pairing" {
     const allocator = std.testing.allocator;
-    const buffer = allocator.alloc(u8, Pairing.sizeOf());
+    const buffer = try allocator.alloc(u8, Pairing.sizeOf());
     defer allocator.free(buffer);
 
-    _ = try Pairing.new(buffer, true, "destination");
+    const dst = "destination";
+    _ = try Pairing.new(buffer, true, dst);
 }
 
 test "sizeOf Pairing" {
     // this works on MacOS, adding this test to understand more about the size of Pairing
     std.debug.print("Size of Pairing: {}", .{Pairing.sizeOf()});
-    std.testing.expectEqual(3192, Pairing.sizeOf());
+    try std.testing.expectEqual(3192, Pairing.sizeOf());
 }

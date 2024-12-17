@@ -10,6 +10,7 @@ pub const BLST_ERROR = error{
     VERIFY_FAIL,
     PK_IS_INFINITY,
     BAD_SCALAR,
+    FAILED_PAIRING,
 };
 
 pub fn toBlstError(err: c_uint) ?BLST_ERROR {

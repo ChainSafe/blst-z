@@ -115,14 +115,15 @@ pub const AggregatePublicKey = struct {
     pub fn toPublicKey(self: *const AggregatePublicKey) PublicKey {
         var pk = PublicKey.default();
         c.blst_p1_to_affine(&pk.point, &self.point);
+        return pk;
     }
 
     // Aggregate
-    pub fn aggregate(pks: []*const PublicKey, pks_validate: bool) BLST_ERROR!AggregatePublicKey {
+    pub fn aggregate(pks: []const *PublicKey, pks_validate: bool) BLST_ERROR!AggregatePublicKey {
         if (pks.len == 0) {
             return BLST_ERROR.AGGR_TYPE_MISMATCH;
         }
-        if (pks.validate) {
+        if (pks_validate) {
             try pks[0].validate();
         }
 
