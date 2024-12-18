@@ -14,7 +14,10 @@ const toBlstError = util.toBlstError;
 /// this is equivalent of Rust binding in blst/bindings/rust/src/lib.rs
 const createSigVariant = @import("./sig_variant.zig").createSigVariant;
 // const SigVariant = createSigVariant(c.blst_p1_affine, util.default_blst_p1_affline, c.blst_p1_affine_is_inf, c.blst_p1_affine_in_g1, c.blst_p1_to_affine, c.blst_p1_affine_compress, c.blst_p1_affine_serialize, c.blst_p1_uncompress, c.blst_p1_deserialize);
-pub const SigVariant = createSigVariant(
+
+// TODO: implement MultiPoint
+
+const SigVariant = createSigVariant(
     util.default_blst_p1_affline,
     util.default_blst_p1,
     util.default_blst_p2_affine,
@@ -56,13 +59,14 @@ pub const SigVariant = createSigVariant(
     c.blst_p2_affine_is_inf,
     c.blst_p2_in_g2,
 );
-pub const PublicKey = SigVariant.createPublicKey();
-pub const AggregatePublicKey = SigVariant.createAggregatePublicKey();
-pub const Signature = SigVariant.createSignature();
-pub const AggregateSignature = SigVariant.createAggregateSignature();
-pub const SecretKey = SigVariant.createSecretKey();
 
-// TODO: implement MultiPoint
+pub const min_pk = struct {
+    pub const PublicKey = SigVariant.createPublicKey();
+    pub const AggregatePublicKey = SigVariant.createAggregatePublicKey();
+    pub const Signature = SigVariant.createSignature();
+    pub const AggregateSignature = SigVariant.createAggregateSignature();
+    pub const SecretKey = SigVariant.createSecretKey();
+};
 
 test "test_sign_n_verify" {
     try SigVariant.testSignNVerify();
