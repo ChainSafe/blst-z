@@ -9,13 +9,7 @@ const util = @import("util.zig");
 const BLST_ERROR = util.BLST_ERROR;
 const toBlstError = util.toBlstError;
 
-// TODO: implement MultiPoint
-
-/// this is equivalent of Rust binding in blst/bindings/rust/src/lib.rs
 const createSigVariant = @import("./sig_variant.zig").createSigVariant;
-// const SigVariant = createSigVariant(c.blst_p1_affine, util.default_blst_p1_affline, c.blst_p1_affine_is_inf, c.blst_p1_affine_in_g1, c.blst_p1_to_affine, c.blst_p1_affine_compress, c.blst_p1_affine_serialize, c.blst_p1_uncompress, c.blst_p1_deserialize);
-
-// TODO: implement MultiPoint
 
 const SigVariant = createSigVariant(
     util.default_blst_p1_affline,
