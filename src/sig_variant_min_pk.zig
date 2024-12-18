@@ -14,7 +14,7 @@ const toBlstError = util.toBlstError;
 /// this is equivalent of Rust binding in blst/bindings/rust/src/lib.rs
 const createSigVariant = @import("./sig_variant.zig").createSigVariant;
 // const SigVariant = createSigVariant(c.blst_p1_affine, util.default_blst_p1_affline, c.blst_p1_affine_is_inf, c.blst_p1_affine_in_g1, c.blst_p1_to_affine, c.blst_p1_affine_compress, c.blst_p1_affine_serialize, c.blst_p1_uncompress, c.blst_p1_deserialize);
-const SigVariant = createSigVariant(
+pub const SigVariant = createSigVariant(
     util.default_blst_p1_affline,
     util.default_blst_p1,
     util.default_blst_p2_affine,
