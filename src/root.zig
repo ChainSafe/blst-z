@@ -1,6 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
 pub const min_pk = @import("./sig_variant_min_pk.zig").min_pk;
+pub const min_sig = @import("./sig_variant_min_sig.zig").min_sig;
 
 test {
     testing.refAllDecls(@This());

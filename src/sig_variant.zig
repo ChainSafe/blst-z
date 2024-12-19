@@ -1,7 +1,8 @@
 const std = @import("std");
 const testing = std.testing;
 const Xoshiro256 = std.rand.Xoshiro256;
-const Pairing = @import("./pairing.zig").Pairing;
+const P = @import("./pairing.zig").Pairing;
+const PairingError = @import("./pairing.zig").PairingError;
 
 const c = @cImport({
     @cInclude("blst.h");
@@ -56,6 +57,48 @@ pub fn createSigVariant(
     sig_aggr_in_group_fn: anytype,
 ) type {
     // TODO: implement MultiPoint
+    const Pairing = struct {
+        p: P,
+        pub fn new(buffer: []u8, hoe: bool, dst: []const u8) PairingError!@This() {
+            const p = try P.new(buffer, hoe, dst);
+            return .{ .p = p };
+        }
+
+        pub fn sizeOf() usize {
+            return P.sizeOf();
+        }
+
+        pub fn aggregate(self: *@This(), pk: *const pk_aff_type, pk_validate: bool, sig: ?*const sig_aff_type, sig_groupcheck: bool, msg: []const u8, aug: ?[]u8) BLST_ERROR!void {
+            if (pk_comp_size == 48) {
+                // min_pk
+                return self.p.aggregateG1(pk, pk_validate, sig, sig_groupcheck, msg, aug);
+            } else {
+                // min_sig
+                return self.p.aggregateG2(pk, pk_validate, sig, sig_groupcheck, msg, aug);
+            }
+        }
+
+        pub fn mulAndAggregate(self: *@This(), pk: *const pk_aff_type, pk_validate: bool, sig: *const sig_aff_type, sig_groupcheck: bool, scalar: []const u8, nbits: usize, msg: []const u8, aug: ?[]u8) BLST_ERROR!void {
+            if (pk_comp_size == 48) {
+                // min_pk
+                return self.p.mulAndAggregateG1(pk, pk_validate, sig, sig_groupcheck, scalar, nbits, msg, aug);
+            } else {
+                // min_sig
+                return self.p.mulAndAggregateG2(pk, pk_validate, sig, sig_groupcheck, scalar, nbits, msg, aug);
+            }
+        }
+
+        pub fn commit(self: *@This()) void {
+            self.p.commit();
+        }
+
+        pub fn finalVerify(self: *@This(), ggtsig: ?*const c.blst_fp12) bool {
+            return self.p.finalVerify(ggtsig);
+        }
+
+        // add more methods here if needed
+    };
+
     // TODO: implement Clone, Copy, Equal
     const PublicKey = struct {
         point: pk_aff_type,
@@ -93,7 +136,7 @@ pub fn createSigVariant(
         // Serdes
 
         pub fn compress(self: *const @This()) [pk_comp_size]u8 {
-            var pk_comp = [_]u8{0} ** 48;
+            var pk_comp = [_]u8{0} ** pk_comp_size;
             pk_comp_fn(&pk_comp[0], &self.point);
             return pk_comp;
         }
@@ -105,7 +148,7 @@ pub fn createSigVariant(
         }
 
         pub fn uncompress(pk_comp: []const u8) BLST_ERROR!@This() {
-            if (pk_comp.len == 48 and (pk_comp[0] & 0x80) != 0) {
+            if (pk_comp.len == pk_comp_size and (pk_comp[0] & 0x80) != 0) {
                 var pk = @This().default();
                 const res = pk_uncomp_fn(&pk.point, &pk_comp[0]);
                 const err = toBlstError(res);
@@ -119,8 +162,8 @@ pub fn createSigVariant(
         }
 
         pub fn deserialize(pk_in: []const u8) BLST_ERROR!@This() {
-            if ((pk_in.len == 96 and (pk_in[0] & 0x80) == 0) or
-                (pk_in.len == 48 and (pk_in[0] & 0x80) != 0))
+            if ((pk_in.len == pk_ser_size and (pk_in[0] & 0x80) == 0) or
+                (pk_in.len == pk_comp_size and (pk_in[0] & 0x80) != 0))
             {
                 var pk = @This().default();
                 const res = pk_deser_fn(&pk.point, &pk_in[0]);
@@ -212,13 +255,11 @@ pub fn createSigVariant(
                 try pk.validate();
             }
 
-            // c.blst_p1_add_or_double_affine(&self.point, &self.point, &pk.point);
             pk_add_or_dbl_aff_fn(&self.point, &self.point, &pk.point);
         }
     };
 
     const Signature = struct {
-        // point: c.blst_p2_affine,
         point: sig_aff_type,
 
         pub fn default() @This() {
@@ -280,10 +321,10 @@ pub fn createSigVariant(
                 else => return BLST_ERROR.FAILED_PAIRING,
             };
 
-            try pairing.aggregateG1(&pks[0].point, pks_validate, &self.point, sig_groupcheck, msgs[0], null);
+            try pairing.aggregate(&pks[0].point, pks_validate, &self.point, sig_groupcheck, msgs[0], null);
 
             for (1..n_elems) |i| {
-                try pairing.aggregateG1(&pks[i].point, pks_validate, null, false, msgs[i], null);
+                try pairing.aggregate(&pks[i].point, pks_validate, null, false, msgs[i], null);
             }
 
             pairing.commit();
@@ -330,7 +371,7 @@ pub fn createSigVariant(
             };
 
             for (0..n_elems) |i| {
-                try pairing.mulAndAggregateG1(&pks[i].point, pks_validate, &sigs[i].point, sigs_groupcheck, rands[i], rand_bits, msgs[i], null);
+                try pairing.mulAndAggregate(&pks[i].point, pks_validate, &sigs[i].point, sigs_groupcheck, rands[i], rand_bits, msgs[i], null);
             }
 
             pairing.commit();
@@ -353,15 +394,13 @@ pub fn createSigVariant(
         }
 
         pub fn serialize(self: *const @This()) [sig_ser_size]u8 {
-            // var sig_out = [_]u8{0} ** 192;
             var sig_out = [_]u8{0} ** sig_ser_size;
-            // c.blst_p2_affine_serialize(&sig_out[0], &self.point);
             sig_ser_fn(&sig_out[0], &self.point);
             return sig_out;
         }
 
         pub fn uncompress(sig_comp: []const u8) BLST_ERROR!@This() {
-            if (sig_comp.len == 96 and (sig_comp[0] & 0x80) != 0) {
+            if (sig_comp.len == sig_comp_size and (sig_comp[0] & 0x80) != 0) {
                 var sig = @This().default();
                 const res = sig_uncomp_fn(&sig.point, &sig_comp[0]);
                 if (res != null) {
@@ -374,7 +413,7 @@ pub fn createSigVariant(
         }
 
         pub fn deserialize(sig_in: []const u8) BLST_ERROR!@This() {
-            if ((sig_in.len == 192 and (sig_in[0] & 0x80) == 0) or (sig_in.len == 96 and sig_in[0] & 0x80) != 0) {
+            if ((sig_in.len == sig_ser_size and (sig_in[0] & 0x80) == 0) or (sig_in.len == sig_comp_size and sig_in[0] & 0x80) != 0) {
                 var sig = @This().default();
                 const res = sig_deser_fn(&sig.point, &sig_in[0]);
                 const err = toBlstError(res);
@@ -391,7 +430,7 @@ pub fn createSigVariant(
             return @This().deserialize(sig_in);
         }
 
-        pub fn toBytes(self: *const @This()) [96]u8 {
+        pub fn toBytes(self: *const @This()) [sig_comp_size]u8 {
             return self.compress();
         }
 
@@ -574,7 +613,7 @@ pub fn createSigVariant(
         // Sign
         pub fn sign(self: *const @This(), msg: []const u8, dst: []const u8, aug: ?[]const u8) Signature {
             // TODO - would the user like the serialized/compressed sig as well?
-            var q = util.default_blst_p2();
+            var q = default_agg_sig_fn();
             var sig_aff = Signature.default();
             const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
             const aug_len = if (aug != null) aug.?.len else 0;
@@ -643,7 +682,6 @@ pub fn createSigVariant(
 
         pub fn pubkeyFromAggregate(agg_pk: *const AggregatePublicKey) PublicKey {
             var pk_aff = PublicKey.default();
-            // c.blst_p1_to_affine(&pk_aff.point, &agg_pk.point);
             pk_to_aff_fn(&pk_aff.point, &agg_pk.point);
             return pk_aff;
         }

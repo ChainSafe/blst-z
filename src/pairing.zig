@@ -8,7 +8,7 @@ const c = @cImport({
     @cInclude("blst.h");
 });
 
-const PairingError = error{ BufferTooSmall, DstTooSmall };
+pub const PairingError = error{ BufferTooSmall, DstTooSmall };
 
 const PTag = enum {
     p1,
@@ -50,7 +50,7 @@ pub const Pairing = struct {
         return c.blst_pairing_sizeof();
     }
 
-    pub fn init(self: *Pairing, hash_or_encode: bool, dst: []const u8) void {
+    fn init(self: *Pairing, hash_or_encode: bool, dst: []const u8) void {
         c.blst_pairing_init(self.ctx(), hash_or_encode, &dst[0], dst.len);
     }
 
@@ -64,7 +64,7 @@ pub const Pairing = struct {
         return ptr;
     }
 
-    pub fn aggregateG1(self: *Pairing, pk: *const c.blst_p1_affine, pk_validate: bool, sig: ?*const c.blst_p2_affine, sig_groupcheck: bool, msg: []const u8, aug: ?[]u8) BLST_ERROR!void {
+    pub fn aggregateG1(self: *Pairing, pk: *const c.blst_p1_affine, pk_validate: bool, sig: ?*const c.blst_p2_affine, sig_groupcheck: bool, msg: []const u8, aug: ?[]const u8) BLST_ERROR!void {
         const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
         const aug_len = if (aug != null) aug.?.len else 0;
         const sig_ptr = if (sig != null) sig.? else null;
@@ -77,9 +77,9 @@ pub const Pairing = struct {
         }
     }
 
-    pub fn aggregateG2(self: *Pairing, pk: *const c.blst_p2_affine, pk_validate: bool, sig: ?*const c.blst_p1_affine, sig_groupcheck: bool, msg: []u8, aug: ?[]u8) BLST_ERROR!void {
+    pub fn aggregateG2(self: *Pairing, pk: *const c.blst_p2_affine, pk_validate: bool, sig: ?*const c.blst_p1_affine, sig_groupcheck: bool, msg: []const u8, aug: ?[]const u8) BLST_ERROR!void {
         const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
-        const aug_len = if (aug != null) aug.?.len else null;
+        const aug_len = if (aug != null) aug.?.len else 0;
         const sig_ptr = if (sig != null) sig.? else null;
 
         const res = c.blst_pairing_chk_n_aggr_pk_in_g2(self.ctx(), pk, pk_validate, sig_ptr, sig_groupcheck, &msg[0], msg.len, aug_ptr, aug_len);
@@ -92,7 +92,7 @@ pub const Pairing = struct {
 
     // TODO: msgs and scalar should have len > 0
     // check for other apis as well
-    pub fn mulAndAggregateG1(self: *Pairing, pk: *const c.blst_p1_affine, pk_validate: bool, sig: *const c.blst_p2_affine, sig_groupcheck: bool, scalar: []const u8, nbits: usize, msg: []const u8, aug: ?[]u8) BLST_ERROR!void {
+    pub fn mulAndAggregateG1(self: *Pairing, pk: *const c.blst_p1_affine, pk_validate: bool, sig: *const c.blst_p2_affine, sig_groupcheck: bool, scalar: []const u8, nbits: usize, msg: []const u8, aug: ?[]const u8) BLST_ERROR!void {
         const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
         const aug_len = if (aug != null) aug.?.len else 0;
 
@@ -104,11 +104,11 @@ pub const Pairing = struct {
         }
     }
 
-    pub fn mulAndAggregateG2(self: *Pairing, pk: *const c.blst_p2_affine, pk_validate: bool, sig: *const c.blst_p1_affine, sig_groupcheck: bool, scalar: []u8, nbits: usize, msg: []u8, aug: ?[]u8) BLST_ERROR!void {
+    pub fn mulAndAggregateG2(self: *Pairing, pk: *const c.blst_p2_affine, pk_validate: bool, sig: *const c.blst_p1_affine, sig_groupcheck: bool, scalar: []const u8, nbits: usize, msg: []const u8, aug: ?[]const u8) BLST_ERROR!void {
         const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
         const aug_len = if (aug != null) aug.?.len else 0;
 
-        const res = c.blst_pairing_chk_n_mul_n_aggr_pk_in_g2(self.ctx, pk, pk_validate, sig, sig_groupcheck, &scalar[0], nbits, &msg[0], msg.len, aug_ptr, aug_len);
+        const res = c.blst_pairing_chk_n_mul_n_aggr_pk_in_g2(self.ctx(), pk, pk_validate, sig, sig_groupcheck, &scalar[0], nbits, &msg[0], msg.len, aug_ptr, aug_len);
 
         const err = toBlstError(res);
         if (err != null) {

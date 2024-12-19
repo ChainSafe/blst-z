@@ -6,7 +6,7 @@ Zig wrapper for [supranational/blst](https://github.com/supranational/blst) nati
 - `zig build test`
 
 ## Usage
-The below shows how to use min_pk namespace
+The below shows how to use min_pk namespace, should be the same for min_sig.
 
 ```zig
 pub const min_pk = @import("blst").min_pk;
