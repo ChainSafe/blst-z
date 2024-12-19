@@ -12,7 +12,6 @@ const toBlstError = util.toBlstError;
 const createSigVariant = @import("./sig_variant.zig").createSigVariant;
 
 const SigVariant = createSigVariant(
-    // TODO: add default for these 4 functions
     util.default_blst_p2_affline,
     util.default_blst_p2,
     util.default_blst_p1_affine,
