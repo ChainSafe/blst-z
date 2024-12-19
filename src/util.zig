@@ -39,6 +39,20 @@ pub fn default_blst_p1_affline() c.blst_p1_affine {
     };
 }
 
+pub fn default_blst_p1_affine() c.blst_p1_affine {
+    return .{
+        .x = default_blst_fp(),
+        .y = default_blst_fp(),
+    };
+}
+
+pub fn default_blst_p2_affline() c.blst_p2_affine {
+    return .{
+        .x = default_blst_fp2(),
+        .y = default_blst_fp2(),
+    };
+}
+
 pub fn default_blst_p1() c.blst_p1 {
     return .{
         .x = default_blst_fp(),
