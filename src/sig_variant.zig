@@ -27,7 +27,7 @@ pub fn createSigVariant(
     hash_or_encode: bool,
     hash_or_encode_to_fn: anytype,
     sign_fn: anytype,
-    // pk_eq_fn: anytype,
+    pk_eq_fn: anytype,
     // sig_eq_fn: anytype,
     verify_fn: anytype,
     pk_in_group_fn: anytype,
@@ -185,7 +185,12 @@ pub fn createSigVariant(
             return self.compress();
         }
 
-        // TODO: Eq, PartialEq, Serialize, Deserialize?
+        pub fn isEqual(self: *const @This(), other: *const @This()) bool {
+            return pk_eq_fn(&self.point, &other.point);
+        }
+
+        // TODO: PartialEq, Serialize, Deserialize?
+
     };
 
     const AggregatePublicKey = struct {
@@ -936,6 +941,38 @@ pub fn createSigVariant(
             } else |err| {
                 try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
             }
+        }
+
+        pub fn testSerialization() !void {
+            var rng = std.rand.DefaultPrng.init(12345);
+            const sk = getRandomKey(&rng);
+            const sk2 = getRandomKey(&rng);
+
+            const pk = sk.skToPk();
+            const pk_comp = pk.compress();
+            const pk_ser = pk.serialize();
+
+            const pk_uncomp = try PublicKey.uncompress(pk_comp[0..]);
+            try std.testing.expect(pk_uncomp.isEqual(&pk));
+
+            const pk_deser = try PublicKey.deserialize(pk_ser[0..]);
+            try std.testing.expect(pk_deser.isEqual(&pk));
+
+            const pk2 = sk2.skToPk();
+            const pk_comp2 = pk2.compress();
+            const pk_ser2 = pk2.serialize();
+
+            const pk_uncomp2 = try PublicKey.uncompress(pk_comp2[0..]);
+            try std.testing.expect(pk_uncomp2.isEqual(&pk2));
+
+            const pk_deser2 = try PublicKey.deserialize(pk_ser2[0..]);
+            try std.testing.expect(pk_deser2.isEqual(&pk2));
+
+            try std.testing.expect(!pk.isEqual(&pk2));
+            try std.testing.expect(!pk_uncomp.isEqual(&pk2));
+            try std.testing.expect(!pk_deser.isEqual(&pk2));
+            try std.testing.expect(!pk_uncomp2.isEqual(&pk));
+            try std.testing.expect(!pk_deser2.isEqual(&pk));
         }
 
         fn getRandomKey(rng: *Xoshiro256) SecretKey {

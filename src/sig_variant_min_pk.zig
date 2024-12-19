@@ -24,7 +24,7 @@ const SigVariant = createSigVariant(
     true,
     c.blst_hash_to_g2,
     c.blst_sign_pk2_in_g1,
-    // c.blst_p1_affine_is_equal,
+    c.blst_p1_affine_is_equal,
     // c.blst_p2_affine_is_equal,
     c.blst_core_verify_pk_in_g1,
     c.blst_p1_affine_in_g1,
@@ -74,4 +74,8 @@ test "test_multiple_agg_sigs" {
     try SigVariant.testMultipleAggSigs();
 }
 
-// TODO test_serialization, test_serde, test_multi_point
+test "test_serialization" {
+    try SigVariant.testSerialization();
+}
+
+// TODO test_serde, test_multi_point
