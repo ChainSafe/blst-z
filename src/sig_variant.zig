@@ -28,7 +28,7 @@ pub fn createSigVariant(
     hash_or_encode_to_fn: anytype,
     sign_fn: anytype,
     pk_eq_fn: anytype,
-    // sig_eq_fn: anytype,
+    sig_eq_fn: anytype,
     verify_fn: anytype,
     pk_in_group_fn: anytype,
     pk_to_aff_fn: anytype,
@@ -418,7 +418,7 @@ pub fn createSigVariant(
         }
 
         pub fn deserialize(sig_in: []const u8) BLST_ERROR!@This() {
-            if ((sig_in.len == sig_ser_size and (sig_in[0] & 0x80) == 0) or (sig_in.len == sig_comp_size and sig_in[0] & 0x80) != 0) {
+            if ((sig_in.len == sig_ser_size and (sig_in[0] & 0x80) == 0) or (sig_in.len == sig_comp_size and sig_in[0] & 0x80 != 0)) {
                 var sig = @This().default();
                 const res = sig_deser_fn(&sig.point, &sig_in[0]);
                 const err = toBlstError(res);
@@ -443,7 +443,9 @@ pub fn createSigVariant(
             return sig_in_group_fn(&self.point);
         }
 
-        // TODO: Eq PartialEq, Serialize, Deserialize?
+        pub fn isEqual(self: *const @This(), other: *const @This()) bool {
+            return sig_eq_fn(&self.point, &other.point);
+        }
     };
 
     const AggregateSignature = struct {
@@ -973,6 +975,31 @@ pub fn createSigVariant(
             try std.testing.expect(!pk_deser.isEqual(&pk2));
             try std.testing.expect(!pk_uncomp2.isEqual(&pk));
             try std.testing.expect(!pk_deser2.isEqual(&pk));
+        }
+
+        pub fn testSerde() !void {
+            var rng = std.rand.DefaultPrng.init(12345);
+            const sk = getRandomKey(&rng);
+            const pk = sk.skToPk();
+            const sig = sk.sign("asdf", "qwer", "zxcv");
+            try sig.verify(true, "asdf", "qwer", "zxcv", &pk, true);
+
+            // roundtrip through serde. TODO: do this in Zig
+            const pk_ser = pk.serialize();
+            const sig_ser = sig.serialize();
+            const pk_des = try PublicKey.deserialize(pk_ser[0..]);
+            const sig_des = try Signature.deserialize(sig_ser[0..]);
+
+            try std.testing.expect(pk.isEqual(&pk_des));
+            try std.testing.expect(sig.isEqual(&sig_des));
+
+            try sig.verify(true, "asdf", "qwer", "zxcv", &pk_des, true);
+            try sig_des.verify(true, "asdf", "qwer", "zxcv", &pk, true);
+
+            const sk_ser = sk.serialize();
+            const sk_des = try SecretKey.deserialize(sk_ser[0..]);
+            const sig2 = sk_des.sign("asdf", "qwer", "zxcv");
+            try std.testing.expect(sig.isEqual(&sig2));
         }
 
         fn getRandomKey(rng: *Xoshiro256) SecretKey {
