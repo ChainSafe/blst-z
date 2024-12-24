@@ -71,9 +71,8 @@ pub const Pairing = struct {
 
         const res = c.blst_pairing_chk_n_aggr_pk_in_g1(self.ctx(), pk, pk_validate, sig_ptr, sig_groupcheck, &msg[0], msg.len, aug_ptr, aug_len);
 
-        const err = toBlstError(res);
-        if (err != null) {
-            return err.?;
+        if (toBlstError(res)) |err| {
+            return err;
         }
     }
 
@@ -84,9 +83,8 @@ pub const Pairing = struct {
 
         const res = c.blst_pairing_chk_n_aggr_pk_in_g2(self.ctx(), pk, pk_validate, sig_ptr, sig_groupcheck, &msg[0], msg.len, aug_ptr, aug_len);
 
-        const err = toBlstError(res);
-        if (err != null) {
-            return err.?;
+        if (toBlstError(res)) |err| {
+            return err;
         }
     }
 
@@ -98,9 +96,8 @@ pub const Pairing = struct {
 
         const res = c.blst_pairing_chk_n_mul_n_aggr_pk_in_g1(self.ctx(), pk, pk_validate, sig, sig_groupcheck, &scalar[0], nbits, &msg[0], msg.len, aug_ptr, aug_len);
 
-        const err = toBlstError(res);
-        if (err != null) {
-            return err.?;
+        if (toBlstError(res)) |err| {
+            return err;
         }
     }
 
@@ -110,9 +107,8 @@ pub const Pairing = struct {
 
         const res = c.blst_pairing_chk_n_mul_n_aggr_pk_in_g2(self.ctx(), pk, pk_validate, sig, sig_groupcheck, &scalar[0], nbits, &msg[0], msg.len, aug_ptr, aug_len);
 
-        const err = toBlstError(res);
-        if (err != null) {
-            return err.?;
+        if (toBlstError(res)) |err| {
+            return err;
         }
     }
 
@@ -131,8 +127,7 @@ pub const Pairing = struct {
     pub fn merge(self: *Pairing, ctx1: *const Pairing) BLST_ERROR!void {
         const res = c.blst_pairing_merge(self.ctx(), ctx1.constCtx());
 
-        const err = toBlstError(res);
-        if (err != null) {
+        if (toBlstError(res)) |err| {
             return err;
         }
     }
