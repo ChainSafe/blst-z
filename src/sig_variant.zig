@@ -151,11 +151,7 @@ pub fn createSigVariant(
             if (pk_comp.len == pk_comp_size and (pk_comp[0] & 0x80) != 0) {
                 var pk = @This().default();
                 const res = pk_uncomp_fn(&pk.point, &pk_comp[0]);
-                const err = toBlstError(res);
-                if (err != null) {
-                    return err.?;
-                }
-                return pk;
+                return toBlstError(res) orelse pk;
             }
 
             return BLST_ERROR.BAD_ENCODING;
@@ -167,11 +163,7 @@ pub fn createSigVariant(
             {
                 var pk = @This().default();
                 const res = pk_deser_fn(&pk.point, &pk_in[0]);
-                const err = toBlstError(res);
-                if (err != null) {
-                    return err.?;
-                }
-                return pk;
+                return toBlstError(res) orelse pk;
             }
 
             return BLST_ERROR.BAD_ENCODING;
@@ -306,9 +298,8 @@ pub fn createSigVariant(
             const aug_len = if (aug != null) aug.?.len else 0;
 
             const res = verify_fn(&pk.point, &self.point, true, &msg[0], msg.len, &dst[0], dst.len, aug_ptr, aug_len);
-            const err = toBlstError(res);
-            if (err != null) {
-                return err.?;
+            if (toBlstError(res)) |err| {
+                return err;
             }
         }
 
@@ -321,10 +312,7 @@ pub fn createSigVariant(
                 return BLST_ERROR.VERIFY_FAIL;
             }
 
-            const pairing_res = Pairing.new(pairing_buffer, hash_or_encode, dst);
-            var pairing = if (pairing_res) |pairing| pairing else |err| switch (err) {
-                else => return BLST_ERROR.FAILED_PAIRING,
-            };
+            var pairing = Pairing.new(pairing_buffer, hash_or_encode, dst) catch return BLST_ERROR.FAILED_PAIRING;
 
             try pairing.aggregate(&pks[0].point, pks_validate, &self.point, sig_groupcheck, msgs[0], null);
 
@@ -370,10 +358,7 @@ pub fn createSigVariant(
 
             // TODO - check msg uniqueness?
 
-            const pairing_res = Pairing.new(pairing_buffer, hash_or_encode, dst);
-            var pairing = if (pairing_res) |pairing| pairing else |err| switch (err) {
-                else => return BLST_ERROR.FAILED_PAIRING,
-            };
+            var pairing = Pairing.new(pairing_buffer, hash_or_encode, dst) catch return BLST_ERROR.FAILED_PAIRING;
 
             for (0..n_elems) |i| {
                 try pairing.mulAndAggregate(&pks[i].point, pks_validate, &sigs[i].point, sigs_groupcheck, rands[i], rand_bits, msgs[i], null);
@@ -421,11 +406,7 @@ pub fn createSigVariant(
             if ((sig_in.len == sig_ser_size and (sig_in[0] & 0x80) == 0) or (sig_in.len == sig_comp_size and sig_in[0] & 0x80 != 0)) {
                 var sig = @This().default();
                 const res = sig_deser_fn(&sig.point, &sig_in[0]);
-                const err = toBlstError(res);
-                if (err != null) {
-                    return err.?;
-                }
-                return sig;
+                return toBlstError(res) orelse sig;
             }
 
             return BLST_ERROR.BAD_ENCODING;
@@ -459,9 +440,8 @@ pub fn createSigVariant(
 
         pub fn validate(self: *const @This()) BLST_ERROR!void {
             const res = sig_aggr_in_group_fn(&self.point);
-            const err = toBlstError(res);
-            if (err != null) {
-                return err.?;
+            if (toBlstError(res)) |err| {
+                return err;
             }
         }
 
