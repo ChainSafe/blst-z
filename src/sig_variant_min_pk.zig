@@ -82,4 +82,9 @@ test "test_serde" {
     try SigVariant.testSerde();
 }
 
+// prerequisite for test_multi_point
+test "test_type_alignment" {
+    try SigVariant.testTypeAlignment();
+}
+
 // TODO test_multi_point

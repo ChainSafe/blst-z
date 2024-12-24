@@ -982,6 +982,24 @@ pub fn createSigVariant(
             try std.testing.expect(sig.isEqual(&sig2));
         }
 
+        /// additional tests in Zig to make sure our wrapped types point to the same memory as the original types
+        /// for example, given a slice of PublicKey, we can pass pointer to the first element to the C function which expect *const pk_aff_type
+        pub fn testTypeAlignment() !void {
+            // alignOf
+            try std.testing.expect(@alignOf(SecretKey) == @alignOf(c.blst_scalar));
+            try std.testing.expect(@alignOf(PublicKey) == @alignOf(pk_aff_type));
+            try std.testing.expect(@alignOf(AggregatePublicKey) == @alignOf(pk_type));
+            try std.testing.expect(@alignOf(Signature) == @alignOf(sig_aff_type));
+            try std.testing.expect(@alignOf(AggregateSignature) == @alignOf(sig_type));
+
+            // sizeOf
+            try std.testing.expect(@sizeOf(SecretKey) == @sizeOf(c.blst_scalar));
+            try std.testing.expect(@sizeOf(PublicKey) == @sizeOf(pk_aff_type));
+            try std.testing.expect(@sizeOf(AggregatePublicKey) == @sizeOf(pk_type));
+            try std.testing.expect(@sizeOf(Signature) == @sizeOf(sig_aff_type));
+            try std.testing.expect(@sizeOf(AggregateSignature) == @sizeOf(sig_type));
+        }
+
         fn getRandomKey(rng: *Xoshiro256) SecretKey {
             var value: [32]u8 = [_]u8{0} ** 32;
             rng.random().bytes(value[0..]);
