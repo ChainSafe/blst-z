@@ -15,6 +15,7 @@ const toBlstError = util.toBlstError;
 /// generic implementation for both min_pk and min_sig
 /// this is equivalent to Rust binding in blst/bindings/rust/src/lib.rs
 pub fn createSigVariant(
+    // Zig specific default functions
     default_pubkey_fn: anytype,
     default_agg_pubkey_fn: anytype,
     default_sig_fn: anytype,
@@ -29,6 +30,9 @@ pub fn createSigVariant(
     sign_fn: anytype,
     pk_eq_fn: anytype,
     sig_eq_fn: anytype,
+    // 2 new zig specific eq functions
+    agg_pk_eq_fn: anytype,
+    agg_sig_eq_fn: anytype,
     verify_fn: anytype,
     pk_in_group_fn: anytype,
     pk_to_aff_fn: anytype,
@@ -55,6 +59,19 @@ pub fn createSigVariant(
     pk_is_inf_fn: anytype,
     sig_is_inf_fn: anytype,
     sig_aggr_in_group_fn: anytype,
+    // Zig specific multi_points
+    pk_add_fn: anytype,
+    pk_multi_scalar_mult_fn: anytype,
+    pk_scratch_size_of_fn: anytype,
+    pk_mult_fn: anytype,
+    pk_generator_fn: anytype,
+    pk_to_affines_fn: anytype,
+    sig_add_fn: anytype,
+    sig_multi_scalar_mult_fn: anytype,
+    sig_scratch_size_of_fn: anytype,
+    sig_mult_fn: anytype,
+    sig_generator_fn: anytype,
+    sig_to_affines_fn: anytype,
 ) type {
     // TODO: implement MultiPoint
     const Pairing = struct {
@@ -253,6 +270,10 @@ pub fn createSigVariant(
             }
 
             pk_add_or_dbl_aff_fn(&self.point, &self.point, &pk.point);
+        }
+
+        pub fn isEqual(self: *const @This(), other: *const @This()) bool {
+            return agg_pk_eq_fn(&self.point, &other.point);
         }
     };
 
@@ -512,6 +533,10 @@ pub fn createSigVariant(
         pub fn subgroupCheck(self: *const @This()) bool {
             return sig_aggr_in_group_fn(&self.point);
         }
+
+        pub fn isEqual(self: *const @This(), other: *const @This()) bool {
+            return agg_sig_eq_fn(&self.point, &other.point);
+        }
     };
 
     const SecretKey = struct {
@@ -645,6 +670,39 @@ pub fn createSigVariant(
             return @This().deserialize(sk_in);
         }
     };
+
+    // for PublicKey and AggregatePublicKey
+    const pk_multi_point = @import("./multi_point.zig").createMultiPoint(
+        pk_aff_type,
+        pk_type,
+        default_pubkey_fn,
+        default_agg_pubkey_fn,
+        agg_pk_eq_fn,
+        pk_add_fn,
+        pk_multi_scalar_mult_fn,
+        pk_scratch_size_of_fn,
+        pk_mult_fn,
+        pk_generator_fn,
+        pk_to_affines_fn,
+        pk_add_or_dbl_fn,
+    );
+
+    const sig_multi_point = @import("./multi_point.zig").createMultiPoint(
+        sig_aff_type,
+        sig_type,
+        default_sig_fn,
+        default_agg_sig_fn,
+        agg_sig_eq_fn,
+        sig_add_fn,
+        sig_multi_scalar_mult_fn,
+        sig_scratch_size_of_fn,
+        sig_mult_fn,
+        sig_generator_fn,
+        sig_to_affines_fn,
+        sig_add_or_dbl_fn,
+    );
+
+    // TODO: consume the above struct to work with public data structures
 
     return struct {
         pub fn createSecretKey() type {
@@ -980,6 +1038,41 @@ pub fn createSigVariant(
             const sk_des = try SecretKey.deserialize(sk_ser[0..]);
             const sig2 = sk_des.sign("asdf", "qwer", "zxcv");
             try std.testing.expect(sig.isEqual(&sig2));
+        }
+
+        /// additional tests in Zig to make sure our wrapped types point to the same memory as the original types
+        /// for example, given a slice of PublicKey, we can pass pointer to the first element to the C function which expect *const pk_aff_type
+        pub fn testTypeAlignment() !void {
+            // alignOf
+            try std.testing.expect(@alignOf(SecretKey) == @alignOf(c.blst_scalar));
+            try std.testing.expect(@alignOf(PublicKey) == @alignOf(pk_aff_type));
+            try std.testing.expect(@alignOf(AggregatePublicKey) == @alignOf(pk_type));
+            try std.testing.expect(@alignOf(Signature) == @alignOf(sig_aff_type));
+            try std.testing.expect(@alignOf(AggregateSignature) == @alignOf(sig_type));
+
+            // sizeOf
+            try std.testing.expect(@sizeOf(SecretKey) == @sizeOf(c.blst_scalar));
+            try std.testing.expect(@sizeOf(PublicKey) == @sizeOf(pk_aff_type));
+            try std.testing.expect(@sizeOf(AggregatePublicKey) == @sizeOf(pk_type));
+            try std.testing.expect(@sizeOf(Signature) == @sizeOf(sig_aff_type));
+            try std.testing.expect(@sizeOf(AggregateSignature) == @sizeOf(sig_type));
+        }
+
+        /// multi point
+        pub fn testAddPubkey() !void {
+            try pk_multi_point.testAdd();
+        }
+
+        pub fn testMultPubkey() !void {
+            try pk_multi_point.testMult();
+        }
+
+        pub fn testAddSig() !void {
+            try sig_multi_point.testAdd();
+        }
+
+        pub fn testMultSig() !void {
+            try sig_multi_point.testMult();
         }
 
         fn getRandomKey(rng: *Xoshiro256) SecretKey {
