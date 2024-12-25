@@ -15,6 +15,7 @@ const toBlstError = util.toBlstError;
 /// generic implementation for both min_pk and min_sig
 /// this is equivalent to Rust binding in blst/bindings/rust/src/lib.rs
 pub fn createSigVariant(
+    // Zig specific default functions
     default_pubkey_fn: anytype,
     default_agg_pubkey_fn: anytype,
     default_sig_fn: anytype,
@@ -29,6 +30,9 @@ pub fn createSigVariant(
     sign_fn: anytype,
     pk_eq_fn: anytype,
     sig_eq_fn: anytype,
+    // 2 new zig specific eq functions
+    agg_pk_eq_fn: anytype,
+    agg_sig_eq_fn: anytype,
     verify_fn: anytype,
     pk_in_group_fn: anytype,
     pk_to_aff_fn: anytype,
@@ -55,6 +59,13 @@ pub fn createSigVariant(
     pk_is_inf_fn: anytype,
     sig_is_inf_fn: anytype,
     sig_aggr_in_group_fn: anytype,
+    // Zig specific multi_points
+    pk_add_fn: anytype,
+    pk_multi_scalar_mult_fn: anytype,
+    scratch_size_of_fn: anytype,
+    pk_mult_fn: anytype,
+    pk_generator_fn: anytype,
+    pk_to_affines_fn: anytype,
 ) type {
     // TODO: implement MultiPoint
     const Pairing = struct {
@@ -253,6 +264,10 @@ pub fn createSigVariant(
             }
 
             pk_add_or_dbl_aff_fn(&self.point, &self.point, &pk.point);
+        }
+
+        pub fn isEqual(self: *const @This(), other: *const @This()) bool {
+            return agg_pk_eq_fn(&self.point, &other.point);
         }
     };
 
@@ -512,6 +527,10 @@ pub fn createSigVariant(
         pub fn subgroupCheck(self: *const @This()) bool {
             return sig_aggr_in_group_fn(&self.point);
         }
+
+        pub fn isEqual(self: *const @This(), other: *const @This()) bool {
+            return agg_sig_eq_fn(&self.point, &other.point);
+        }
     };
 
     const SecretKey = struct {
@@ -646,6 +665,26 @@ pub fn createSigVariant(
         }
     };
 
+    // for PublicKey and AggregatePublicKey
+    const pk_multi_point = @import("./multi_point.zig").createMultiPoint(
+        pk_aff_type,
+        pk_type,
+        default_pubkey_fn,
+        default_agg_pubkey_fn,
+        agg_pk_eq_fn,
+        pk_add_fn,
+        pk_multi_scalar_mult_fn,
+        scratch_size_of_fn,
+        pk_mult_fn,
+        pk_generator_fn,
+        pk_to_affines_fn,
+        pk_add_or_dbl_fn,
+    );
+
+    // TODO: another multi_Point for Signature
+
+    // TODO: transform the above struct to work with PublicKey and AggregatePublicKey
+
     return struct {
         pub fn createSecretKey() type {
             return SecretKey;
@@ -665,6 +704,10 @@ pub fn createSigVariant(
 
         pub fn createAggregateSignature() type {
             return AggregateSignature;
+        }
+
+        pub fn createMultiPoint() type {
+            return pk_multi_point.MultiPoint;
         }
 
         pub fn pubkeyFromAggregate(agg_pk: *const AggregatePublicKey) PublicKey {
@@ -998,6 +1041,15 @@ pub fn createSigVariant(
             try std.testing.expect(@sizeOf(AggregatePublicKey) == @sizeOf(pk_type));
             try std.testing.expect(@sizeOf(Signature) == @sizeOf(sig_aff_type));
             try std.testing.expect(@sizeOf(AggregateSignature) == @sizeOf(sig_type));
+        }
+
+        /// multi point
+        pub fn testAddPubkey() !void {
+            try pk_multi_point.testAdd();
+        }
+
+        pub fn testMultPubkey() !void {
+            try pk_multi_point.testMult();
         }
 
         fn getRandomKey(rng: *Xoshiro256) SecretKey {
