@@ -62,6 +62,12 @@ const SigVariant = createSigVariant(
     c.blst_p1_mult,
     c.blst_p1_generator,
     c.blst_p1s_to_affine,
+    c.blst_p2s_add,
+    c.blst_p2s_mult_pippenger,
+    c.blst_p2s_mult_pippenger_scratch_sizeof,
+    c.blst_p2_mult,
+    c.blst_p2_generator,
+    c.blst_p2s_to_affine,
 );
 
 pub const min_pk = struct {
@@ -103,6 +109,14 @@ test "multi_point_test_add_pubkey" {
 
 test "multi_point_test_mult_pubkey" {
     try SigVariant.testMultPubkey();
+}
+
+test "multi_point_test_add_signature" {
+    try SigVariant.testAddSig();
+}
+
+test "multi_point_test_mult_signature" {
+    try SigVariant.testMultSig();
 }
 
 // TODO test_multi_point

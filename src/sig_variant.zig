@@ -62,10 +62,16 @@ pub fn createSigVariant(
     // Zig specific multi_points
     pk_add_fn: anytype,
     pk_multi_scalar_mult_fn: anytype,
-    scratch_size_of_fn: anytype,
+    pk_scratch_size_of_fn: anytype,
     pk_mult_fn: anytype,
     pk_generator_fn: anytype,
     pk_to_affines_fn: anytype,
+    sig_add_fn: anytype,
+    sig_multi_scalar_mult_fn: anytype,
+    sig_scratch_size_of_fn: anytype,
+    sig_mult_fn: anytype,
+    sig_generator_fn: anytype,
+    sig_to_affines_fn: anytype,
 ) type {
     // TODO: implement MultiPoint
     const Pairing = struct {
@@ -674,16 +680,29 @@ pub fn createSigVariant(
         agg_pk_eq_fn,
         pk_add_fn,
         pk_multi_scalar_mult_fn,
-        scratch_size_of_fn,
+        pk_scratch_size_of_fn,
         pk_mult_fn,
         pk_generator_fn,
         pk_to_affines_fn,
         pk_add_or_dbl_fn,
     );
 
-    // TODO: another multi_Point for Signature
+    const sig_multi_point = @import("./multi_point.zig").createMultiPoint(
+        sig_aff_type,
+        sig_type,
+        default_sig_fn,
+        default_agg_sig_fn,
+        agg_sig_eq_fn,
+        sig_add_fn,
+        sig_multi_scalar_mult_fn,
+        sig_scratch_size_of_fn,
+        sig_mult_fn,
+        sig_generator_fn,
+        sig_to_affines_fn,
+        sig_add_or_dbl_fn,
+    );
 
-    // TODO: transform the above struct to work with PublicKey and AggregatePublicKey
+    // TODO: consume the above struct to work with public data structures
 
     return struct {
         pub fn createSecretKey() type {
@@ -704,10 +723,6 @@ pub fn createSigVariant(
 
         pub fn createAggregateSignature() type {
             return AggregateSignature;
-        }
-
-        pub fn createMultiPoint() type {
-            return pk_multi_point.MultiPoint;
         }
 
         pub fn pubkeyFromAggregate(agg_pk: *const AggregatePublicKey) PublicKey {
@@ -1050,6 +1065,14 @@ pub fn createSigVariant(
 
         pub fn testMultPubkey() !void {
             try pk_multi_point.testMult();
+        }
+
+        pub fn testAddSig() !void {
+            try sig_multi_point.testAdd();
+        }
+
+        pub fn testMultSig() !void {
+            try sig_multi_point.testMult();
         }
 
         fn getRandomKey(rng: *Xoshiro256) SecretKey {
