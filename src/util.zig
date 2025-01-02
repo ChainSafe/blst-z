@@ -87,3 +87,29 @@ pub fn default_blst_p2_affine() c.blst_p2_affine {
         .y = default_blst_fp2(),
     };
 }
+
+pub fn asU64Slice(bytes: []u8) ![]u64 {
+    if ((@intFromPtr(bytes.ptr) % @alignOf(u64)) != 0) {
+        return error.AlignmentError;
+    }
+
+    if (bytes.len % @sizeOf(u64) != 0) {
+        return error.SizeError;
+    }
+
+    const aligned_ptr: [*]align(@alignOf(u64)) u8 = @alignCast(bytes.ptr);
+    const ptr_u64: [*]u64 = @ptrCast(aligned_ptr);
+
+    const count = bytes.len / @sizeOf(u64);
+
+    return ptr_u64[0..count];
+}
+
+pub fn asU8Slice(u64s: []u64) []u8 {
+    const aligned_ptr: [*]align(@alignOf(u8)) u64 = @alignCast(u64s.ptr);
+    const ptr_u8: [*]u8 = @ptrCast(aligned_ptr);
+
+    const count = u64s.len * @sizeOf(u64) / @sizeOf(u8);
+
+    return ptr_u8[0..count];
+}
