@@ -744,11 +744,29 @@ pub fn createSigVariant(
             return .{ .point = pk_point };
         }
 
+        // scratch param is designed to be reused across multiple calls
+        pub fn multPublicKeys(pks: []*const PublicKey, scalars: []*const u8, n_bits: usize, scratch: []u64) !AggregatePublicKey {
+            // this is unsafe code but we scanned through testTypeAlignment unit test
+            // Rust does the same thing here
+            const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
+            const pk_point = try PkMultiPoint.mult(pk_aff_points, scalars, n_bits, scratch);
+            return .{ .point = pk_point };
+        }
+
         pub fn addSignatures(sigs: []*const Signature) !AggregateSignature {
             // this is unsafe code but we scanned through testTypeAlignment unit test
             // Rust does the same thing here
             const sig_aff_points: []*const sig_aff_type = @ptrCast(sigs);
             const sig_point = try SigMultiPoint.add(sig_aff_points);
+            return .{ .point = sig_point };
+        }
+
+        // scratch param is designed to be reused across multiple calls
+        pub fn multSignatures(sigs: []*const Signature, scalars: []*const u8, n_bits: usize, scratch: []u64) !AggregateSignature {
+            // this is unsafe code but we scanned through testTypeAlignment unit test
+            // Rust does the same thing here
+            const sig_aff_points: []*const sig_aff_type = @ptrCast(sigs);
+            const sig_point = try SigMultiPoint.mult(sig_aff_points, scalars, n_bits, scratch);
             return .{ .point = sig_point };
         }
 
@@ -1169,6 +1187,31 @@ pub fn createSigVariant(
             const added_sig = try addSignatures(sigs_refs[0..]);
             const sig_from_add = added_sig.toSignature();
             try sig_from_add.verify(true, msg[0..], dst, null, &pk_from_add, true);
+
+            // test multi-point aggregation using mult
+            // n_bytes = 32
+            const rands_len = 32 * num_pks;
+            var rands: [rands_len]u8 = [_]u8{0} ** rands_len;
+            rng.random().bytes(rands[0..]);
+
+            var scalars_refs: [num_pks]*const u8 = undefined;
+            for (0..num_pks) |i| {
+                scalars_refs[i] = &rands[i * 32];
+            }
+
+            const n_bits = 64;
+
+            var allocator = std.testing.allocator;
+            const pk_scratch = try allocator.alloc(u64, pk_scratch_size_of_fn(num_pks) / 8);
+            defer allocator.free(pk_scratch);
+            const sig_scratch = try allocator.alloc(u64, sig_scratch_size_of_fn(num_pks) / 8);
+            defer allocator.free(sig_scratch);
+
+            const mult_pk = try multPublicKeys(pks_refs[0..], scalars_refs[0..], n_bits, pk_scratch);
+            const pk_from_mult = mult_pk.toPublicKey();
+            const mult_sig = try multSignatures(sigs_refs[0..], scalars_refs[0..], n_bits, sig_scratch);
+            const sig_from_mult = mult_sig.toSignature();
+            try sig_from_mult.verify(true, msg[0..], dst, null, &pk_from_mult, true);
         }
 
         fn getRandomKey(rng: *Xoshiro256) SecretKey {
