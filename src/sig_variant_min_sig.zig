@@ -119,4 +119,6 @@ test "multi_point_test_mult_signature" {
     try SigVariant.testMultSig();
 }
 
-// TODO test_multi_point
+test "test_multi_point" {
+    try SigVariant.testMultiPoint();
+}

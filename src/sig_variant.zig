@@ -687,6 +687,8 @@ pub fn createSigVariant(
         pk_add_or_dbl_fn,
     );
 
+    const PkMultiPoint = pk_multi_point.getMultiPoint();
+
     const sig_multi_point = @import("./multi_point.zig").createMultiPoint(
         sig_aff_type,
         sig_type,
@@ -701,6 +703,8 @@ pub fn createSigVariant(
         sig_to_affines_fn,
         sig_add_or_dbl_fn,
     );
+
+    const SigMultiPoint = sig_multi_point.getMultiPoint();
 
     // TODO: consume the above struct to work with public data structures
 
@@ -729,6 +733,23 @@ pub fn createSigVariant(
             var pk_aff = PublicKey.default();
             pk_to_aff_fn(&pk_aff.point, &agg_pk.point);
             return pk_aff;
+        }
+
+        /// Multipoint
+        pub fn addPublicKeys(pks: []*const PublicKey) !AggregatePublicKey {
+            // this is unsafe code but we scanned through testTypeAlignment unit test
+            // Rust does the same thing here
+            const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
+            const pk_point = try PkMultiPoint.add(pk_aff_points);
+            return .{ .point = pk_point };
+        }
+
+        pub fn addSignatures(sigs: []*const Signature) !AggregateSignature {
+            // this is unsafe code but we scanned through testTypeAlignment unit test
+            // Rust does the same thing here
+            const sig_aff_points: []*const sig_aff_type = @ptrCast(sigs);
+            const sig_point = try SigMultiPoint.add(sig_aff_points);
+            return .{ .point = sig_point };
         }
 
         /// testing methods for this lib, should not export to consumers
@@ -1056,6 +1077,21 @@ pub fn createSigVariant(
             try std.testing.expect(@sizeOf(AggregatePublicKey) == @sizeOf(pk_type));
             try std.testing.expect(@sizeOf(Signature) == @sizeOf(sig_aff_type));
             try std.testing.expect(@sizeOf(AggregateSignature) == @sizeOf(sig_type));
+
+            // make sure wrapped structs and C structs point to the same memory so that we can safely use @ptrCast
+            var rng = std.rand.DefaultPrng.init(12345);
+            const sk = getRandomKey(&rng);
+            const pk = sk.skToPk();
+            const pk_addr = @intFromPtr(&pk);
+            const pk_point_addr = @intFromPtr(&pk.point);
+            try std.testing.expect(pk_addr == pk_point_addr);
+
+            const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
+            const msg = "hello foo";
+            const sig = sk.sign(msg[0..], dst[0..], null);
+            const sig_addr = @intFromPtr(&sig);
+            const point_addr = @intFromPtr(&sig.point);
+            try std.testing.expect(sig_addr == point_addr);
         }
 
         /// multi point
@@ -1073,6 +1109,66 @@ pub fn createSigVariant(
 
         pub fn testMultSig() !void {
             try sig_multi_point.testMult();
+        }
+
+        pub fn testMultiPoint() !void {
+            const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
+            const num_pks = 10;
+
+            var rng = std.rand.DefaultPrng.init(12345);
+
+            // Create public keys
+            var sks = [_]SecretKey{SecretKey.default()} ** num_pks;
+            for (0..num_pks) |i| {
+                sks[i] = getRandomKey(&rng);
+            }
+
+            var pks: [num_pks]PublicKey = undefined;
+            for (0..num_pks) |i| {
+                pks[i] = sks[i].skToPk();
+            }
+            var pks_refs: [num_pks]*PublicKey = undefined;
+            for (pks[0..], 0..num_pks) |*pk, i| {
+                pks_refs[i] = pk;
+            }
+
+            // Create random message for pks to all sign
+            // var msg_len = (rng.next() & 0x3F) + 1;
+            // random msg_len
+            const msg_len = 50;
+            var msg: [msg_len]u8 = undefined;
+            rng.random().bytes(msg[0..]);
+
+            // Generate signature for each key pair
+            var sigs: [num_pks]Signature = undefined;
+            for (0..num_pks) |i| {
+                sigs[i] = sks[i].sign(msg[0..], dst, null);
+            }
+            var sigs_refs: [num_pks]*Signature = undefined;
+            for (sigs[0..], 0..num_pks) |*sig, i| {
+                sigs_refs[i] = sig;
+            }
+
+            // TODO: create random values
+
+            // Sanity test each current single signature
+            for (0..num_pks) |i| {
+                try sigs[i].verify(true, msg[0..], dst, null, pks_refs[i], true);
+            }
+
+            // sanity test aggregated signature
+            const agg_pk = try AggregatePublicKey.aggregate(pks_refs[0..], false);
+            const pk_from_agg = agg_pk.toPublicKey();
+            const agg_sig = try AggregateSignature.aggregate(sigs_refs[0..], false);
+            const sig_from_agg = agg_sig.toSignature();
+            try sig_from_agg.verify(true, msg[0..], dst, null, &pk_from_agg, true);
+
+            // test multi-point aggregation using add
+            const added_pk = try addPublicKeys(pks_refs[0..]);
+            const pk_from_add = added_pk.toPublicKey();
+            const added_sig = try addSignatures(sigs_refs[0..]);
+            const sig_from_add = added_sig.toSignature();
+            try sig_from_add.verify(true, msg[0..], dst, null, &pk_from_add, true);
         }
 
         fn getRandomKey(rng: *Xoshiro256) SecretKey {
