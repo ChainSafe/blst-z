@@ -743,7 +743,7 @@ pub fn createSigVariant(
 
         /// pk_scratch and sig_scratch are in []u8 to make it friendly to FFI
         /// let consumer decide the best Allocator to use
-        pub fn aggregateWithRandomness(alloc: ?Allocator, sets: []*const PkAndSerializedSig, pk_scratch_u8: []u8, sig_scratch_u8: []u8, pk_out: *PublicKey, sig_out: *Signature) !void {
+        pub fn aggregateWithRandomness(allocator: Allocator, sets: []*const PkAndSerializedSig, pk_scratch_u8: []u8, sig_scratch_u8: []u8, pk_out: *PublicKey, sig_out: *Signature) !void {
             if (sets.len == 0) {
                 return error.InvalidLen;
             }
@@ -751,7 +751,6 @@ pub fn createSigVariant(
             const sig_scratch = try util.asU64Slice(sig_scratch_u8);
             const pk_scratch = try util.asU64Slice(pk_scratch_u8);
 
-            const allocator = if (alloc != null) alloc.? else std.heap.c_allocator;
             const pks_refs = try allocator.alloc(*PublicKey, sets.len);
             const sigs_refs = try allocator.alloc(*const Signature, sets.len);
             defer allocator.free(pks_refs);
