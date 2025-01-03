@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const testing = std.testing;
 const Xoshiro256 = std.rand.Xoshiro256;
 const P = @import("./pairing.zig").Pairing;
@@ -301,8 +302,8 @@ pub fn createSigVariant(
         }
 
         pub fn sigValidate(sig_in: []const u8, sig_infcheck: bool) BLST_ERROR!@This() {
-            var sig = @This().fromBytes(sig_in);
-            sig.validate(sig_infcheck);
+            var sig = try @This().fromBytes(sig_in);
+            try sig.validate(sig_infcheck);
             return sig;
         }
 
@@ -671,6 +672,11 @@ pub fn createSigVariant(
         }
     };
 
+    const PkAndSerializedSig = struct {
+        pk: *PublicKey,
+        sig: []const u8,
+    };
+
     // for PublicKey and AggregatePublicKey
     const pk_multi_point = @import("./multi_point.zig").createMultiPoint(
         pk_aff_type,
@@ -687,6 +693,8 @@ pub fn createSigVariant(
         pk_add_or_dbl_fn,
     );
 
+    const PkMultiPoint = pk_multi_point.getMultiPoint();
+
     const sig_multi_point = @import("./multi_point.zig").createMultiPoint(
         sig_aff_type,
         sig_type,
@@ -701,6 +709,8 @@ pub fn createSigVariant(
         sig_to_affines_fn,
         sig_add_or_dbl_fn,
     );
+
+    const SigMultiPoint = sig_multi_point.getMultiPoint();
 
     // TODO: consume the above struct to work with public data structures
 
@@ -729,6 +739,83 @@ pub fn createSigVariant(
             var pk_aff = PublicKey.default();
             pk_to_aff_fn(&pk_aff.point, &agg_pk.point);
             return pk_aff;
+        }
+
+        /// pk_scratch and sig_scratch are in []u8 to make it friendly to FFI
+        /// let consumer decide the best Allocator to use
+        pub fn aggregateWithRandomness(allocator: Allocator, sets: []*const PkAndSerializedSig, pk_scratch_u8: []u8, sig_scratch_u8: []u8, pk_out: *PublicKey, sig_out: *Signature) !void {
+            if (sets.len == 0) {
+                return error.InvalidLen;
+            }
+
+            const sig_scratch = try util.asU64Slice(sig_scratch_u8);
+            const pk_scratch = try util.asU64Slice(pk_scratch_u8);
+
+            const pks_refs = try allocator.alloc(*PublicKey, sets.len);
+            const sigs_refs = try allocator.alloc(*const Signature, sets.len);
+            defer allocator.free(pks_refs);
+            defer allocator.free(sigs_refs);
+
+            for (sets, 0..) |set, i| {
+                pks_refs[i] = set.pk;
+                const sig = try Signature.sigValidate(set.sig, true);
+                sigs_refs[i] = &sig;
+            }
+
+            const rands = try allocator.alloc(u8, 32 * sets.len);
+            defer allocator.free(rands);
+            randBytes(rands[0..]);
+
+            const scalars_refs = try allocator.alloc(*u8, sets.len);
+            defer allocator.free(scalars_refs);
+
+            for (0..sets.len) |i| {
+                scalars_refs[i] = &rands[i * 32];
+            }
+
+            const n_bits = 64;
+            const mult_pk = try multPublicKeys(pks_refs, scalars_refs, n_bits, pk_scratch);
+            const pk_from_mult = mult_pk.toPublicKey();
+            const mult_sig = try multSignatures(sigs_refs, scalars_refs, n_bits, sig_scratch);
+            const sig_from_mult = mult_sig.toSignature();
+
+            pk_out.* = pk_from_mult;
+            sig_out.* = sig_from_mult;
+        }
+
+        /// Multipoint
+        pub fn addPublicKeys(pks: []*const PublicKey) !AggregatePublicKey {
+            // this is unsafe code but we scanned through testTypeAlignment unit test
+            // Rust does the same thing here
+            const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
+            const pk_point = try PkMultiPoint.add(pk_aff_points);
+            return .{ .point = pk_point };
+        }
+
+        // scratch param is designed to be reused across multiple calls
+        pub fn multPublicKeys(pks: []*const PublicKey, scalars: []*const u8, n_bits: usize, scratch: []u64) !AggregatePublicKey {
+            // this is unsafe code but we scanned through testTypeAlignment unit test
+            // Rust does the same thing here
+            const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
+            const pk_point = try PkMultiPoint.mult(pk_aff_points, scalars, n_bits, scratch);
+            return .{ .point = pk_point };
+        }
+
+        pub fn addSignatures(sigs: []*const Signature) !AggregateSignature {
+            // this is unsafe code but we scanned through testTypeAlignment unit test
+            // Rust does the same thing here
+            const sig_aff_points: []*const sig_aff_type = @ptrCast(sigs);
+            const sig_point = try SigMultiPoint.add(sig_aff_points);
+            return .{ .point = sig_point };
+        }
+
+        // scratch param is designed to be reused across multiple calls
+        pub fn multSignatures(sigs: []*const Signature, scalars: []*const u8, n_bits: usize, scratch: []u64) !AggregateSignature {
+            // this is unsafe code but we scanned through testTypeAlignment unit test
+            // Rust does the same thing here
+            const sig_aff_points: []*const sig_aff_type = @ptrCast(sigs);
+            const sig_point = try SigMultiPoint.mult(sig_aff_points, scalars, n_bits, scratch);
+            return .{ .point = sig_point };
         }
 
         /// testing methods for this lib, should not export to consumers
@@ -1056,6 +1143,21 @@ pub fn createSigVariant(
             try std.testing.expect(@sizeOf(AggregatePublicKey) == @sizeOf(pk_type));
             try std.testing.expect(@sizeOf(Signature) == @sizeOf(sig_aff_type));
             try std.testing.expect(@sizeOf(AggregateSignature) == @sizeOf(sig_type));
+
+            // make sure wrapped structs and C structs point to the same memory so that we can safely use @ptrCast
+            var rng = std.rand.DefaultPrng.init(12345);
+            const sk = getRandomKey(&rng);
+            const pk = sk.skToPk();
+            const pk_addr = @intFromPtr(&pk);
+            const pk_point_addr = @intFromPtr(&pk.point);
+            try std.testing.expect(pk_addr == pk_point_addr);
+
+            const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
+            const msg = "hello foo";
+            const sig = sk.sign(msg[0..], dst[0..], null);
+            const sig_addr = @intFromPtr(&sig);
+            const point_addr = @intFromPtr(&sig.point);
+            try std.testing.expect(sig_addr == point_addr);
         }
 
         /// multi point
@@ -1075,6 +1177,162 @@ pub fn createSigVariant(
             try sig_multi_point.testMult();
         }
 
+        /// this is the same test to Rust's test_multi_point()
+        pub fn testMultiPoint() !void {
+            const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
+            const num_pks = 10;
+
+            var rng = std.rand.DefaultPrng.init(12345);
+
+            // Create public keys
+            var sks = [_]SecretKey{SecretKey.default()} ** num_pks;
+            for (0..num_pks) |i| {
+                sks[i] = getRandomKey(&rng);
+            }
+
+            var pks: [num_pks]PublicKey = undefined;
+            for (0..num_pks) |i| {
+                pks[i] = sks[i].skToPk();
+            }
+            var pks_refs: [num_pks]*PublicKey = undefined;
+            for (pks[0..], 0..num_pks) |*pk, i| {
+                pks_refs[i] = pk;
+            }
+
+            // Create random message for pks to all sign
+            // var msg_len = (rng.next() & 0x3F) + 1;
+            // random msg_len
+            const msg_len = 50;
+            var msg: [msg_len]u8 = undefined;
+            rng.random().bytes(msg[0..]);
+
+            // Generate signature for each key pair
+            var sigs: [num_pks]Signature = undefined;
+            for (0..num_pks) |i| {
+                sigs[i] = sks[i].sign(msg[0..], dst, null);
+            }
+            var sigs_refs: [num_pks]*Signature = undefined;
+            for (sigs[0..], 0..num_pks) |*sig, i| {
+                sigs_refs[i] = sig;
+            }
+
+            // Sanity test each current single signature
+            for (0..num_pks) |i| {
+                try sigs[i].verify(true, msg[0..], dst, null, pks_refs[i], true);
+            }
+
+            // sanity test aggregated signature
+            const agg_pk = try AggregatePublicKey.aggregate(pks_refs[0..], false);
+            const pk_from_agg = agg_pk.toPublicKey();
+            const agg_sig = try AggregateSignature.aggregate(sigs_refs[0..], false);
+            const sig_from_agg = agg_sig.toSignature();
+            try sig_from_agg.verify(true, msg[0..], dst, null, &pk_from_agg, true);
+
+            // test multi-point aggregation using add
+            const added_pk = try addPublicKeys(pks_refs[0..]);
+            const pk_from_add = added_pk.toPublicKey();
+            const added_sig = try addSignatures(sigs_refs[0..]);
+            const sig_from_add = added_sig.toSignature();
+            try sig_from_add.verify(true, msg[0..], dst, null, &pk_from_add, true);
+
+            // test multi-point aggregation using mult
+            // n_bytes = 32
+            const rands_len = 32 * num_pks;
+            var rands: [rands_len]u8 = [_]u8{0} ** rands_len;
+            rng.random().bytes(rands[0..]);
+
+            var scalars_refs: [num_pks]*const u8 = undefined;
+            for (0..num_pks) |i| {
+                scalars_refs[i] = &rands[i * 32];
+            }
+
+            const n_bits = 64;
+
+            var allocator = std.testing.allocator;
+            const pk_scratch = try allocator.alloc(u64, pk_scratch_size_of_fn(num_pks) / 8);
+            defer allocator.free(pk_scratch);
+            const sig_scratch = try allocator.alloc(u64, sig_scratch_size_of_fn(num_pks) / 8);
+            defer allocator.free(sig_scratch);
+
+            const mult_pk = try multPublicKeys(pks_refs[0..], scalars_refs[0..], n_bits, pk_scratch);
+            const pk_from_mult = mult_pk.toPublicKey();
+            const mult_sig = try multSignatures(sigs_refs[0..], scalars_refs[0..], n_bits, sig_scratch);
+            const sig_from_mult = mult_sig.toSignature();
+            try sig_from_mult.verify(true, msg[0..], dst, null, &pk_from_mult, true);
+        }
+
+        /// specific testing in zig, logic is similar to testMultiPoint() with
+        /// - no need to generate random
+        /// - provide scratch values in []u8 instead of []u64
+        pub fn testAggregateWithRandomness() !void {
+            const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
+            const num_pks = 10;
+
+            var rng = std.rand.DefaultPrng.init(12345);
+
+            // Create public keys
+            var sks = [_]SecretKey{SecretKey.default()} ** num_pks;
+            for (0..num_pks) |i| {
+                sks[i] = getRandomKey(&rng);
+            }
+
+            var pks: [num_pks]PublicKey = undefined;
+            for (0..num_pks) |i| {
+                pks[i] = sks[i].skToPk();
+            }
+            var pks_refs: [num_pks]*PublicKey = undefined;
+            for (pks[0..], 0..num_pks) |*pk, i| {
+                pks_refs[i] = pk;
+            }
+
+            // Create random message for pks to all sign
+            // var msg_len = (rng.next() & 0x3F) + 1;
+            // random msg_len
+            const msg_len = 50;
+            var msg: [msg_len]u8 = undefined;
+            rng.random().bytes(msg[0..]);
+
+            // Generate signature for each key pair
+            var sigs: [num_pks]Signature = undefined;
+            for (0..num_pks) |i| {
+                sigs[i] = sks[i].sign(msg[0..], dst, null);
+            }
+            var sigs_refs: [num_pks]*Signature = undefined;
+            for (sigs[0..], 0..num_pks) |*sig, i| {
+                sigs_refs[i] = sig;
+            }
+
+            // Sanity test each current single signature
+            for (0..num_pks) |i| {
+                try sigs[i].verify(true, msg[0..], dst, null, pks_refs[i], true);
+            }
+
+            // out params
+            var agg_pk = PublicKey.default();
+            var agg_sig = Signature.default();
+
+            var set: [num_pks]*PkAndSerializedSig = undefined;
+            for (0..num_pks) |i| {
+                const bytes = sigs[i].serialize();
+                var s = PkAndSerializedSig{ .pk = &pks[i], .sig = bytes[0..] };
+                set[i] = &s;
+            }
+
+            // scratch, allocate once and reuse
+            var allocator = std.testing.allocator;
+            const pk_scratch = try allocator.alloc(u64, pk_scratch_size_of_fn(num_pks) / 8);
+            defer allocator.free(pk_scratch);
+            const sig_scratch = try allocator.alloc(u64, sig_scratch_size_of_fn(num_pks) / 8);
+            defer allocator.free(sig_scratch);
+
+            const pk_scratch_u8 = util.asU8Slice(pk_scratch);
+            const sig_scratch_u8 = util.asU8Slice(sig_scratch);
+
+            try aggregateWithRandomness(std.testing.allocator, set[0..], pk_scratch_u8, sig_scratch_u8, &agg_pk, &agg_sig);
+
+            try agg_sig.verify(true, msg[0..], dst, null, &agg_pk, true);
+        }
+
         fn getRandomKey(rng: *Xoshiro256) SecretKey {
             var value: [32]u8 = [_]u8{0} ** 32;
             rng.random().bytes(value[0..]);
@@ -1084,4 +1342,28 @@ pub fn createSigVariant(
             return sk;
         }
     };
+}
+
+var random: ?std.rand.DefaultPrng = null;
+
+fn getRandom() std.rand.DefaultPrng {
+    if (random == null) {
+        const timestamp: u64 = @intCast(std.time.milliTimestamp());
+        random = std.rand.DefaultPrng.init(timestamp);
+    }
+    return random.?;
+}
+
+fn randNonZero() u64 {
+    var rand = getRandom();
+    var res = rand.int(u64);
+    while (res == 0) {
+        res = rand.int(u64);
+    }
+    return res;
+}
+
+fn randBytes(bytes: []u8) void {
+    var rand = getRandom();
+    rand.random().bytes(bytes);
 }

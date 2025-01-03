@@ -2,8 +2,8 @@ const std = @import("std");
 
 /// Create MultiPoint struct, this follows non-std implementation of Rust binding
 /// equivalent to blst/bindings/rust/src/pippenger-no_std.rs
-/// IT: input type, for example PublicKey
-/// OT: output type, for example AggregatePublicKey
+/// IT: input type, for example PublicKey or Signature
+/// OT: output type, for example AggregatePublicKey or AggregateSignature
 pub fn createMultiPoint(comptime IT: type, comptime OT: type, it_default_fn: anytype, ot_default_fn: anytype, out_eql_fn: anytype, add_fn: anytype, multi_scalar_mult_fn: anytype, scratch_sizeof_fn: anytype, mult_fn: anytype, generator_fn: anytype, to_affines_fn: anytype, add_or_double_fn: anytype) type {
     const MultiPoint = struct {
         /// Skip from([]OT) api
@@ -45,7 +45,9 @@ pub fn createMultiPoint(comptime IT: type, comptime OT: type, it_default_fn: any
     };
 
     return struct {
-        MultiPoint: MultiPoint,
+        pub fn getMultiPoint() type {
+            return MultiPoint;
+        }
 
         pub fn testAdd() !void {
             const n_points = 2000;

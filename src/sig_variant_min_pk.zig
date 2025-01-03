@@ -76,6 +76,7 @@ pub const min_pk = struct {
     pub const Signature = SigVariant.createSignature();
     pub const AggregateSignature = SigVariant.createAggregateSignature();
     pub const SecretKey = SigVariant.createSecretKey();
+    pub const aggregateWithRandomness = SigVariant.aggregateWithRandomness;
 };
 
 test "test_sign_n_verify" {
@@ -119,4 +120,10 @@ test "multi_point_test_mult_signature" {
     try SigVariant.testMultSig();
 }
 
-// TODO test_multi_point
+test "test_multi_point" {
+    try SigVariant.testMultiPoint();
+}
+
+test "test_aggregate_with_randomness" {
+    try SigVariant.testAggregateWithRandomness();
+}
