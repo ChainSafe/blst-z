@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const testing = std.testing;
 const Xoshiro256 = std.rand.Xoshiro256;
 const P = @import("./pairing.zig").Pairing;
@@ -741,7 +742,8 @@ pub fn createSigVariant(
         }
 
         /// pk_scratch and sig_scratch are in []u8 to make it friendly to FFI
-        pub fn aggregateWithRandomness(sets: []*const PkAndSerializedSig, pk_scratch_u8: []u8, sig_scratch_u8: []u8, pk_out: *PublicKey, sig_out: *Signature) !void {
+        /// let consumer decide the best Allocator to use
+        pub fn aggregateWithRandomness(alloc: ?Allocator, sets: []*const PkAndSerializedSig, pk_scratch_u8: []u8, sig_scratch_u8: []u8, pk_out: *PublicKey, sig_out: *Signature) !void {
             if (sets.len == 0) {
                 return error.InvalidLen;
             }
@@ -749,8 +751,7 @@ pub fn createSigVariant(
             const sig_scratch = try util.asU64Slice(sig_scratch_u8);
             const pk_scratch = try util.asU64Slice(pk_scratch_u8);
 
-            // TODO: is this the best default allocator to use?
-            const allocator = std.heap.c_allocator;
+            const allocator = if (alloc != null) alloc.? else std.heap.c_allocator;
             const pks_refs = try allocator.alloc(*PublicKey, sets.len);
             const sigs_refs = try allocator.alloc(*const Signature, sets.len);
             defer allocator.free(pks_refs);
@@ -1328,7 +1329,7 @@ pub fn createSigVariant(
             const pk_scratch_u8 = util.asU8Slice(pk_scratch);
             const sig_scratch_u8 = util.asU8Slice(sig_scratch);
 
-            try aggregateWithRandomness(set[0..], pk_scratch_u8, sig_scratch_u8, &agg_pk, &agg_sig);
+            try aggregateWithRandomness(std.testing.allocator, set[0..], pk_scratch_u8, sig_scratch_u8, &agg_pk, &agg_sig);
 
             try agg_sig.verify(true, msg[0..], dst, null, &agg_pk, true);
         }
