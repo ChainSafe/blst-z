@@ -123,32 +123,58 @@ pub fn createSigVariant(
 
         pub fn default() @This() {
             return .{
-                .point = default_pubkey_fn(),
+                .point = defaultPublicKey(),
             };
+        }
+
+        pub fn defaultPublicKey() pk_aff_type {
+            return default_pubkey_fn();
         }
 
         // Core operations
 
         // key_validate
         pub fn validate(self: *const @This()) BLST_ERROR!void {
-            if (pk_is_inf_fn(&self.point)) {
-                return BLST_ERROR.PK_IS_INFINITY;
-            }
-
-            if (pk_in_group_fn(&self.point) == false) {
-                return BLST_ERROR.POINT_NOT_IN_GROUP;
+            const res = validatePublicKey(&self.point);
+            if (toBlstError(res)) |err| {
+                return err;
             }
         }
 
-        pub fn key_validate(key: []const u8) BLST_ERROR!void {
+        pub fn validatePublicKey(point: *const pk_aff_type) c_uint {
+            if (pk_is_inf_fn(point)) {
+                return c.BLST_PK_IS_INFINITY;
+            }
+
+            if (pk_in_group_fn(point) == false) {
+                return c.BLST_POINT_NOT_IN_GROUP;
+            }
+
+            return c.BLST_SUCCESS;
+        }
+
+        pub fn keyValidate(key: []const u8) BLST_ERROR!void {
             const pk = try @This().fromBytes(key);
             try pk.validate();
+        }
+
+        pub fn publicKeyBytesValidate(key: *const u8, len: usize) c_uint {
+            var point = defaultPublicKey();
+            const res = fromPublicKeyBytes(&point, key, len);
+            if (res != c.BLST_SUCCESS) {
+                return res;
+            }
+            return validatePublicKey(&point);
         }
 
         pub fn fromAggregate(comptime AggregatePublicKey: type, agg_pk: *const AggregatePublicKey) @This() {
             var pk_aff = @This().default();
             pk_to_aff_fn(&pk_aff.point, &agg_pk.point);
             return pk_aff;
+        }
+
+        pub fn fromAggregatePublicKey(out: *pk_aff_type, agg_pk: *const pk_type) void {
+            return pk_to_aff_fn(out, agg_pk);
         }
 
         // Serdes
@@ -159,10 +185,18 @@ pub fn createSigVariant(
             return pk_comp;
         }
 
+        pub fn compressPublicKey(out: *u8, point: *const pk_aff_type) void {
+            pk_comp_fn(out, point);
+        }
+
         pub fn serialize(self: *const @This()) [pk_ser_size]u8 {
             var pk_out = [_]u8{0} ** pk_ser_size;
             pk_ser_fn(&pk_out[0], &self.point);
             return pk_out;
+        }
+
+        pub fn serializePublicKey(out: *u8, point: *const pk_aff_type) void {
+            pk_ser_fn(out, point);
         }
 
         pub fn uncompress(pk_comp: []const u8) BLST_ERROR!@This() {
@@ -175,28 +209,52 @@ pub fn createSigVariant(
             return BLST_ERROR.BAD_ENCODING;
         }
 
-        pub fn deserialize(pk_in: []const u8) BLST_ERROR!@This() {
-            if ((pk_in.len == pk_ser_size and (pk_in[0] & 0x80) == 0) or
-                (pk_in.len == pk_comp_size and (pk_in[0] & 0x80) != 0))
-            {
-                var pk = @This().default();
-                const res = pk_deser_fn(&pk.point, &pk_in[0]);
-                return toBlstError(res) orelse pk;
+        pub fn uncompressPublicKey(point: *pk_aff_type, pk_comp: *const u8, len: usize) c_uint {
+            if (len == pk_comp_size and (pk_comp.* & 0x80) != 0) {
+                return pk_uncomp_fn(point, pk_comp);
             }
 
-            return BLST_ERROR.BAD_ENCODING;
+            return c.BLST_BAD_ENCODING;
+        }
+
+        pub fn deserialize(pk_in: []const u8) BLST_ERROR!@This() {
+            var point = defaultPublicKey();
+            const res = deserializePublicKey(&point, &pk_in[0], pk_in.len);
+            return toBlstError(res) orelse .{ .point = point };
+        }
+
+        pub fn deserializePublicKey(point: *pk_aff_type, pk_in: *const u8, len: usize) c_uint {
+            if ((len == pk_ser_size and (pk_in.* & 0x80) == 0) or
+                (len == pk_comp_size and (pk_in.* & 0x80) != 0))
+            {
+                return pk_deser_fn(point, pk_in);
+            }
+
+            return c.BLST_BAD_ENCODING;
         }
 
         pub fn fromBytes(pk_in: []const u8) BLST_ERROR!@This() {
             return @This().deserialize(pk_in);
         }
 
-        pub fn toBytes(self: *const @This()) [48]u8 {
+        pub fn fromPublicKeyBytes(point: *pk_aff_type, pk_in: *const u8, len: usize) c_uint {
+            return deserializePublicKey(point, pk_in, len);
+        }
+
+        pub fn toBytes(self: *const @This()) [pk_comp_size]u8 {
             return self.compress();
+        }
+
+        pub fn toPublicKeyBytes(out: *u8, point: *pk_aff_type) void {
+            return compressPublicKey(out, point);
         }
 
         pub fn isEqual(self: *const @This(), other: *const @This()) bool {
             return pk_eq_fn(&self.point, &other.point);
+        }
+
+        pub fn isPublicKeyEqual(point: *pk_aff_type, other: *pk_aff_type) bool {
+            return pk_eq_fn(point, other);
         }
 
         // TODO: PartialEq, Serialize, Deserialize?
@@ -733,6 +791,14 @@ pub fn createSigVariant(
 
         pub fn createAggregateSignature() type {
             return AggregateSignature;
+        }
+
+        pub fn getPublicKeyType() type {
+            return pk_aff_type;
+        }
+
+        pub fn getAggregatePublicKeyType() type {
+            return pk_type;
         }
 
         pub fn pubkeyFromAggregate(agg_pk: *const AggregatePublicKey) PublicKey {

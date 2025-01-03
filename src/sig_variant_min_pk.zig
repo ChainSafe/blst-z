@@ -70,14 +70,61 @@ const SigVariant = createSigVariant(
     c.blst_p2s_to_affine,
 );
 
-pub const min_pk = struct {
-    pub const PublicKey = SigVariant.createPublicKey();
-    pub const AggregatePublicKey = SigVariant.createAggregatePublicKey();
-    pub const Signature = SigVariant.createSignature();
-    pub const AggregateSignature = SigVariant.createAggregateSignature();
-    pub const SecretKey = SigVariant.createSecretKey();
-    pub const aggregateWithRandomness = SigVariant.aggregateWithRandomness;
-};
+pub const PublicKey = SigVariant.createPublicKey();
+pub const AggregatePublicKey = SigVariant.createAggregatePublicKey();
+pub const Signature = SigVariant.createSignature();
+pub const AggregateSignature = SigVariant.createAggregateSignature();
+pub const SecretKey = SigVariant.createSecretKey();
+pub const aggregateWithRandomness = SigVariant.aggregateWithRandomness;
+
+/// exported C-ABI functions need to be declared at top level, and they only work with extern struct
+const PublicKeyType = SigVariant.getPublicKeyType();
+const AggregatePublicKeyType = SigVariant.getAggregatePublicKeyType();
+
+/// PublicKey functions
+export fn defaultPublicKey() PublicKeyType {
+    return PublicKey.defaultPublicKey();
+}
+
+export fn validatePublicKey(pk: *const PublicKeyType) c_uint {
+    return PublicKey.validatePublicKey(pk);
+}
+
+export fn publicKeyBytesValidate(key: *const u8, len: usize) c_uint {
+    return PublicKey.publicKeyBytesValidate(key, len);
+}
+
+export fn fromAggregatePublicKey(out: *PublicKeyType, agg_pk: *const AggregatePublicKeyType) void {
+    return PublicKey.fromAggregatePublicKey(out, agg_pk);
+}
+
+export fn compressPublicKey(out: *u8, point: *const PublicKeyType) void {
+    return PublicKey.compressPublicKey(out, point);
+}
+
+export fn serializePublicKey(out: *u8, point: *const PublicKeyType) void {
+    return PublicKey.serializePublicKey(out, point);
+}
+
+export fn uncompressPublicKey(point: *PublicKeyType, pk_comp: *const u8, len: usize) c_uint {
+    return PublicKey.uncompressPublicKey(point, pk_comp, len);
+}
+
+export fn deserializePublicKey(point: *PublicKeyType, pk_in: *const u8, len: usize) c_uint {
+    return PublicKey.deserializePublicKey(point, pk_in, len);
+}
+
+export fn fromPublicKeyBytes(point: *PublicKeyType, pk_in: *const u8, len: usize) c_uint {
+    return PublicKey.fromPublicKeyBytes(point, pk_in, len);
+}
+
+export fn toPublicKeyBytes(out: *u8, point: *PublicKeyType) void {
+    return PublicKey.toPublicKeyBytes(out, point);
+}
+
+export fn isPublicKeyEqual(point: *PublicKeyType, other: *PublicKeyType) bool {
+    return PublicKey.isPublicKeyEqual(point, other);
+}
 
 test "test_sign_n_verify" {
     try SigVariant.testSignNVerify();

@@ -1,7 +1,25 @@
 const std = @import("std");
 const testing = std.testing;
-pub const min_pk = @import("./sig_variant_min_pk.zig").min_pk;
-pub const min_sig = @import("./sig_variant_min_sig.zig").min_sig;
+pub const min_pk_sig_variant = @import("./sig_variant_min_pk.zig");
+pub const min_sig_sig_variant = @import("./sig_variant_min_sig.zig");
+
+pub const min_pk = struct {
+    pub const PublicKey = min_pk_sig_variant.PublicKey;
+    pub const AggregatePublicKey = min_pk_sig_variant.AggregatePublicKey;
+    pub const Signature = min_pk_sig_variant.Signature;
+    pub const AggregateSignature = min_pk_sig_variant.AggregateSignature;
+    pub const SecretKey = min_pk_sig_variant.SecretKey;
+    pub const aggregateWithRandomness = min_pk_sig_variant.aggregateWithRandomness;
+};
+
+pub const min_sig = struct {
+    pub const PublicKey = min_sig_sig_variant.PublicKey;
+    pub const AggregatePublicKey = min_sig_sig_variant.AggregatePublicKey;
+    pub const Signature = min_sig_sig_variant.Signature;
+    pub const AggregateSignature = min_sig_sig_variant.AggregateSignature;
+    pub const SecretKey = min_sig_sig_variant.SecretKey;
+    pub const aggregateWithRandomness = min_sig_sig_variant.aggregateWithRandomness;
+};
 
 test {
     testing.refAllDecls(@This());

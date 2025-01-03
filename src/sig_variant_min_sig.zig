@@ -70,14 +70,14 @@ const SigVariant = createSigVariant(
     c.blst_p1s_to_affine,
 );
 
-pub const min_sig = struct {
-    pub const PublicKey = SigVariant.createPublicKey();
-    pub const AggregatePublicKey = SigVariant.createAggregatePublicKey();
-    pub const Signature = SigVariant.createSignature();
-    pub const AggregateSignature = SigVariant.createAggregateSignature();
-    pub const SecretKey = SigVariant.createSecretKey();
-    pub const aggregateWithRandomness = SigVariant.aggregateWithRandomness;
-};
+pub const PublicKey = SigVariant.createPublicKey();
+pub const AggregatePublicKey = SigVariant.createAggregatePublicKey();
+pub const Signature = SigVariant.createSignature();
+pub const AggregateSignature = SigVariant.createAggregateSignature();
+pub const SecretKey = SigVariant.createSecretKey();
+pub const aggregateWithRandomness = SigVariant.aggregateWithRandomness;
+
+// TODO: sync exported C-ABI functions from min_pk
 
 test "test_sign_n_verify" {
     try SigVariant.testSignNVerify();

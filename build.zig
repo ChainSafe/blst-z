@@ -17,7 +17,7 @@ pub fn build(b: *std.Build) !void {
 
     // build blst-z static library
     const staticLib = b.addStaticLibrary(.{
-        .name = "blst-z",
+        .name = "blst",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
         .root_source_file = b.path("src/root.zig"),
@@ -56,8 +56,8 @@ pub fn build(b: *std.Build) !void {
 
     // build blst-z shared library
     const sharedLib = b.addSharedLibrary(.{
-        .name = "blst-z",
-        .root_source_file = b.path("src/c_abi.zig"),
+        .name = "blst_min_pk",
+        .root_source_file = b.path("src/sig_variant_min_pk.zig"),
         .target = target,
         .optimize = optimize,
     });
