@@ -118,17 +118,18 @@ pub fn createSigVariant(
     };
 
     // TODO: implement Clone, Copy, Equal
+    // each function has 2 version: 1 for Zig and 1 for C-ABI
     const PublicKey = struct {
         point: pk_aff_type,
 
         pub fn default() @This() {
             return .{
-                .point = defaultPublicKey(),
+                .point = default_pubkey_fn(),
             };
         }
 
-        pub fn defaultPublicKey() pk_aff_type {
-            return default_pubkey_fn();
+        pub fn defaultPublicKey(out: *pk_aff_type) void {
+            out.* = default_pubkey_fn();
         }
 
         // Core operations
@@ -158,9 +159,9 @@ pub fn createSigVariant(
             try pk.validate();
         }
 
-        pub fn publicKeyBytesValidate(key: *const u8, len: usize) c_uint {
-            var point = defaultPublicKey();
-            const res = fromPublicKeyBytes(&point, key, len);
+        pub fn publicKeyBytesValidate(key: [*c]const u8, len: usize) c_uint {
+            var point = default().point;
+            const res = publicKeyFromBytes(&point, key, len);
             if (res != c.BLST_SUCCESS) {
                 return res;
             }
@@ -173,7 +174,7 @@ pub fn createSigVariant(
             return pk_aff;
         }
 
-        pub fn fromAggregatePublicKey(out: *pk_aff_type, agg_pk: *const pk_type) void {
+        pub fn publicKeyFromAggregate(out: *pk_aff_type, agg_pk: *const pk_type) void {
             return pk_to_aff_fn(out, agg_pk);
         }
 
@@ -209,25 +210,25 @@ pub fn createSigVariant(
             return BLST_ERROR.BAD_ENCODING;
         }
 
-        pub fn uncompressPublicKey(point: *pk_aff_type, pk_comp: *const u8, len: usize) c_uint {
+        pub fn uncompressPublicKey(out: *pk_aff_type, pk_comp: [*c]const u8, len: usize) c_uint {
             if (len == pk_comp_size and (pk_comp.* & 0x80) != 0) {
-                return pk_uncomp_fn(point, pk_comp);
+                return pk_uncomp_fn(out, pk_comp);
             }
 
             return c.BLST_BAD_ENCODING;
         }
 
         pub fn deserialize(pk_in: []const u8) BLST_ERROR!@This() {
-            var point = defaultPublicKey();
+            var point = default().point;
             const res = deserializePublicKey(&point, &pk_in[0], pk_in.len);
             return toBlstError(res) orelse .{ .point = point };
         }
 
-        pub fn deserializePublicKey(point: *pk_aff_type, pk_in: *const u8, len: usize) c_uint {
+        pub fn deserializePublicKey(out: *pk_aff_type, pk_in: [*c]const u8, len: usize) c_uint {
             if ((len == pk_ser_size and (pk_in.* & 0x80) == 0) or
                 (len == pk_comp_size and (pk_in.* & 0x80) != 0))
             {
-                return pk_deser_fn(point, pk_in);
+                return pk_deser_fn(out, pk_in);
             }
 
             return c.BLST_BAD_ENCODING;
@@ -237,7 +238,7 @@ pub fn createSigVariant(
             return @This().deserialize(pk_in);
         }
 
-        pub fn fromPublicKeyBytes(point: *pk_aff_type, pk_in: *const u8, len: usize) c_uint {
+        pub fn publicKeyFromBytes(point: *pk_aff_type, pk_in: [*c]const u8, len: usize) c_uint {
             return deserializePublicKey(point, pk_in, len);
         }
 
@@ -261,6 +262,7 @@ pub fn createSigVariant(
 
     };
 
+    // each function has 2 version: 1 for Zig and 1 for C-ABI
     const AggregatePublicKey = struct {
         point: pk_type,
 
@@ -270,6 +272,10 @@ pub fn createSigVariant(
             };
         }
 
+        pub fn defaultAggregatePublicKey(out: *pk_type) void {
+            out.* = default_agg_pubkey_fn();
+        }
+
         pub fn fromPublicKey(pk: *const PublicKey) @This() {
             var agg_pk = @This().default();
             pk_from_aff_fn(&agg_pk.point, &pk.point);
@@ -277,10 +283,18 @@ pub fn createSigVariant(
             return agg_pk;
         }
 
+        pub fn aggregateFromPublicKey(out: *pk_type, pk: *const pk_aff_type) void {
+            return pk_from_aff_fn(out, pk);
+        }
+
         pub fn toPublicKey(self: *const @This()) PublicKey {
             var pk = PublicKey.default();
             pk_to_aff_fn(&pk.point, &self.point);
             return pk;
+        }
+
+        pub fn aggregateToPublicKey(out: *pk_aff_type, agg_pk: *const pk_type) void {
+            return pk_to_aff_fn(out, agg_pk);
         }
 
         // Aggregate
@@ -304,23 +318,106 @@ pub fn createSigVariant(
             return agg_pk;
         }
 
+        pub fn aggregatePublicKeys(out: *pk_type, pks: [*c]*const pk_aff_type, len: usize, pks_validate: bool) c_uint {
+            if (len == 0) {
+                return c.BLST_AGGR_TYPE_MISMATCH;
+            }
+            if (pks_validate) {
+                const res = PublicKey.validatePublicKey(pks[0]);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
+            }
+
+            aggregateFromPublicKey(out, pks[0]);
+            for (1..len) |i| {
+                if (pks_validate) {
+                    const res = PublicKey.validatePublicKey(pks[i]);
+                    if (res != c.BLST_SUCCESS) {
+                        return res;
+                    }
+                }
+
+                pk_add_or_dbl_aff_fn(out, out, pks[i]);
+            }
+
+            return c.BLST_SUCCESS;
+        }
+
         pub fn aggregateSerialized(pks: [][]const u8, pks_validate: bool) BLST_ERROR!@This() {
             // TODO - threading
             if (pks.len == 0) {
                 return BLST_ERROR.AGGR_TYPE_MISMATCH;
             }
-            var pk = if (pks_validate) PublicKey.key_validate(pks[0]) else PublicKey.fromBytes(pks[0]);
+            var pk = PublicKey.fromBytes(pks[0]);
+            if (pks_validate) {
+                try pk.validate();
+            }
             var agg_pk = @This().fromPublicKey(&pk);
             for (pks[1..]) |s| {
-                pk = if (pks_validate) PublicKey.key_validate(s) else PublicKey.fromBytes(s);
+                pk = PublicKey.fromBytes(s);
+                if (pks_validate) {
+                    try pk.validate();
+                }
                 pk_add_or_dbl_aff_fn(&agg_pk.point, &agg_pk.point, &pk.point);
             }
 
             return agg_pk;
         }
 
+        /// equivalent to aggregateSerialized but for compressed pks
+        pub fn aggregateCompressedPublicKeys(out: *pk_type, pks: [*c][*c]const u8, pks_len: usize, pks_validate: bool) c_uint {
+            return aggregateSerializedPublicKeysToOut(out, pks, pks_len, pk_comp_size, pks_validate);
+        }
+
+        pub fn aggregateSerializedPublicKeys(out: *pk_type, pks: [*c][*c]const u8, pks_len: usize, pks_validate: bool) c_uint {
+            return aggregateSerializedPublicKeysToOut(out, pks, pks_len, pk_ser_size, pks_validate);
+        }
+
+        fn aggregateSerializedPublicKeysToOut(out: *pk_type, pks: [*c][*c]const u8, pks_len: usize, pk_len: usize, pks_validate: bool) c_uint {
+            if (pks_len <= 0) {
+                return c.BLST_AGGR_TYPE_MISMATCH;
+            }
+
+            var pk = default_pubkey_fn();
+            var res = PublicKey.publicKeyFromBytes(&pk, pks[0], pk_len);
+            if (res != c.BLST_SUCCESS) {
+                return res;
+            }
+
+            if (pks_validate) {
+                res = PublicKey.validatePublicKey(&pk);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
+            }
+
+            aggregateFromPublicKey(out, &pk);
+
+            for (1..pks_len) |i| {
+                var point = default_pubkey_fn();
+                res = PublicKey.publicKeyFromBytes(&point, pks[i], pk_len);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
+                if (pks_validate) {
+                    res = PublicKey.validatePublicKey(&point);
+                    if (res != c.BLST_SUCCESS) {
+                        return res;
+                    }
+                }
+                pk_add_or_dbl_aff_fn(out, out, &point);
+            }
+
+            return c.BLST_SUCCESS;
+        }
+
         pub fn addAggregate(self: *@This(), agg_pk: *const @This()) BLST_ERROR!void {
             pk_add_or_dbl_fn(&self.point, &self.point, &agg_pk.point);
+        }
+
+        pub fn addAggregatePublicKey(out: *pk_type, agg_pk: *const pk_type) void {
+            pk_add_or_dbl_fn(out, out, agg_pk);
         }
 
         pub fn addPublicKey(self: *@This(), pk: *const PublicKey, pk_validate: bool) BLST_ERROR!void {
@@ -331,8 +428,24 @@ pub fn createSigVariant(
             pk_add_or_dbl_aff_fn(&self.point, &self.point, &pk.point);
         }
 
+        pub fn addPublicKeyToAggregate(out: *pk_type, pk: *const pk_aff_type, pk_validate: bool) c_uint {
+            if (pk_validate) {
+                const res = PublicKey.validatePublicKey(pk);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
+            }
+
+            pk_add_or_dbl_aff_fn(out, out, pk);
+            return c.BLST_SUCCESS;
+        }
+
         pub fn isEqual(self: *const @This(), other: *const @This()) bool {
             return agg_pk_eq_fn(&self.point, &other.point);
+        }
+
+        pub fn isAggregatePublicKeyEqual(point: *const pk_type, other: *const pk_type) bool {
+            return agg_pk_eq_fn(point, other);
         }
     };
 

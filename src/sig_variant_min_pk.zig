@@ -82,20 +82,20 @@ const PublicKeyType = SigVariant.getPublicKeyType();
 const AggregatePublicKeyType = SigVariant.getAggregatePublicKeyType();
 
 /// PublicKey functions
-export fn defaultPublicKey() PublicKeyType {
-    return PublicKey.defaultPublicKey();
+export fn defaultPublicKey(out: *PublicKeyType) void {
+    return PublicKey.defaultPublicKey(out);
 }
 
 export fn validatePublicKey(pk: *const PublicKeyType) c_uint {
     return PublicKey.validatePublicKey(pk);
 }
 
-export fn publicKeyBytesValidate(key: *const u8, len: usize) c_uint {
+export fn publicKeyBytesValidate(key: [*c]const u8, len: usize) c_uint {
     return PublicKey.publicKeyBytesValidate(key, len);
 }
 
-export fn fromAggregatePublicKey(out: *PublicKeyType, agg_pk: *const AggregatePublicKeyType) void {
-    return PublicKey.fromAggregatePublicKey(out, agg_pk);
+export fn publicKeyFromAggregate(out: *PublicKeyType, agg_pk: *const AggregatePublicKeyType) void {
+    return PublicKey.publicKeyFromAggregate(out, agg_pk);
 }
 
 export fn compressPublicKey(out: *u8, point: *const PublicKeyType) void {
@@ -106,16 +106,16 @@ export fn serializePublicKey(out: *u8, point: *const PublicKeyType) void {
     return PublicKey.serializePublicKey(out, point);
 }
 
-export fn uncompressPublicKey(point: *PublicKeyType, pk_comp: *const u8, len: usize) c_uint {
-    return PublicKey.uncompressPublicKey(point, pk_comp, len);
+export fn uncompressPublicKey(out: *PublicKeyType, pk_comp: [*c]const u8, len: usize) c_uint {
+    return PublicKey.uncompressPublicKey(out, pk_comp, len);
 }
 
-export fn deserializePublicKey(point: *PublicKeyType, pk_in: *const u8, len: usize) c_uint {
-    return PublicKey.deserializePublicKey(point, pk_in, len);
+export fn deserializePublicKey(out: *PublicKeyType, pk_in: [*c]const u8, len: usize) c_uint {
+    return PublicKey.deserializePublicKey(out, pk_in, len);
 }
 
-export fn fromPublicKeyBytes(point: *PublicKeyType, pk_in: *const u8, len: usize) c_uint {
-    return PublicKey.fromPublicKeyBytes(point, pk_in, len);
+export fn publicKeyFromBytes(point: *PublicKeyType, pk_in: [*c]const u8, len: usize) c_uint {
+    return PublicKey.publicKeyFromBytes(point, pk_in, len);
 }
 
 export fn toPublicKeyBytes(out: *u8, point: *PublicKeyType) void {
@@ -124,6 +124,43 @@ export fn toPublicKeyBytes(out: *u8, point: *PublicKeyType) void {
 
 export fn isPublicKeyEqual(point: *PublicKeyType, other: *PublicKeyType) bool {
     return PublicKey.isPublicKeyEqual(point, other);
+}
+
+/// AggregatePublicKeyType functions
+export fn defaultAggregatePublicKey(out: *AggregatePublicKeyType) void {
+    return AggregatePublicKey.defaultAggregatePublicKey(out);
+}
+
+export fn aggregateFromPublicKey(out: *AggregatePublicKeyType, pk: *const PublicKeyType) void {
+    return AggregatePublicKey.aggregateFromPublicKey(out, pk);
+}
+
+export fn aggregateToPublicKey(out: *PublicKeyType, agg_pk: *const AggregatePublicKeyType) void {
+    return AggregatePublicKey.aggregateToPublicKey(out, agg_pk);
+}
+
+export fn aggregatePublicKeys(out: *AggregatePublicKeyType, pks: [*c]*const PublicKeyType, len: usize, pks_validate: bool) c_uint {
+    return AggregatePublicKey.aggregatePublicKeys(out, pks, len, pks_validate);
+}
+
+export fn aggregateCompressedPublicKeys(out: *AggregatePublicKeyType, pks: [*c][*c]const u8, len: usize, pks_validate: bool) c_uint {
+    return AggregatePublicKey.aggregateCompressedPublicKeys(out, pks, len, pks_validate);
+}
+
+export fn aggregateSerializedPublicKeys(out: *AggregatePublicKeyType, pks: [*c][*c]const u8, len: usize, pks_validate: bool) c_uint {
+    return AggregatePublicKey.aggregateSerializedPublicKeys(out, pks, len, pks_validate);
+}
+
+export fn addAggregatePublicKey(out: *AggregatePublicKeyType, agg_pk: *const AggregatePublicKeyType) void {
+    return AggregatePublicKey.addAggregatePublicKey(out, agg_pk);
+}
+
+export fn addPublicKeyToAggregate(out: *AggregatePublicKeyType, pk: *const PublicKeyType, pk_validate: bool) c_uint {
+    return AggregatePublicKey.addPublicKeyToAggregate(out, pk, pk_validate);
+}
+
+export fn isAggregatePublicKeyEqual(agg_pk: *const AggregatePublicKeyType, other: *const AggregatePublicKeyType) bool {
+    return AggregatePublicKey.isAggregatePublicKeyEqual(agg_pk, other);
 }
 
 test "test_sign_n_verify" {
