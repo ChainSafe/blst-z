@@ -155,8 +155,10 @@ pub fn createSigVariant(
         }
 
         pub fn keyValidate(key: []const u8) BLST_ERROR!void {
-            const pk = try @This().fromBytes(key);
-            try pk.validate();
+            const res = publicKeyBytesValidate(&key[0], key.len);
+            if (toBlstError(res)) |err| {
+                return err;
+            }
         }
 
         pub fn publicKeyBytesValidate(key: [*c]const u8, len: usize) c_uint {
@@ -170,7 +172,7 @@ pub fn createSigVariant(
 
         pub fn fromAggregate(comptime AggregatePublicKey: type, agg_pk: *const AggregatePublicKey) @This() {
             var pk_aff = @This().default();
-            pk_to_aff_fn(&pk_aff.point, &agg_pk.point);
+            publicKeyFromAggregate(&pk_aff.point, &agg_pk.point);
             return pk_aff;
         }
 
@@ -182,7 +184,7 @@ pub fn createSigVariant(
 
         pub fn compress(self: *const @This()) [pk_comp_size]u8 {
             var pk_comp = [_]u8{0} ** pk_comp_size;
-            pk_comp_fn(&pk_comp[0], &self.point);
+            compressPublicKey(&pk_comp[0], &self.point);
             return pk_comp;
         }
 
@@ -192,7 +194,7 @@ pub fn createSigVariant(
 
         pub fn serialize(self: *const @This()) [pk_ser_size]u8 {
             var pk_out = [_]u8{0} ** pk_ser_size;
-            pk_ser_fn(&pk_out[0], &self.point);
+            serializePublicKey(&pk_out[0], &self.point);
             return pk_out;
         }
 
@@ -201,13 +203,9 @@ pub fn createSigVariant(
         }
 
         pub fn uncompress(pk_comp: []const u8) BLST_ERROR!@This() {
-            if (pk_comp.len == pk_comp_size and (pk_comp[0] & 0x80) != 0) {
-                var pk = @This().default();
-                const res = pk_uncomp_fn(&pk.point, &pk_comp[0]);
-                return toBlstError(res) orelse pk;
-            }
-
-            return BLST_ERROR.BAD_ENCODING;
+            var pk = @This().default();
+            const res = uncompressPublicKey(&pk.point, &pk_comp[0], pk_comp.len);
+            return toBlstError(res) orelse pk;
         }
 
         pub fn uncompressPublicKey(out: *pk_aff_type, pk_comp: [*c]const u8, len: usize) c_uint {
@@ -219,9 +217,9 @@ pub fn createSigVariant(
         }
 
         pub fn deserialize(pk_in: []const u8) BLST_ERROR!@This() {
-            var point = default().point;
-            const res = deserializePublicKey(&point, &pk_in[0], pk_in.len);
-            return toBlstError(res) orelse .{ .point = point };
+            var pk = default();
+            const res = deserializePublicKey(&pk.point, &pk_in[0], pk_in.len);
+            return toBlstError(res) orelse pk;
         }
 
         pub fn deserializePublicKey(out: *pk_aff_type, pk_in: [*c]const u8, len: usize) c_uint {
@@ -278,7 +276,7 @@ pub fn createSigVariant(
 
         pub fn fromPublicKey(pk: *const PublicKey) @This() {
             var agg_pk = @This().default();
-            pk_from_aff_fn(&agg_pk.point, &pk.point);
+            aggregateFromPublicKey(&agg_pk.point, &pk.point);
 
             return agg_pk;
         }
@@ -289,7 +287,7 @@ pub fn createSigVariant(
 
         pub fn toPublicKey(self: *const @This()) PublicKey {
             var pk = PublicKey.default();
-            pk_to_aff_fn(&pk.point, &self.point);
+            aggregateToPublicKey(&pk.point, &self.point);
             return pk;
         }
 
@@ -298,24 +296,17 @@ pub fn createSigVariant(
         }
 
         // Aggregate
-        pub fn aggregate(pks: []const *PublicKey, pks_validate: bool) BLST_ERROR!@This() {
+        pub fn aggregate(pks: []*const PublicKey, pks_validate: bool) BLST_ERROR!@This() {
             if (pks.len == 0) {
                 return BLST_ERROR.AGGR_TYPE_MISMATCH;
             }
-            if (pks_validate) {
-                try pks[0].validate();
-            }
 
-            var agg_pk = @This().fromPublicKey(pks[0]);
-            for (pks[1..]) |pk| {
-                if (pks_validate) {
-                    try pk.validate();
-                }
-
-                pk_add_or_dbl_aff_fn(&agg_pk.point, &agg_pk.point, &pk.point);
-            }
-
-            return agg_pk;
+            // this is unsafe code but we scanned through testTypeAlignment unit test
+            // Rust does the same thing here
+            const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
+            var agg_pk = @This().default();
+            const res = aggregatePublicKeys(&agg_pk.point, &pk_aff_points[0], pks.len, pks_validate);
+            return toBlstError(res) orelse agg_pk;
         }
 
         pub fn aggregatePublicKeys(out: *pk_type, pks: [*c]*const pk_aff_type, len: usize, pks_validate: bool) c_uint {
@@ -344,6 +335,7 @@ pub fn createSigVariant(
             return c.BLST_SUCCESS;
         }
 
+        // cannot deduplicate this function with the below 3 functions because pks may contain different sizes
         pub fn aggregateSerialized(pks: [][]const u8, pks_validate: bool) BLST_ERROR!@This() {
             // TODO - threading
             if (pks.len == 0) {
@@ -413,7 +405,7 @@ pub fn createSigVariant(
         }
 
         pub fn addAggregate(self: *@This(), agg_pk: *const @This()) BLST_ERROR!void {
-            pk_add_or_dbl_fn(&self.point, &self.point, &agg_pk.point);
+            addAggregatePublicKey(&self.point, &self.point, &agg_pk.point);
         }
 
         pub fn addAggregatePublicKey(out: *pk_type, agg_pk: *const pk_type) void {
@@ -421,11 +413,10 @@ pub fn createSigVariant(
         }
 
         pub fn addPublicKey(self: *@This(), pk: *const PublicKey, pk_validate: bool) BLST_ERROR!void {
-            if (pk_validate) {
-                try pk.validate();
+            const res = addPublicKeyToAggregate(&self.point, &pk.point, pk_validate);
+            if (toBlstError(res)) |err| {
+                return err;
             }
-
-            pk_add_or_dbl_aff_fn(&self.point, &self.point, &pk.point);
         }
 
         pub fn addPublicKeyToAggregate(out: *pk_type, pk: *const pk_aff_type, pk_validate: bool) c_uint {
@@ -441,7 +432,7 @@ pub fn createSigVariant(
         }
 
         pub fn isEqual(self: *const @This(), other: *const @This()) bool {
-            return agg_pk_eq_fn(&self.point, &other.point);
+            return isAggregatePublicKeyEqual(&self.point, &other.point);
         }
 
         pub fn isAggregatePublicKeyEqual(point: *const pk_type, other: *const pk_type) bool {
@@ -521,7 +512,7 @@ pub fn createSigVariant(
         }
 
         /// same to fast_aggregate_verify in Rust with extra `pairing_buffer` parameter
-        pub fn fastAggregateVerify(self: *const @This(), sig_groupcheck: bool, msg: []const u8, dst: []const u8, pks: []const *PublicKey, pairing_buffer: []u8) BLST_ERROR!void {
+        pub fn fastAggregateVerify(self: *const @This(), sig_groupcheck: bool, msg: []const u8, dst: []const u8, pks: []*const PublicKey, pairing_buffer: []u8) BLST_ERROR!void {
             const agg_pk = try AggregatePublicKey.aggregate(pks, false);
             var pk = agg_pk.toPublicKey();
             var msg_arr = [_][]const u8{msg};
