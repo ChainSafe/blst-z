@@ -775,11 +775,23 @@ pub fn createSigVariant(
             };
         }
 
+        pub fn defaultAggregateSignature(out: *sig_type) void {
+            out.* = default_agg_sig_fn();
+        }
+
         pub fn validate(self: *const @This()) BLST_ERROR!void {
-            const res = sig_aggr_in_group_fn(&self.point);
-            if (toBlstError(res)) |err| {
-                return err;
+            const res = subgroupCheckC(&self.point);
+            if (!res) {
+                return BLST_ERROR.POINT_NOT_IN_GROUP;
             }
+        }
+
+        pub fn validateAggregateSignature(point: *const sig_type) c_uint {
+            if (!subgroupCheckC(point)) {
+                return c.BLST_POINT_NOT_IN_GROUP;
+            }
+
+            return c.BLST_SUCCESS;
         }
 
         pub fn fromSignature(sig: *const Signature) @This() {
@@ -788,10 +800,18 @@ pub fn createSigVariant(
             return agg_sig;
         }
 
+        pub fn aggregateFromSignature(out: *sig_type, sig: *const sig_aff_type) void {
+            sig_from_aff_fn(out, sig);
+        }
+
         pub fn toSignature(self: *const @This()) Signature {
             var sig = Signature.default();
             sig_to_aff_fn(&sig.point, &self.point);
             return sig;
+        }
+
+        pub fn aggregateToSignature(out: *sig_aff_type, agg_sig: *const sig_type) void {
+            sig_to_aff_fn(out, agg_sig);
         }
 
         // Aggregate
@@ -799,22 +819,41 @@ pub fn createSigVariant(
             if (sigs.len == 0) {
                 return BLST_ERROR.AGGR_TYPE_MISMATCH;
             }
+
+            // this is unsafe code but we scanned through testTypeAlignment unit test
+            const sigs_ptr: [*c]*const sig_aff_type = @ptrCast(&sigs[0]);
+            var agg_sig = @This().default();
+            const res = aggregateSignatures(&agg_sig.point, sigs_ptr, sigs.len, sigs_groupcheck);
+            return toBlstError(res) orelse agg_sig;
+        }
+
+        pub fn aggregateSignatures(out: *sig_type, sigs: [*c]*const sig_aff_type, len: usize, sigs_groupcheck: bool) c_uint {
+            if (len == 0) {
+                return c.BLST_AGGR_TYPE_MISMATCH;
+            }
             if (sigs_groupcheck) {
                 // We can't actually judge if input is individual or
                 // aggregated signature, so we can't enforce infinity
                 // check.
-                try sigs[0].validate(false);
-            }
-
-            var agg_sig = @This().fromSignature(sigs[0]);
-            for (sigs[1..]) |s| {
-                if (sigs_groupcheck) {
-                    try s.validate(false);
+                const res = Signature.validateSignature(sigs[0], false);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
                 }
-                sig_add_or_dbl_aff_fn(&agg_sig.point, &agg_sig.point, &s.point);
             }
 
-            return agg_sig;
+            aggregateFromSignature(out, sigs[0]);
+            for (1..len) |i| {
+                if (sigs_groupcheck) {
+                    const res = Signature.validateSignature(sigs[i], false);
+                    if (res != c.BLST_SUCCESS) {
+                        return res;
+                    }
+                }
+
+                sig_add_or_dbl_aff_fn(out, out, sigs[i]);
+            }
+
+            return c.BLST_SUCCESS;
         }
 
         // TODO: aggregate_with_randomness
@@ -835,8 +874,54 @@ pub fn createSigVariant(
             return agg_sig;
         }
 
+        /// C-ABI version of aggregateSerialized
+        /// all signatures should have the same len
+        pub fn aggregateSerializedC(out: *sig_type, sigs: [*c][*c]const u8, sigs_len: usize, sig_len: usize, sigs_groupcheck: bool) c_uint {
+            if (sigs_len == 0) {
+                return c.BLST_AGGR_TYPE_MISMATCH;
+            }
+
+            var sig = Signature.default().point;
+            var res = Signature.signatureFromBytes(&sig, sigs[0], sig_len);
+            if (res != c.BLST_SUCCESS) {
+                return res;
+            }
+
+            if (sigs_groupcheck) {
+                res = Signature.validateSignature(&sig, false);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
+            }
+
+            aggregateFromSignature(out, &sig);
+
+            for (1..sigs_len) |i| {
+                var point = Signature.default().point;
+                res = Signature.signatureFromBytes(&point, sigs[i], sig_len);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
+
+                if (sigs_groupcheck) {
+                    res = Signature.validateSignature(&point, false);
+                    if (res != c.BLST_SUCCESS) {
+                        return res;
+                    }
+                }
+
+                sig_add_or_dbl_aff_fn(out, out, &point);
+            }
+
+            return c.BLST_SUCCESS;
+        }
+
         pub fn addAggregate(self: *@This(), agg_sig: *const @This()) void {
             sig_add_or_dbl_fn(&self.point, &self.point, &agg_sig.point);
+        }
+
+        pub fn addAggregateC(out: *sig_type, agg_sig: *const sig_type) void {
+            sig_add_or_dbl_fn(out, out, agg_sig);
         }
 
         pub fn addSignature(self: *@This(), sig: *const Signature, sig_groupcheck: bool) BLST_ERROR!void {
@@ -846,12 +931,32 @@ pub fn createSigVariant(
             sig_add_or_dbl_aff_fn(&self.point, &self.point, &sig.point);
         }
 
+        pub fn addSignatureToAggregate(out: *sig_type, sig: *const sig_aff_type, sig_groupcheck: bool) c_uint {
+            if (sig_groupcheck) {
+                const res = Signature.validateSignature(sig, false);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
+            }
+
+            sig_add_or_dbl_aff_fn(out, out, sig);
+            return c.BLST_SUCCESS;
+        }
+
         pub fn subgroupCheck(self: *const @This()) bool {
             return sig_aggr_in_group_fn(&self.point);
         }
 
+        pub fn subgroupCheckC(agg_sig: *const sig_type) bool {
+            return sig_aggr_in_group_fn(agg_sig);
+        }
+
         pub fn isEqual(self: *const @This(), other: *const @This()) bool {
             return agg_sig_eq_fn(&self.point, &other.point);
+        }
+
+        pub fn isAggregateSignatureEqual(point: *const sig_type, other: *const sig_type) bool {
+            return agg_sig_eq_fn(point, other);
         }
     };
 

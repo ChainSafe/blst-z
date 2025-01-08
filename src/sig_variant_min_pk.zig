@@ -232,6 +232,47 @@ export fn isSignatureEqual(point: *const SignatureType, other: *const SignatureT
     return Signature.isSignatureEqual(point, other);
 }
 
+/// AggregateSignatureType functions
+export fn defaultAggregateSignature(out: *AggregateSignatureType) void {
+    return AggregateSignature.defaultAggregateSignature(out);
+}
+
+export fn validateAggregateSignature(point: *const AggregateSignatureType) c_uint {
+    return AggregateSignature.validateAggregateSignature(point);
+}
+
+export fn aggregateFromSignature(out: *AggregateSignatureType, sig: *const SignatureType) void {
+    return AggregateSignature.aggregateFromSignature(out, sig);
+}
+
+export fn aggregateToSignature(out: *SignatureType, agg_sig: *const AggregateSignatureType) void {
+    return AggregateSignature.aggregateToSignature(out, agg_sig);
+}
+
+export fn aggregateSignatures(out: *AggregateSignatureType, sigs: [*c]*const SignatureType, len: usize, sigs_groupcheck: bool) c_uint {
+    return AggregateSignature.aggregateSignatures(out, sigs, len, sigs_groupcheck);
+}
+
+export fn aggregateSerialized(out: *AggregateSignatureType, sigs: [*c][*c]const u8, sigs_len: usize, sig_len: usize, sigs_groupcheck: bool) c_uint {
+    return AggregateSignature.aggregateSerializedC(out, sigs, sigs_len, sig_len, sigs_groupcheck);
+}
+
+export fn addAggregateC(out: *AggregateSignatureType, agg_sig: *const AggregateSignatureType) void {
+    return AggregateSignature.addAggregateC(out, agg_sig);
+}
+
+export fn addSignatureToAggregate(out: *AggregateSignatureType, sig: *const SignatureType, sig_groupcheck: bool) c_uint {
+    return AggregateSignature.addSignatureToAggregate(out, sig, sig_groupcheck);
+}
+
+export fn subgroupCheckC(agg_sig: *const AggregateSignatureType) bool {
+    return AggregateSignature.subgroupCheckC(agg_sig);
+}
+
+export fn isAggregateSignatureEqual(point: *const AggregateSignatureType, other: *const AggregateSignatureType) bool {
+    return AggregateSignature.isAggregateSignatureEqual(point, other);
+}
+
 test "test_sign_n_verify" {
     try SigVariant.testSignNVerify();
 }
