@@ -1295,9 +1295,9 @@ pub fn createSigVariant(
             }
 
             const n_bits = 64;
-            const mult_pk = try multPublicKeys(pks_refs, scalars_refs, n_bits, pk_scratch);
+            const mult_pk = multPublicKeys(pks_refs, scalars_refs, n_bits, pk_scratch);
             const pk_from_mult = mult_pk.toPublicKey();
-            const mult_sig = try multSignatures(sigs_refs, scalars_refs, n_bits, sig_scratch);
+            const mult_sig = multSignatures(sigs_refs, scalars_refs, n_bits, sig_scratch);
             const sig_from_mult = mult_sig.toSignature();
 
             pk_out.* = pk_from_mult;
@@ -1305,38 +1305,42 @@ pub fn createSigVariant(
         }
 
         /// Multipoint
-        pub fn addPublicKeys(pks: []*const PublicKey) !AggregatePublicKey {
+        pub fn addPublicKeys(pks: []*const PublicKey) AggregatePublicKey {
             // this is unsafe code but we scanned through testTypeAlignment unit test
             // Rust does the same thing here
             const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
-            const pk_point = try PkMultiPoint.add(pk_aff_points);
-            return .{ .point = pk_point };
+            var agg_pk = AggregatePublicKey.default();
+            PkMultiPoint.add(&agg_pk.point, &pk_aff_points[0], pk_aff_points.len);
+            return agg_pk;
         }
 
         // scratch param is designed to be reused across multiple calls
-        pub fn multPublicKeys(pks: []*const PublicKey, scalars: []*const u8, n_bits: usize, scratch: []u64) !AggregatePublicKey {
+        pub fn multPublicKeys(pks: []*const PublicKey, scalars: []*const u8, n_bits: usize, scratch: []u64) AggregatePublicKey {
             // this is unsafe code but we scanned through testTypeAlignment unit test
             // Rust does the same thing here
             const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
-            const pk_point = try PkMultiPoint.mult(pk_aff_points, scalars, n_bits, scratch);
-            return .{ .point = pk_point };
+            var agg_pk = AggregatePublicKey.default();
+            PkMultiPoint.mult(&agg_pk.point, &pk_aff_points[0], pk_aff_points.len, &scalars[0], n_bits, &scratch[0]);
+            return agg_pk;
         }
 
-        pub fn addSignatures(sigs: []*const Signature) !AggregateSignature {
+        pub fn addSignatures(sigs: []*const Signature) AggregateSignature {
             // this is unsafe code but we scanned through testTypeAlignment unit test
             // Rust does the same thing here
             const sig_aff_points: []*const sig_aff_type = @ptrCast(sigs);
-            const sig_point = try SigMultiPoint.add(sig_aff_points);
-            return .{ .point = sig_point };
+            var agg_sig = AggregateSignature.default();
+            SigMultiPoint.add(&agg_sig.point, &sig_aff_points[0], sig_aff_points.len);
+            return agg_sig;
         }
 
         // scratch param is designed to be reused across multiple calls
-        pub fn multSignatures(sigs: []*const Signature, scalars: []*const u8, n_bits: usize, scratch: []u64) !AggregateSignature {
+        pub fn multSignatures(sigs: []*const Signature, scalars: []*const u8, n_bits: usize, scratch: []u64) AggregateSignature {
             // this is unsafe code but we scanned through testTypeAlignment unit test
             // Rust does the same thing here
             const sig_aff_points: []*const sig_aff_type = @ptrCast(sigs);
-            const sig_point = try SigMultiPoint.mult(sig_aff_points, scalars, n_bits, scratch);
-            return .{ .point = sig_point };
+            var agg_sig = AggregateSignature.default();
+            SigMultiPoint.mult(&agg_sig.point, &sig_aff_points[0], sig_aff_points.len, &scalars[0], n_bits, &scratch[0]);
+            return agg_sig;
         }
 
         /// testing methods for this lib, should not export to consumers
@@ -1753,9 +1757,9 @@ pub fn createSigVariant(
             try sig_from_agg.verify(true, msg[0..], dst, null, &pk_from_agg, true);
 
             // test multi-point aggregation using add
-            const added_pk = try addPublicKeys(pks_refs[0..]);
+            const added_pk = addPublicKeys(pks_refs[0..]);
             const pk_from_add = added_pk.toPublicKey();
-            const added_sig = try addSignatures(sigs_refs[0..]);
+            const added_sig = addSignatures(sigs_refs[0..]);
             const sig_from_add = added_sig.toSignature();
             try sig_from_add.verify(true, msg[0..], dst, null, &pk_from_add, true);
 
@@ -1778,9 +1782,9 @@ pub fn createSigVariant(
             const sig_scratch = try allocator.alloc(u64, sig_scratch_size_of_fn(num_pks) / 8);
             defer allocator.free(sig_scratch);
 
-            const mult_pk = try multPublicKeys(pks_refs[0..], scalars_refs[0..], n_bits, pk_scratch);
+            const mult_pk = multPublicKeys(pks_refs[0..], scalars_refs[0..], n_bits, pk_scratch);
             const pk_from_mult = mult_pk.toPublicKey();
-            const mult_sig = try multSignatures(sigs_refs[0..], scalars_refs[0..], n_bits, sig_scratch);
+            const mult_sig = multSignatures(sigs_refs[0..], scalars_refs[0..], n_bits, sig_scratch);
             const sig_from_mult = mult_sig.toSignature();
             try sig_from_mult.verify(true, msg[0..], dst, null, &pk_from_mult, true);
         }
