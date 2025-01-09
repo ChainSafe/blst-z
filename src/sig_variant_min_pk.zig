@@ -82,6 +82,7 @@ const PublicKeyType = SigVariant.getPublicKeyType();
 const AggregatePublicKeyType = SigVariant.getAggregatePublicKeyType();
 const SignatureType = SigVariant.getSignatureType();
 const AggregateSignatureType = SigVariant.getAggregateSignatureType();
+const SecretKeyType = SigVariant.getSecretKeyType();
 
 /// PublicKey functions
 export fn defaultPublicKey(out: *PublicKeyType) void {
@@ -271,6 +272,59 @@ export fn subgroupCheckC(agg_sig: *const AggregateSignatureType) bool {
 
 export fn isAggregateSignatureEqual(point: *const AggregateSignatureType, other: *const AggregateSignatureType) bool {
     return AggregateSignature.isAggregateSignatureEqual(point, other);
+}
+
+// SecretKeyType functions
+export fn defaultSecretKey(out: *SecretKeyType) void {
+    return SecretKey.defaultSecretKey(out);
+}
+
+export fn secretKeyGen(out: *SecretKeyType, ikm: [*c]const u8, ikm_len: usize, key_info: [*c]const u8, key_info_len: usize) c_uint {
+    return SecretKey.secretKeyGen(out, ikm, ikm_len, key_info, key_info_len);
+}
+
+export fn secretKeyGenV3(out: *SecretKeyType, ikm: [*c]const u8, ikm_len: usize, key_info: [*c]const u8, key_info_len: usize) c_uint {
+    return SecretKey.secretKeyGenV3(out, ikm, ikm_len, key_info, key_info_len);
+}
+
+export fn secretKeyGenV45(out: *SecretKeyType, ikm: [*c]const u8, ikm_len: usize, salt: [*c]const u8, salt_len: usize, info: [*c]const u8, info_len: usize) c_uint {
+    return SecretKey.secretKeyGenV45(out, ikm, ikm_len, salt, salt_len, info, info_len);
+}
+
+export fn secretKeyGenV5(out: *SecretKeyType, ikm: [*c]const u8, ikm_len: usize, salt: [*c]const u8, salt_len: usize, info: [*c]const u8, info_len: usize) c_uint {
+    return SecretKey.secretKeyGenV5(out, ikm, ikm_len, salt, salt_len, info, info_len);
+}
+
+export fn secretKeyDeriveMasterEip2333(out: *SecretKeyType, ikm: [*c]const u8, ikm_len: usize) c_uint {
+    return SecretKey.secretKeyDeriveMasterEip2333(out, ikm, ikm_len);
+}
+
+export fn secretKeyDeriveChildEip2333(out: *SecretKeyType, sk: *const SecretKeyType, child_index: u32) void {
+    SecretKey.secretKeyDeriveChildEip2333(out, sk, child_index);
+}
+
+export fn secretKeyToPublicKey(out: *PublicKeyType, sk: *const SecretKeyType) void {
+    return SecretKey.secretKeyToPublicKey(out, sk);
+}
+
+export fn sign(out: *SignatureType, sk: *const SecretKeyType, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, aug: [*c]const u8, aug_len: usize) void {
+    return SecretKey.signC(out, sk, msg, msg_len, dst, dst_len, aug, aug_len);
+}
+
+export fn serializeSecretKey(out: *u8, sk: *const SecretKeyType) void {
+    return SecretKey.serializeSecretKey(out, sk);
+}
+
+export fn deserializeSecretKey(out: *SecretKeyType, sk_in: [*c]const u8, len: usize) c_uint {
+    return SecretKey.deserializeSecretKey(out, sk_in, len);
+}
+
+export fn secretKeyToBytes(out: *u8, sk: *const SecretKeyType) void {
+    return SecretKey.secretKeyToBytes(out, sk);
+}
+
+export fn secretKeyFromBytes(out: *SecretKeyType, sk_in: [*c]const u8, len: usize) c_uint {
+    return SecretKey.secretKeyFromBytes(out, sk_in, len);
 }
 
 test "test_sign_n_verify" {

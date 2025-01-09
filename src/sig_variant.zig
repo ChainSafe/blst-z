@@ -969,6 +969,10 @@ pub fn createSigVariant(
             };
         }
 
+        pub fn defaultSecretKey(out: *c.blst_scalar) void {
+            out.* = util.default_blst_scalar();
+        }
+
         pub fn keyGen(ikm: []const u8, key_info: ?[]const u8) BLST_ERROR!@This() {
             if (ikm.len < 32) {
                 return BLST_ERROR.BAD_ENCODING;
@@ -980,6 +984,15 @@ pub fn createSigVariant(
 
             c.blst_keygen(&sk.value, &ikm[0], ikm.len, key_info_ptr, key_info_len);
             return sk;
+        }
+
+        pub fn secretKeyGen(out: *c.blst_scalar, ikm: [*c]const u8, ikm_len: usize, key_info: [*c]const u8, key_info_len: usize) c_uint {
+            if (ikm_len < 32) {
+                return c.BLST_BAD_ENCODING;
+            }
+
+            c.blst_keygen(out, ikm, ikm_len, key_info, key_info_len);
+            return c.BLST_SUCCESS;
         }
 
         pub fn keyGenV3(ikm: []const u8, key_info: ?[]const u8) BLST_ERROR!@This() {
@@ -995,6 +1008,15 @@ pub fn createSigVariant(
             return sk;
         }
 
+        pub fn secretKeyGenV3(out: *c.blst_scalar, ikm: [*c]const u8, ikm_len: usize, key_info: [*c]const u8, key_info_len: usize) c_uint {
+            if (ikm_len < 32) {
+                return c.BLST_BAD_ENCODING;
+            }
+
+            c.blst_keygen_v3(out, ikm, ikm_len, key_info, key_info_len);
+            return c.BLST_SUCCESS;
+        }
+
         pub fn keyGenV45(ikm: []const u8, salt: []const u8, info: ?[]const u8) BLST_ERROR!@This() {
             if (ikm.len < 32) {
                 return BLST_ERROR.BAD_ENCODING;
@@ -1006,6 +1028,15 @@ pub fn createSigVariant(
 
             c.blst_keygen_v4_5(&sk.value, &ikm[0], ikm.len, &salt[0], salt.len, info_ptr, info_len);
             return sk;
+        }
+
+        pub fn secretKeyGenV45(out: *c.blst_scalar, ikm: [*c]const u8, ikm_len: usize, salt: [*c]const u8, salt_len: usize, info: [*c]const u8, info_len: usize) c_uint {
+            if (ikm_len < 32) {
+                return c.BLST_BAD_ENCODING;
+            }
+
+            c.blst_keygen_v4_5(out, ikm, ikm_len, salt, salt_len, info, info_len);
+            return c.BLST_SUCCESS;
         }
 
         pub fn keyGenV5(ikm: []const u8, salt: []const u8, info: ?[]const u8) BLST_ERROR!@This() {
@@ -1021,6 +1052,15 @@ pub fn createSigVariant(
             return sk;
         }
 
+        pub fn secretKeyGenV5(out: *c.blst_scalar, ikm: [*c]const u8, ikm_len: usize, salt: [*c]const u8, salt_len: usize, info: [*c]const u8, info_len: usize) c_uint {
+            if (ikm_len < 32) {
+                return c.BLST_BAD_ENCODING;
+            }
+
+            c.blst_keygen_v5(out, ikm, ikm_len, salt, salt_len, info, info_len);
+            return c.BLST_SUCCESS;
+        }
+
         pub fn deriveMasterEip2333(ikm: []const u8) BLST_ERROR!@This() {
             if (ikm.len < 32) {
                 return BLST_ERROR.BAD_ENCODING;
@@ -1031,10 +1071,23 @@ pub fn createSigVariant(
             return sk;
         }
 
+        pub fn secretKeyDeriveMasterEip2333(out: *c.blst_scalar, ikm: [*c]const u8, ikm_len: usize) c_uint {
+            if (ikm_len < 32) {
+                return c.BLST_BAD_ENCODING;
+            }
+
+            c.blst_derive_master_eip2333(out, ikm, ikm_len);
+            return c.BLST_SUCCESS;
+        }
+
         pub fn deriveChildEip2333(self: *const @This(), child_index: u32) BLST_ERROR!@This() {
             var sk = @This().default();
             c.blst_derive_child_eip2333(&sk.value, &self.value, child_index);
             return sk;
+        }
+
+        pub fn secretKeyDeriveChildEip2333(out: *c.blst_scalar, sk: *const c.blst_scalar, child_index: u32) void {
+            c.blst_derive_child_eip2333(out, sk, child_index);
         }
 
         pub fn skToPk(self: *const @This()) PublicKey {
@@ -1043,16 +1096,24 @@ pub fn createSigVariant(
             return pk_aff;
         }
 
+        pub fn secretKeyToPublicKey(out: *pk_aff_type, sk: *const c.blst_scalar) void {
+            sk_to_pk_fn(null, out, sk);
+        }
+
         // Sign
         pub fn sign(self: *const @This(), msg: []const u8, dst: []const u8, aug: ?[]const u8) Signature {
             // TODO - would the user like the serialized/compressed sig as well?
-            var q = default_agg_sig_fn();
             var sig_aff = Signature.default();
             const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
             const aug_len = if (aug != null) aug.?.len else 0;
-            hash_or_encode_to_fn(&q, &msg[0], msg.len, &dst[0], dst.len, aug_ptr, aug_len);
-            sign_fn(null, &sig_aff.point, &q, &self.value);
+            signC(&sig_aff.point, &self.value, &msg[0], msg.len, &dst[0], dst.len, aug_ptr, aug_len);
             return sig_aff;
+        }
+
+        pub fn signC(out: *sig_aff_type, sk: *const c.blst_scalar, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, aug: [*c]const u8, aug_len: usize) void {
+            var q = default_agg_sig_fn();
+            hash_or_encode_to_fn(&q, msg, msg_len, dst, dst_len, aug, aug_len);
+            sign_fn(null, out, &q, sk);
         }
 
         // TODO - formally speaking application is entitled to have
@@ -1068,6 +1129,10 @@ pub fn createSigVariant(
             return sk_out;
         }
 
+        pub fn serializeSecretKey(out: *u8, sk: *const c.blst_scalar) void {
+            c.blst_bendian_from_scalar(out, sk);
+        }
+
         // deserialize
         pub fn deserialize(sk_in: []const u8) BLST_ERROR!@This() {
             var sk = @This().default();
@@ -1075,20 +1140,36 @@ pub fn createSigVariant(
                 return BLST_ERROR.BAD_ENCODING;
             }
 
-            c.blst_scalar_from_bendian(&sk.value, &sk_in[0]);
-            if (!c.blst_sk_check(&sk.value)) {
-                return BLST_ERROR.BAD_ENCODING;
+            const res = deserializeSecretKey(&sk.value, &sk_in[0], sk_in.len);
+            return toBlstError(res) orelse sk;
+        }
+
+        pub fn deserializeSecretKey(out: *c.blst_scalar, sk_in: [*c]const u8, len: usize) c_uint {
+            if (len != 32) {
+                return c.BLST_BAD_ENCODING;
+            }
+            c.blst_scalar_from_bendian(out, sk_in);
+            if (!c.blst_sk_check(out)) {
+                return c.BLST_BAD_ENCODING;
             }
 
-            return sk;
+            return c.BLST_SUCCESS;
         }
 
         pub fn toBytes(self: *const @This()) [32]u8 {
             return self.serialize();
         }
 
+        pub fn secretKeyToBytes(out: *u8, sk: *const c.blst_scalar) void {
+            serializeSecretKey(out, sk);
+        }
+
         pub fn fromBytes(sk_in: []const u8) BLST_ERROR!@This() {
             return @This().deserialize(sk_in);
+        }
+
+        pub fn secretKeyFromBytes(out: *c.blst_scalar, sk_in: [*c]const u8, len: usize) c_uint {
+            return deserializeSecretKey(out, sk_in, len);
         }
     };
 
@@ -1169,6 +1250,10 @@ pub fn createSigVariant(
 
         pub fn getAggregateSignatureType() type {
             return sig_type;
+        }
+
+        pub fn getSecretKeyType() type {
+            return c.blst_scalar;
         }
 
         pub fn pubkeyFromAggregate(agg_pk: *const AggregatePublicKey) PublicKey {
