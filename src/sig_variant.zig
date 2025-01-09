@@ -1314,6 +1314,10 @@ pub fn createSigVariant(
             return agg_pk;
         }
 
+        pub fn addPublicKeysC(out: *pk_type, pks: [*c]*const pk_aff_type, pks_len: usize) void {
+            PkMultiPoint.add(out, pks, pks_len);
+        }
+
         // scratch param is designed to be reused across multiple calls
         pub fn multPublicKeys(pks: []*const PublicKey, scalars: []*const u8, n_bits: usize, scratch: []u64) AggregatePublicKey {
             // this is unsafe code but we scanned through testTypeAlignment unit test
@@ -1322,6 +1326,10 @@ pub fn createSigVariant(
             var agg_pk = AggregatePublicKey.default();
             PkMultiPoint.mult(&agg_pk.point, &pk_aff_points[0], pk_aff_points.len, &scalars[0], n_bits, &scratch[0]);
             return agg_pk;
+        }
+
+        pub fn multPublicKeysC(out: *pk_type, pks: [*c]*const pk_aff_type, pks_len: usize, scalars: [*c]*const u8, n_bits: usize, scratch: [*c]u64) void {
+            PkMultiPoint.mult(out, pks, pks_len, scalars, n_bits, scratch);
         }
 
         pub fn addSignatures(sigs: []*const Signature) AggregateSignature {
@@ -1333,6 +1341,10 @@ pub fn createSigVariant(
             return agg_sig;
         }
 
+        pub fn addSignaturesC(out: *sig_type, sigs: [*c]*const sig_aff_type, sigs_len: usize) void {
+            SigMultiPoint.add(out, sigs, sigs_len);
+        }
+
         // scratch param is designed to be reused across multiple calls
         pub fn multSignatures(sigs: []*const Signature, scalars: []*const u8, n_bits: usize, scratch: []u64) AggregateSignature {
             // this is unsafe code but we scanned through testTypeAlignment unit test
@@ -1341,6 +1353,10 @@ pub fn createSigVariant(
             var agg_sig = AggregateSignature.default();
             SigMultiPoint.mult(&agg_sig.point, &sig_aff_points[0], sig_aff_points.len, &scalars[0], n_bits, &scratch[0]);
             return agg_sig;
+        }
+
+        pub fn multSignaturesC(out: *sig_type, sigs: [*c]*const sig_aff_type, sigs_len: usize, scalars: [*c]*const u8, n_bits: usize, scratch: [*c]u64) void {
+            SigMultiPoint.mult(out, sigs, sigs_len, scalars, n_bits, scratch);
         }
 
         /// testing methods for this lib, should not export to consumers

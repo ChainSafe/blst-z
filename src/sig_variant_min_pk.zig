@@ -327,6 +327,23 @@ export fn secretKeyFromBytes(out: *SecretKeyType, sk_in: [*c]const u8, len: usiz
     return SecretKey.secretKeyFromBytes(out, sk_in, len);
 }
 
+// MultiPoints functions
+export fn addPublicKeys(out: *AggregatePublicKeyType, pks: [*c]*const PublicKeyType, pks_len: usize) void {
+    return SigVariant.addPublicKeysC(out, pks, pks_len);
+}
+
+export fn multPublicKeys(out: *AggregatePublicKeyType, pks: [*c]*const PublicKeyType, pks_len: usize, scalars: [*c]*const u8, n_bits: usize, scratch: [*c]u64) void {
+    return SigVariant.multPublicKeysC(out, pks, pks_len, scalars, n_bits, scratch);
+}
+
+export fn addSignatures(out: *AggregateSignatureType, sigs: [*c]*const SignatureType, sigs_len: usize) void {
+    return SigVariant.addSignaturesC(out, sigs, sigs_len);
+}
+
+export fn multSignaturesC(out: *AggregateSignatureType, sigs: [*c]*const SignatureType, sigs_len: usize, scalars: [*c]*const u8, n_bits: usize, scratch: [*c]u64) void {
+    return SigVariant.multSignaturesC(out, sigs, sigs_len, scalars, n_bits, scratch);
+}
+
 test "test_sign_n_verify" {
     try SigVariant.testSignNVerify();
 }
