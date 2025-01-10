@@ -70,14 +70,283 @@ const SigVariant = createSigVariant(
     c.blst_p2s_to_affine,
 );
 
-pub const min_pk = struct {
-    pub const PublicKey = SigVariant.createPublicKey();
-    pub const AggregatePublicKey = SigVariant.createAggregatePublicKey();
-    pub const Signature = SigVariant.createSignature();
-    pub const AggregateSignature = SigVariant.createAggregateSignature();
-    pub const SecretKey = SigVariant.createSecretKey();
-    pub const aggregateWithRandomness = SigVariant.aggregateWithRandomness;
-};
+pub const PublicKey = SigVariant.createPublicKey();
+pub const AggregatePublicKey = SigVariant.createAggregatePublicKey();
+pub const Signature = SigVariant.createSignature();
+pub const AggregateSignature = SigVariant.createAggregateSignature();
+pub const SecretKey = SigVariant.createSecretKey();
+pub const aggregateWithRandomness = SigVariant.aggregateWithRandomness;
+
+/// exported C-ABI functions need to be declared at top level, and they only work with extern struct
+const PublicKeyType = SigVariant.getPublicKeyType();
+const AggregatePublicKeyType = SigVariant.getAggregatePublicKeyType();
+const SignatureType = SigVariant.getSignatureType();
+const AggregateSignatureType = SigVariant.getAggregateSignatureType();
+const SecretKeyType = SigVariant.getSecretKeyType();
+
+/// PublicKey functions
+export fn defaultPublicKey(out: *PublicKeyType) void {
+    return PublicKey.defaultPublicKey(out);
+}
+
+export fn validatePublicKey(pk: *const PublicKeyType) c_uint {
+    return PublicKey.validatePublicKey(pk);
+}
+
+export fn publicKeyBytesValidate(key: [*c]const u8, len: usize) c_uint {
+    return PublicKey.publicKeyBytesValidate(key, len);
+}
+
+export fn publicKeyFromAggregate(out: *PublicKeyType, agg_pk: *const AggregatePublicKeyType) void {
+    return PublicKey.publicKeyFromAggregate(out, agg_pk);
+}
+
+export fn compressPublicKey(out: *u8, point: *const PublicKeyType) void {
+    return PublicKey.compressPublicKey(out, point);
+}
+
+export fn serializePublicKey(out: *u8, point: *const PublicKeyType) void {
+    return PublicKey.serializePublicKey(out, point);
+}
+
+export fn uncompressPublicKey(out: *PublicKeyType, pk_comp: [*c]const u8, len: usize) c_uint {
+    return PublicKey.uncompressPublicKey(out, pk_comp, len);
+}
+
+export fn deserializePublicKey(out: *PublicKeyType, pk_in: [*c]const u8, len: usize) c_uint {
+    return PublicKey.deserializePublicKey(out, pk_in, len);
+}
+
+export fn publicKeyFromBytes(point: *PublicKeyType, pk_in: [*c]const u8, len: usize) c_uint {
+    return PublicKey.publicKeyFromBytes(point, pk_in, len);
+}
+
+export fn toPublicKeyBytes(out: *u8, point: *PublicKeyType) void {
+    return PublicKey.toPublicKeyBytes(out, point);
+}
+
+export fn isPublicKeyEqual(point: *PublicKeyType, other: *PublicKeyType) bool {
+    return PublicKey.isPublicKeyEqual(point, other);
+}
+
+/// AggregatePublicKeyType functions
+export fn defaultAggregatePublicKey(out: *AggregatePublicKeyType) void {
+    return AggregatePublicKey.defaultAggregatePublicKey(out);
+}
+
+export fn aggregateFromPublicKey(out: *AggregatePublicKeyType, pk: *const PublicKeyType) void {
+    return AggregatePublicKey.aggregateFromPublicKey(out, pk);
+}
+
+export fn aggregateToPublicKey(out: *PublicKeyType, agg_pk: *const AggregatePublicKeyType) void {
+    return AggregatePublicKey.aggregateToPublicKey(out, agg_pk);
+}
+
+export fn aggregatePublicKeys(out: *AggregatePublicKeyType, pks: [*c]*const PublicKeyType, len: usize, pks_validate: bool) c_uint {
+    return AggregatePublicKey.aggregatePublicKeys(out, pks, len, pks_validate);
+}
+
+export fn aggregateCompressedPublicKeys(out: *AggregatePublicKeyType, pks: [*c][*c]const u8, len: usize, pks_validate: bool) c_uint {
+    return AggregatePublicKey.aggregateCompressedPublicKeys(out, pks, len, pks_validate);
+}
+
+export fn aggregateSerializedPublicKeys(out: *AggregatePublicKeyType, pks: [*c][*c]const u8, len: usize, pks_validate: bool) c_uint {
+    return AggregatePublicKey.aggregateSerializedPublicKeys(out, pks, len, pks_validate);
+}
+
+export fn addAggregatePublicKey(out: *AggregatePublicKeyType, agg_pk: *const AggregatePublicKeyType) void {
+    return AggregatePublicKey.addAggregatePublicKey(out, agg_pk);
+}
+
+export fn addPublicKeyToAggregate(out: *AggregatePublicKeyType, pk: *const PublicKeyType, pk_validate: bool) c_uint {
+    return AggregatePublicKey.addPublicKeyToAggregate(out, pk, pk_validate);
+}
+
+export fn isAggregatePublicKeyEqual(agg_pk: *const AggregatePublicKeyType, other: *const AggregatePublicKeyType) bool {
+    return AggregatePublicKey.isAggregatePublicKeyEqual(agg_pk, other);
+}
+
+/// Signature functions
+export fn defaultSignature(out: *SignatureType) void {
+    return Signature.defaultSignature(out);
+}
+
+export fn validateSignature(sig: *const SignatureType, sig_infcheck: bool) c_uint {
+    return Signature.validateSignature(sig, sig_infcheck);
+}
+
+export fn sigValidate(out: *SignatureType, sig: [*c]const u8, sig_len: usize, sig_infcheck: bool) c_uint {
+    return Signature.sigValidateC(out, sig, sig_len, sig_infcheck);
+}
+
+export fn verifySignature(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, aug_ptr: [*c]const u8, aug_len: usize, pk: *const PublicKeyType, pk_validate: bool) c_uint {
+    return Signature.verifySignature(sig, sig_groupcheck, msg, msg_len, dst, dst_len, aug_ptr, aug_len, pk, pk_validate);
+}
+
+export fn aggregateVerify(sig: *const SignatureType, sig_groupcheck: bool, msgs: [*c][*c]const u8, msgs_len: usize, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks: [*c]const *PublicKeyType, pks_len: usize, pks_validate: bool, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+    return Signature.aggregateVerifyC(sig, sig_groupcheck, msgs, msgs_len, msg_len, dst, dst_len, pks, pks_len, pks_validate, pairing_buffer, pairing_buffer_len);
+}
+
+export fn fastAggregateVerify(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks: [*c]*const PublicKeyType, pks_len: usize, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+    return Signature.fastAggregateVerifyC(sig, sig_groupcheck, msg, msg_len, dst, dst_len, pks, pks_len, pairing_buffer, pairing_buffer_len);
+}
+
+export fn fastAggregateVerifyPreAggregated(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, pk: *PublicKeyType, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+    return Signature.fastAggregateVerifyPreAggregatedC(sig, sig_groupcheck, msg, msg_len, dst, dst_len, pk, pairing_buffer, pairing_buffer_len);
+}
+
+export fn verifyMultipleSignatures(msgs: [*c][*c]const u8, msgs_len: usize, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks: [*c]*const PublicKeyType, pks_len: usize, pks_validate: bool, sigs: [*c]*const SignatureType, sigs_len: usize, sigs_groupcheck: bool, rands: [*c][*c]const u8, rands_len: usize, rand_bits: usize, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+    return Signature.verifyMultipleSignatures(msgs, msgs_len, msg_len, dst, dst_len, pks, pks_len, pks_validate, sigs, sigs_len, sigs_groupcheck, rands, rands_len, rand_bits, pairing_buffer, pairing_buffer_len);
+}
+
+export fn signatureFromAggregate(out: *SignatureType, agg_sig: *const AggregateSignatureType) void {
+    Signature.signatureFromAggregate(out, agg_sig);
+}
+
+export fn compressSignature(out: *u8, point: *const SignatureType) void {
+    Signature.compressSignature(out, point);
+}
+
+export fn serializeSignature(out: *u8, point: *const SignatureType) void {
+    Signature.serializeSignature(out, point);
+}
+
+export fn uncompressSignature(out: *SignatureType, sig_comp: [*c]const u8, len: usize) c_uint {
+    return Signature.uncompressSignature(out, sig_comp, len);
+}
+
+export fn deserializeSignature(out: *SignatureType, sig_in: [*c]const u8, len: usize) c_uint {
+    return Signature.deserializeSignature(out, sig_in, len);
+}
+
+export fn signatureFromBytes(out: *SignatureType, sig_in: [*c]const u8, len: usize) c_uint {
+    return Signature.signatureFromBytes(out, sig_in, len);
+}
+
+export fn signatureToBytes(out: *u8, point: *SignatureType) void {
+    return Signature.signatureToBytes(out, point);
+}
+
+export fn signatureSubgroupCheck(point: *SignatureType) bool {
+    return Signature.signatureSubgroupCheck(point);
+}
+
+export fn isSignatureEqual(point: *const SignatureType, other: *const SignatureType) bool {
+    return Signature.isSignatureEqual(point, other);
+}
+
+/// AggregateSignatureType functions
+export fn defaultAggregateSignature(out: *AggregateSignatureType) void {
+    return AggregateSignature.defaultAggregateSignature(out);
+}
+
+export fn validateAggregateSignature(point: *const AggregateSignatureType) c_uint {
+    return AggregateSignature.validateAggregateSignature(point);
+}
+
+export fn aggregateFromSignature(out: *AggregateSignatureType, sig: *const SignatureType) void {
+    return AggregateSignature.aggregateFromSignature(out, sig);
+}
+
+export fn aggregateToSignature(out: *SignatureType, agg_sig: *const AggregateSignatureType) void {
+    return AggregateSignature.aggregateToSignature(out, agg_sig);
+}
+
+export fn aggregateSignatures(out: *AggregateSignatureType, sigs: [*c]*const SignatureType, len: usize, sigs_groupcheck: bool) c_uint {
+    return AggregateSignature.aggregateSignatures(out, sigs, len, sigs_groupcheck);
+}
+
+export fn aggregateSerialized(out: *AggregateSignatureType, sigs: [*c][*c]const u8, sigs_len: usize, sig_len: usize, sigs_groupcheck: bool) c_uint {
+    return AggregateSignature.aggregateSerializedC(out, sigs, sigs_len, sig_len, sigs_groupcheck);
+}
+
+export fn addAggregateC(out: *AggregateSignatureType, agg_sig: *const AggregateSignatureType) void {
+    return AggregateSignature.addAggregateC(out, agg_sig);
+}
+
+export fn addSignatureToAggregate(out: *AggregateSignatureType, sig: *const SignatureType, sig_groupcheck: bool) c_uint {
+    return AggregateSignature.addSignatureToAggregate(out, sig, sig_groupcheck);
+}
+
+export fn subgroupCheckC(agg_sig: *const AggregateSignatureType) bool {
+    return AggregateSignature.subgroupCheckC(agg_sig);
+}
+
+export fn isAggregateSignatureEqual(point: *const AggregateSignatureType, other: *const AggregateSignatureType) bool {
+    return AggregateSignature.isAggregateSignatureEqual(point, other);
+}
+
+// SecretKeyType functions
+export fn defaultSecretKey(out: *SecretKeyType) void {
+    return SecretKey.defaultSecretKey(out);
+}
+
+export fn secretKeyGen(out: *SecretKeyType, ikm: [*c]const u8, ikm_len: usize, key_info: [*c]const u8, key_info_len: usize) c_uint {
+    return SecretKey.secretKeyGen(out, ikm, ikm_len, key_info, key_info_len);
+}
+
+export fn secretKeyGenV3(out: *SecretKeyType, ikm: [*c]const u8, ikm_len: usize, key_info: [*c]const u8, key_info_len: usize) c_uint {
+    return SecretKey.secretKeyGenV3(out, ikm, ikm_len, key_info, key_info_len);
+}
+
+export fn secretKeyGenV45(out: *SecretKeyType, ikm: [*c]const u8, ikm_len: usize, salt: [*c]const u8, salt_len: usize, info: [*c]const u8, info_len: usize) c_uint {
+    return SecretKey.secretKeyGenV45(out, ikm, ikm_len, salt, salt_len, info, info_len);
+}
+
+export fn secretKeyGenV5(out: *SecretKeyType, ikm: [*c]const u8, ikm_len: usize, salt: [*c]const u8, salt_len: usize, info: [*c]const u8, info_len: usize) c_uint {
+    return SecretKey.secretKeyGenV5(out, ikm, ikm_len, salt, salt_len, info, info_len);
+}
+
+export fn secretKeyDeriveMasterEip2333(out: *SecretKeyType, ikm: [*c]const u8, ikm_len: usize) c_uint {
+    return SecretKey.secretKeyDeriveMasterEip2333(out, ikm, ikm_len);
+}
+
+export fn secretKeyDeriveChildEip2333(out: *SecretKeyType, sk: *const SecretKeyType, child_index: u32) void {
+    SecretKey.secretKeyDeriveChildEip2333(out, sk, child_index);
+}
+
+export fn secretKeyToPublicKey(out: *PublicKeyType, sk: *const SecretKeyType) void {
+    return SecretKey.secretKeyToPublicKey(out, sk);
+}
+
+export fn sign(out: *SignatureType, sk: *const SecretKeyType, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, aug: [*c]const u8, aug_len: usize) void {
+    return SecretKey.signC(out, sk, msg, msg_len, dst, dst_len, aug, aug_len);
+}
+
+export fn serializeSecretKey(out: *u8, sk: *const SecretKeyType) void {
+    return SecretKey.serializeSecretKey(out, sk);
+}
+
+export fn deserializeSecretKey(out: *SecretKeyType, sk_in: [*c]const u8, len: usize) c_uint {
+    return SecretKey.deserializeSecretKey(out, sk_in, len);
+}
+
+export fn secretKeyToBytes(out: *u8, sk: *const SecretKeyType) void {
+    return SecretKey.secretKeyToBytes(out, sk);
+}
+
+export fn secretKeyFromBytes(out: *SecretKeyType, sk_in: [*c]const u8, len: usize) c_uint {
+    return SecretKey.secretKeyFromBytes(out, sk_in, len);
+}
+
+// MultiPoints functions
+export fn addPublicKeys(out: *AggregatePublicKeyType, pks: [*c]*const PublicKeyType, pks_len: usize) void {
+    return SigVariant.addPublicKeysC(out, pks, pks_len);
+}
+
+export fn multPublicKeys(out: *AggregatePublicKeyType, pks: [*c]*const PublicKeyType, pks_len: usize, scalars: [*c]*const u8, n_bits: usize, scratch: [*c]u64) void {
+    return SigVariant.multPublicKeysC(out, pks, pks_len, scalars, n_bits, scratch);
+}
+
+export fn addSignatures(out: *AggregateSignatureType, sigs: [*c]*const SignatureType, sigs_len: usize) void {
+    return SigVariant.addSignaturesC(out, sigs, sigs_len);
+}
+
+export fn multSignaturesC(out: *AggregateSignatureType, sigs: [*c]*const SignatureType, sigs_len: usize, scalars: [*c]*const u8, n_bits: usize, scratch: [*c]u64) void {
+    return SigVariant.multSignaturesC(out, sigs, sigs_len, scalars, n_bits, scratch);
+}
+
+// TODO: aggregateWithRandomnessC: need to implement extern struct
 
 test "test_sign_n_verify" {
     try SigVariant.testSignNVerify();

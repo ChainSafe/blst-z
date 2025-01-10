@@ -15,8 +15,9 @@ pub fn build(b: *std.Build) !void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
-    const lib = b.addStaticLibrary(.{
-        .name = "blst-z",
+    // build blst-z static library
+    const staticLib = b.addStaticLibrary(.{
+        .name = "blst",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
         .root_source_file = b.path("src/root.zig"),
@@ -39,19 +40,30 @@ pub fn build(b: *std.Build) !void {
     if (!file_exist) {
         const blst_step = b.addSystemCommand(([_][]const u8{"./build.sh"})[0..]);
         blst_step.cwd = b.path("blst");
-        lib.step.dependOn(&blst_step.step);
+        staticLib.step.dependOn(&blst_step.step);
     }
 
     // Add the static library, this point to the output file
-    lib.addObjectFile(b.path(blst_file_path));
+    staticLib.addObjectFile(b.path(blst_file_path));
 
     // the folder where blst.h is located
-    lib.addIncludePath(b.path("blst/bindings"));
+    staticLib.addIncludePath(b.path("blst/bindings"));
 
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
     // running `zig build`).
-    b.installArtifact(lib);
+    b.installArtifact(staticLib);
+
+    // build blst-z shared library
+    const sharedLib = b.addSharedLibrary(.{
+        .name = "blst_min_pk",
+        .root_source_file = b.path("src/sig_variant_min_pk.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    sharedLib.addObjectFile(b.path(blst_file_path));
+    sharedLib.addIncludePath(b.path("blst/bindings"));
+    b.installArtifact(sharedLib);
 
     const exe = b.addExecutable(.{
         .name = "blst-z",
@@ -96,7 +108,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
-    lib_unit_tests.linkLibrary(lib);
+    lib_unit_tests.linkLibrary(staticLib);
     // it's optional to do this on MacOS, but required in CI
     lib_unit_tests.addObjectFile(b.path(blst_file_path));
     lib_unit_tests.addIncludePath(b.path("blst/bindings"));

@@ -13,6 +13,9 @@ const util = @import("util.zig");
 const BLST_ERROR = util.BLST_ERROR;
 const toBlstError = util.toBlstError;
 
+/// specific constant used in aggregateWithRandomness() to avoid heap allocation
+const MAX_SIGNATURE_SETS = 128;
+
 /// generic implementation for both min_pk and min_sig
 /// this is equivalent to Rust binding in blst/bindings/rust/src/lib.rs
 pub fn createSigVariant(
@@ -77,8 +80,8 @@ pub fn createSigVariant(
     // TODO: implement MultiPoint
     const Pairing = struct {
         p: P,
-        pub fn new(buffer: []u8, hoe: bool, dst: []const u8) PairingError!@This() {
-            const p = try P.new(buffer, hoe, dst);
+        pub fn new(buffer: [*c]u8, buffer_len: usize, hoe: bool, dst: [*c]const u8, dst_len: usize) PairingError!@This() {
+            const p = try P.new(buffer, buffer_len, hoe, &dst[0], dst_len);
             return .{ .p = p };
         }
 
@@ -86,23 +89,23 @@ pub fn createSigVariant(
             return P.sizeOf();
         }
 
-        pub fn aggregate(self: *@This(), pk: *const pk_aff_type, pk_validate: bool, sig: ?*const sig_aff_type, sig_groupcheck: bool, msg: []const u8, aug: ?[]u8) BLST_ERROR!void {
+        pub fn aggregate(self: *@This(), pk: *const pk_aff_type, pk_validate: bool, sig: ?*const sig_aff_type, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, aug: ?[]u8) BLST_ERROR!void {
             if (pk_comp_size == 48) {
                 // min_pk
-                return self.p.aggregateG1(pk, pk_validate, sig, sig_groupcheck, msg, aug);
+                return self.p.aggregateG1(pk, pk_validate, sig, sig_groupcheck, msg, msg_len, aug);
             } else {
                 // min_sig
-                return self.p.aggregateG2(pk, pk_validate, sig, sig_groupcheck, msg, aug);
+                return self.p.aggregateG2(pk, pk_validate, sig, sig_groupcheck, msg, msg_len, aug);
             }
         }
 
-        pub fn mulAndAggregate(self: *@This(), pk: *const pk_aff_type, pk_validate: bool, sig: *const sig_aff_type, sig_groupcheck: bool, scalar: []const u8, nbits: usize, msg: []const u8, aug: ?[]u8) BLST_ERROR!void {
+        pub fn mulAndAggregate(self: *@This(), pk: *const pk_aff_type, pk_validate: bool, sig: *const sig_aff_type, sig_groupcheck: bool, scalar: [*c]const u8, nbits: usize, msg: [*c]const u8, msg_len: usize, aug: ?[]u8) BLST_ERROR!void {
             if (pk_comp_size == 48) {
                 // min_pk
-                return self.p.mulAndAggregateG1(pk, pk_validate, sig, sig_groupcheck, scalar, nbits, msg, aug);
+                return self.p.mulAndAggregateG1(pk, pk_validate, sig, sig_groupcheck, scalar, nbits, msg, msg_len, aug);
             } else {
                 // min_sig
-                return self.p.mulAndAggregateG2(pk, pk_validate, sig, sig_groupcheck, scalar, nbits, msg, aug);
+                return self.p.mulAndAggregateG2(pk, pk_validate, sig, sig_groupcheck, scalar, nbits, msg, msg_len, aug);
             }
         }
 
@@ -118,6 +121,7 @@ pub fn createSigVariant(
     };
 
     // TODO: implement Clone, Copy, Equal
+    // each function has 2 version: 1 for Zig and 1 for C-ABI
     const PublicKey = struct {
         point: pk_aff_type,
 
@@ -127,82 +131,139 @@ pub fn createSigVariant(
             };
         }
 
+        pub fn defaultPublicKey(out: *pk_aff_type) void {
+            out.* = default_pubkey_fn();
+        }
+
         // Core operations
 
         // key_validate
         pub fn validate(self: *const @This()) BLST_ERROR!void {
-            if (pk_is_inf_fn(&self.point)) {
-                return BLST_ERROR.PK_IS_INFINITY;
-            }
-
-            if (pk_in_group_fn(&self.point) == false) {
-                return BLST_ERROR.POINT_NOT_IN_GROUP;
+            const res = validatePublicKey(&self.point);
+            if (toBlstError(res)) |err| {
+                return err;
             }
         }
 
-        pub fn key_validate(key: []const u8) BLST_ERROR!void {
-            const pk = try @This().fromBytes(key);
-            try pk.validate();
+        pub fn validatePublicKey(point: *const pk_aff_type) c_uint {
+            if (pk_is_inf_fn(point)) {
+                return c.BLST_PK_IS_INFINITY;
+            }
+
+            if (pk_in_group_fn(point) == false) {
+                return c.BLST_POINT_NOT_IN_GROUP;
+            }
+
+            return c.BLST_SUCCESS;
+        }
+
+        pub fn keyValidate(key: []const u8) BLST_ERROR!void {
+            const res = publicKeyBytesValidate(&key[0], key.len);
+            if (toBlstError(res)) |err| {
+                return err;
+            }
+        }
+
+        pub fn publicKeyBytesValidate(key: [*c]const u8, len: usize) c_uint {
+            var point = default().point;
+            const res = publicKeyFromBytes(&point, key, len);
+            if (res != c.BLST_SUCCESS) {
+                return res;
+            }
+            return validatePublicKey(&point);
         }
 
         pub fn fromAggregate(comptime AggregatePublicKey: type, agg_pk: *const AggregatePublicKey) @This() {
             var pk_aff = @This().default();
-            pk_to_aff_fn(&pk_aff.point, &agg_pk.point);
+            publicKeyFromAggregate(&pk_aff.point, &agg_pk.point);
             return pk_aff;
+        }
+
+        pub fn publicKeyFromAggregate(out: *pk_aff_type, agg_pk: *const pk_type) void {
+            return pk_to_aff_fn(out, agg_pk);
         }
 
         // Serdes
 
         pub fn compress(self: *const @This()) [pk_comp_size]u8 {
             var pk_comp = [_]u8{0} ** pk_comp_size;
-            pk_comp_fn(&pk_comp[0], &self.point);
+            compressPublicKey(&pk_comp[0], &self.point);
             return pk_comp;
+        }
+
+        pub fn compressPublicKey(out: *u8, point: *const pk_aff_type) void {
+            pk_comp_fn(out, point);
         }
 
         pub fn serialize(self: *const @This()) [pk_ser_size]u8 {
             var pk_out = [_]u8{0} ** pk_ser_size;
-            pk_ser_fn(&pk_out[0], &self.point);
+            serializePublicKey(&pk_out[0], &self.point);
             return pk_out;
         }
 
+        pub fn serializePublicKey(out: *u8, point: *const pk_aff_type) void {
+            pk_ser_fn(out, point);
+        }
+
         pub fn uncompress(pk_comp: []const u8) BLST_ERROR!@This() {
-            if (pk_comp.len == pk_comp_size and (pk_comp[0] & 0x80) != 0) {
-                var pk = @This().default();
-                const res = pk_uncomp_fn(&pk.point, &pk_comp[0]);
-                return toBlstError(res) orelse pk;
+            var pk = @This().default();
+            const res = uncompressPublicKey(&pk.point, &pk_comp[0], pk_comp.len);
+            return toBlstError(res) orelse pk;
+        }
+
+        pub fn uncompressPublicKey(out: *pk_aff_type, pk_comp: [*c]const u8, len: usize) c_uint {
+            if (len == pk_comp_size and (pk_comp.* & 0x80) != 0) {
+                return pk_uncomp_fn(out, pk_comp);
             }
 
-            return BLST_ERROR.BAD_ENCODING;
+            return c.BLST_BAD_ENCODING;
         }
 
         pub fn deserialize(pk_in: []const u8) BLST_ERROR!@This() {
-            if ((pk_in.len == pk_ser_size and (pk_in[0] & 0x80) == 0) or
-                (pk_in.len == pk_comp_size and (pk_in[0] & 0x80) != 0))
+            var pk = default();
+            const res = deserializePublicKey(&pk.point, &pk_in[0], pk_in.len);
+            return toBlstError(res) orelse pk;
+        }
+
+        pub fn deserializePublicKey(out: *pk_aff_type, pk_in: [*c]const u8, len: usize) c_uint {
+            if ((len == pk_ser_size and (pk_in.* & 0x80) == 0) or
+                (len == pk_comp_size and (pk_in.* & 0x80) != 0))
             {
-                var pk = @This().default();
-                const res = pk_deser_fn(&pk.point, &pk_in[0]);
-                return toBlstError(res) orelse pk;
+                return pk_deser_fn(out, pk_in);
             }
 
-            return BLST_ERROR.BAD_ENCODING;
+            return c.BLST_BAD_ENCODING;
         }
 
         pub fn fromBytes(pk_in: []const u8) BLST_ERROR!@This() {
             return @This().deserialize(pk_in);
         }
 
-        pub fn toBytes(self: *const @This()) [48]u8 {
+        pub fn publicKeyFromBytes(point: *pk_aff_type, pk_in: [*c]const u8, len: usize) c_uint {
+            return deserializePublicKey(point, pk_in, len);
+        }
+
+        pub fn toBytes(self: *const @This()) [pk_comp_size]u8 {
             return self.compress();
+        }
+
+        pub fn toPublicKeyBytes(out: *u8, point: *pk_aff_type) void {
+            return compressPublicKey(out, point);
         }
 
         pub fn isEqual(self: *const @This(), other: *const @This()) bool {
             return pk_eq_fn(&self.point, &other.point);
         }
 
+        pub fn isPublicKeyEqual(point: *pk_aff_type, other: *pk_aff_type) bool {
+            return pk_eq_fn(point, other);
+        }
+
         // TODO: PartialEq, Serialize, Deserialize?
 
     };
 
+    // each function has 2 version: 1 for Zig and 1 for C-ABI
     const AggregatePublicKey = struct {
         point: pk_type,
 
@@ -212,69 +273,172 @@ pub fn createSigVariant(
             };
         }
 
+        pub fn defaultAggregatePublicKey(out: *pk_type) void {
+            out.* = default_agg_pubkey_fn();
+        }
+
         pub fn fromPublicKey(pk: *const PublicKey) @This() {
             var agg_pk = @This().default();
-            pk_from_aff_fn(&agg_pk.point, &pk.point);
+            aggregateFromPublicKey(&agg_pk.point, &pk.point);
 
             return agg_pk;
+        }
+
+        pub fn aggregateFromPublicKey(out: *pk_type, pk: *const pk_aff_type) void {
+            return pk_from_aff_fn(out, pk);
         }
 
         pub fn toPublicKey(self: *const @This()) PublicKey {
             var pk = PublicKey.default();
-            pk_to_aff_fn(&pk.point, &self.point);
+            aggregateToPublicKey(&pk.point, &self.point);
             return pk;
         }
 
+        pub fn aggregateToPublicKey(out: *pk_aff_type, agg_pk: *const pk_type) void {
+            return pk_to_aff_fn(out, agg_pk);
+        }
+
         // Aggregate
-        pub fn aggregate(pks: []const *PublicKey, pks_validate: bool) BLST_ERROR!@This() {
+        pub fn aggregate(pks: []*const PublicKey, pks_validate: bool) BLST_ERROR!@This() {
             if (pks.len == 0) {
                 return BLST_ERROR.AGGR_TYPE_MISMATCH;
             }
-            if (pks_validate) {
-                try pks[0].validate();
-            }
 
-            var agg_pk = @This().fromPublicKey(pks[0]);
-            for (pks[1..]) |pk| {
-                if (pks_validate) {
-                    try pk.validate();
-                }
-
-                pk_add_or_dbl_aff_fn(&agg_pk.point, &agg_pk.point, &pk.point);
-            }
-
-            return agg_pk;
+            // this is unsafe code but we scanned through testTypeAlignment unit test
+            const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
+            var agg_pk = @This().default();
+            const res = aggregatePublicKeys(&agg_pk.point, &pk_aff_points[0], pks.len, pks_validate);
+            return toBlstError(res) orelse agg_pk;
         }
 
+        pub fn aggregatePublicKeys(out: *pk_type, pks: [*c]*const pk_aff_type, len: usize, pks_validate: bool) c_uint {
+            if (len == 0) {
+                return c.BLST_AGGR_TYPE_MISMATCH;
+            }
+            if (pks_validate) {
+                const res = PublicKey.validatePublicKey(pks[0]);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
+            }
+
+            aggregateFromPublicKey(out, pks[0]);
+            for (1..len) |i| {
+                if (pks_validate) {
+                    const res = PublicKey.validatePublicKey(pks[i]);
+                    if (res != c.BLST_SUCCESS) {
+                        return res;
+                    }
+                }
+
+                pk_add_or_dbl_aff_fn(out, out, pks[i]);
+            }
+
+            return c.BLST_SUCCESS;
+        }
+
+        // cannot deduplicate this function with the below 3 functions because pks may contain different sizes
         pub fn aggregateSerialized(pks: [][]const u8, pks_validate: bool) BLST_ERROR!@This() {
             // TODO - threading
             if (pks.len == 0) {
                 return BLST_ERROR.AGGR_TYPE_MISMATCH;
             }
-            var pk = if (pks_validate) PublicKey.key_validate(pks[0]) else PublicKey.fromBytes(pks[0]);
+            var pk = PublicKey.fromBytes(pks[0]);
+            if (pks_validate) {
+                try pk.validate();
+            }
             var agg_pk = @This().fromPublicKey(&pk);
             for (pks[1..]) |s| {
-                pk = if (pks_validate) PublicKey.key_validate(s) else PublicKey.fromBytes(s);
+                pk = PublicKey.fromBytes(s);
+                if (pks_validate) {
+                    try pk.validate();
+                }
                 pk_add_or_dbl_aff_fn(&agg_pk.point, &agg_pk.point, &pk.point);
             }
 
             return agg_pk;
         }
 
+        /// equivalent to aggregateSerialized but for compressed pks
+        pub fn aggregateCompressedPublicKeys(out: *pk_type, pks: [*c][*c]const u8, pks_len: usize, pks_validate: bool) c_uint {
+            return aggregateSerializedPublicKeysToOut(out, pks, pks_len, pk_comp_size, pks_validate);
+        }
+
+        pub fn aggregateSerializedPublicKeys(out: *pk_type, pks: [*c][*c]const u8, pks_len: usize, pks_validate: bool) c_uint {
+            return aggregateSerializedPublicKeysToOut(out, pks, pks_len, pk_ser_size, pks_validate);
+        }
+
+        fn aggregateSerializedPublicKeysToOut(out: *pk_type, pks: [*c][*c]const u8, pks_len: usize, pk_len: usize, pks_validate: bool) c_uint {
+            if (pks_len <= 0) {
+                return c.BLST_AGGR_TYPE_MISMATCH;
+            }
+
+            var pk = default_pubkey_fn();
+            var res = PublicKey.publicKeyFromBytes(&pk, pks[0], pk_len);
+            if (res != c.BLST_SUCCESS) {
+                return res;
+            }
+
+            if (pks_validate) {
+                res = PublicKey.validatePublicKey(&pk);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
+            }
+
+            aggregateFromPublicKey(out, &pk);
+
+            for (1..pks_len) |i| {
+                var point = default_pubkey_fn();
+                res = PublicKey.publicKeyFromBytes(&point, pks[i], pk_len);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
+                if (pks_validate) {
+                    res = PublicKey.validatePublicKey(&point);
+                    if (res != c.BLST_SUCCESS) {
+                        return res;
+                    }
+                }
+                pk_add_or_dbl_aff_fn(out, out, &point);
+            }
+
+            return c.BLST_SUCCESS;
+        }
+
         pub fn addAggregate(self: *@This(), agg_pk: *const @This()) BLST_ERROR!void {
-            pk_add_or_dbl_fn(&self.point, &self.point, &agg_pk.point);
+            addAggregatePublicKey(&self.point, &self.point, &agg_pk.point);
+        }
+
+        pub fn addAggregatePublicKey(out: *pk_type, agg_pk: *const pk_type) void {
+            pk_add_or_dbl_fn(out, out, agg_pk);
         }
 
         pub fn addPublicKey(self: *@This(), pk: *const PublicKey, pk_validate: bool) BLST_ERROR!void {
+            const res = addPublicKeyToAggregate(&self.point, &pk.point, pk_validate);
+            if (toBlstError(res)) |err| {
+                return err;
+            }
+        }
+
+        pub fn addPublicKeyToAggregate(out: *pk_type, pk: *const pk_aff_type, pk_validate: bool) c_uint {
             if (pk_validate) {
-                try pk.validate();
+                const res = PublicKey.validatePublicKey(pk);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
             }
 
-            pk_add_or_dbl_aff_fn(&self.point, &self.point, &pk.point);
+            pk_add_or_dbl_aff_fn(out, out, pk);
+            return c.BLST_SUCCESS;
         }
 
         pub fn isEqual(self: *const @This(), other: *const @This()) bool {
-            return agg_pk_eq_fn(&self.point, &other.point);
+            return isAggregatePublicKeyEqual(&self.point, &other.point);
+        }
+
+        pub fn isAggregatePublicKeyEqual(point: *const pk_type, other: *const pk_type) bool {
+            return agg_pk_eq_fn(point, other);
         }
     };
 
@@ -287,18 +451,31 @@ pub fn createSigVariant(
             };
         }
 
+        pub fn defaultSignature(out: *sig_aff_type) void {
+            out.* = default_sig_fn();
+        }
+
         // sig_infcheck, check for infinity, is a way to avoid going
         // into resource-consuming verification. Passing 'false' is
         // always cryptographically safe, but application might want
         // to guard against obviously bogus individual[!] signatures.
         pub fn validate(self: *const @This(), sig_infcheck: bool) BLST_ERROR!void {
-            if (sig_infcheck and sig_is_inf_fn(&self.point)) {
-                return BLST_ERROR.PK_IS_INFINITY;
+            const res = validateSignature(&self.point, sig_infcheck);
+            if (toBlstError(res)) |err| {
+                return err;
+            }
+        }
+
+        pub fn validateSignature(point: *const sig_aff_type, sig_infcheck: bool) c_uint {
+            if (sig_infcheck and sig_is_inf_fn(point)) {
+                return c.BLST_PK_IS_INFINITY;
             }
 
-            if (!sig_in_group_fn(&self.point)) {
-                return BLST_ERROR.POINT_NOT_IN_GROUP;
+            if (!sig_in_group_fn(point)) {
+                return c.BLST_POINT_NOT_IN_GROUP;
             }
+
+            return c.BLST_SUCCESS;
         }
 
         pub fn sigValidate(sig_in: []const u8, sig_infcheck: bool) BLST_ERROR!@This() {
@@ -307,22 +484,42 @@ pub fn createSigVariant(
             return sig;
         }
 
+        pub fn sigValidateC(out: *sig_aff_type, sig_in: [*c]const u8, sig_len: usize, sig_infcheck: bool) c_uint {
+            const res = signatureFromBytes(out, sig_in, sig_len);
+            if (res != c.BLST_SUCCESS) {
+                return res;
+            }
+            return validateSignature(out, sig_infcheck);
+        }
+
         // same to non-std verify in Rust
         pub fn verify(self: *const @This(), sig_groupcheck: bool, msg: []const u8, dst: []const u8, aug: ?[]const u8, pk: *const PublicKey, pk_validate: bool) BLST_ERROR!void {
-            if (sig_groupcheck) {
-                try self.validate(false);
-            }
-
-            if (pk_validate) {
-                try pk.validate();
-            }
             const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
             const aug_len = if (aug != null) aug.?.len else 0;
-
-            const res = verify_fn(&pk.point, &self.point, true, &msg[0], msg.len, &dst[0], dst.len, aug_ptr, aug_len);
+            const res = verifySignature(&self.point, sig_groupcheck, &msg[0], msg.len, &dst[0], dst.len, aug_ptr, aug_len, &pk.point, pk_validate);
             if (toBlstError(res)) |err| {
                 return err;
             }
+        }
+
+        /// C-ABI version of verify()
+        /// - no aug parameter
+        pub fn verifySignature(sig: *const sig_aff_type, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, aug_ptr: [*c]const u8, aug_len: usize, pk: *const pk_aff_type, pk_validate: bool) c_uint {
+            if (sig_groupcheck) {
+                const res = validateSignature(sig, false);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
+            }
+
+            if (pk_validate) {
+                const res = PublicKey.validatePublicKey(pk);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
+            }
+
+            return verify_fn(pk, sig, true, msg, msg_len, dst, dst_len, aug_ptr, aug_len);
         }
 
         // TODO: consider thread pool implementation
@@ -334,12 +531,18 @@ pub fn createSigVariant(
                 return BLST_ERROR.VERIFY_FAIL;
             }
 
-            var pairing = Pairing.new(pairing_buffer, hash_or_encode, dst) catch return BLST_ERROR.FAILED_PAIRING;
+            if (pairing_buffer.len < Pairing.sizeOf()) {
+                return BLST_ERROR.FAILED_PAIRING;
+            }
 
-            try pairing.aggregate(&pks[0].point, pks_validate, &self.point, sig_groupcheck, msgs[0], null);
+            var pairing = Pairing.new(&pairing_buffer[0], pairing_buffer.len, hash_or_encode, &dst[0], dst.len) catch return BLST_ERROR.FAILED_PAIRING;
+
+            var msg = msgs[0];
+            try pairing.aggregate(&pks[0].point, pks_validate, &self.point, sig_groupcheck, &msg[0], msg.len, null);
 
             for (1..n_elems) |i| {
-                try pairing.aggregate(&pks[i].point, pks_validate, null, false, msgs[i], null);
+                msg = msgs[i];
+                try pairing.aggregate(&pks[i].point, pks_validate, null, false, &msg[0], msg.len, null);
             }
 
             pairing.commit();
@@ -349,14 +552,59 @@ pub fn createSigVariant(
             }
         }
 
+        /// C-ABI version of aggregateVerify()
+        /// - extra msg_len parameter, all messages should have the same length
+        pub fn aggregateVerifyC(sig: *const sig_aff_type, sig_groupcheck: bool, msgs: [*c][*c]const u8, msgs_len: usize, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks: [*c]const *pk_aff_type, pks_len: usize, pks_validate: bool, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+            if (msgs_len == 0 or msgs_len != pks_len) {
+                return c.BLST_VERIFY_FAIL;
+            }
+
+            if (pairing_buffer_len < Pairing.sizeOf()) {
+                return c.BLST_VERIFY_FAIL;
+            }
+
+            var pairing = Pairing.new(pairing_buffer, pairing_buffer_len, hash_or_encode, dst, dst_len) catch return c.BLST_VERIFY_FAIL;
+
+            var msg = msgs[0];
+            pairing.aggregate(pks[0], pks_validate, sig, sig_groupcheck, msg, msg_len, null) catch return c.BLST_VERIFY_FAIL;
+
+            for (1..msgs_len) |i| {
+                msg = msgs[i];
+                pairing.aggregate(pks[i], pks_validate, null, false, msg, msg_len, null) catch return c.BLST_VERIFY_FAIL;
+            }
+
+            pairing.commit();
+
+            if (!pairing.finalVerify(null)) {
+                return c.BLST_VERIFY_FAIL;
+            }
+
+            return c.BLST_SUCCESS;
+        }
+
         /// same to fast_aggregate_verify in Rust with extra `pairing_buffer` parameter
-        pub fn fastAggregateVerify(self: *const @This(), sig_groupcheck: bool, msg: []const u8, dst: []const u8, pks: []const *PublicKey, pairing_buffer: []u8) BLST_ERROR!void {
-            const agg_pk = try AggregatePublicKey.aggregate(pks, false);
-            var pk = agg_pk.toPublicKey();
-            var msg_arr = [_][]const u8{msg};
-            const msgs: [][]const u8 = msg_arr[0..];
-            const pk_arr = [_]*PublicKey{&pk};
-            try self.aggregateVerify(sig_groupcheck, msgs[0..], dst, pk_arr[0..], false, pairing_buffer);
+        pub fn fastAggregateVerify(self: *const @This(), sig_groupcheck: bool, msg: []const u8, dst: []const u8, pks: []*const PublicKey, pairing_buffer: []u8) BLST_ERROR!void {
+            // this is unsafe code but we scanned through testTypeAlignment unit test
+            const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
+            const res = fastAggregateVerifyC(&self.point, sig_groupcheck, &msg[0], msg.len, &dst[0], dst.len, &pk_aff_points[0], pk_aff_points.len, &pairing_buffer[0], pairing_buffer.len);
+            const err_res = toBlstError(res);
+            if (err_res) |err| {
+                return err;
+            }
+        }
+
+        pub fn fastAggregateVerifyC(sig: *const sig_aff_type, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks: [*c]*const pk_aff_type, pks_len: usize, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+            var agg_pk = default_agg_pubkey_fn();
+            const res = AggregatePublicKey.aggregatePublicKeys(&agg_pk, pks, pks_len, false);
+            if (res != c.BLST_SUCCESS) {
+                return res;
+            }
+            var pk = default_pubkey_fn();
+            PublicKey.publicKeyFromAggregate(&pk, &agg_pk);
+
+            var msgs_arr = [_][*c]const u8{msg};
+            var pks_arr = [_]*pk_aff_type{&pk};
+            return aggregateVerifyC(sig, sig_groupcheck, &msgs_arr, 1, msg_len, dst, dst_len, &pks_arr, 1, false, pairing_buffer, pairing_buffer_len);
         }
 
         /// same to fast_aggregate_verify_pre_aggregated in Rust with extra `pairing_buffer` parameter
@@ -367,12 +615,19 @@ pub fn createSigVariant(
             try self.aggregateVerify(sig_groupcheck, msgs[0..], dst, pks[0..], false, pairing_buffer);
         }
 
+        /// C-ABI version of fastAggregateVerifyPreAggregated()
+        pub fn fastAggregateVerifyPreAggregatedC(sig: *const sig_aff_type, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, pk: *pk_aff_type, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+            var msgs = [_][*c]const u8{msg};
+            var pks = [_]*pk_aff_type{pk};
+            return aggregateVerifyC(sig, sig_groupcheck, &msgs, 1, msg_len, dst, dst_len, &pks, pks.len, false, pairing_buffer, pairing_buffer_len);
+        }
+
         /// https://ethresear.ch/t/fast-verification-of-multiple-bls-signatures/5407
         ///  similar to non-std verify_multiple_aggregate_signatures in Rust with:
         /// - extra `pairing_buffer` parameter
         /// - `rands` parameter type changed to `[][]const u8` instead of []blst_scalar because mulAndAggregateG1() accepts []const u8 anyway
         /// rand_bits is always 64 in all tests
-        pub fn verifyMultipleAggregateSignatures(msgs: [][]const u8, dst: []const u8, pks: []const *PublicKey, pks_validate: bool, sigs: []const *@This(), sigs_groupcheck: bool, rands: [][]const u8, rand_bits: usize, pairing_buffer: []u8) BLST_ERROR!void {
+        pub fn verifyMultiple(msgs: [][]const u8, dst: []const u8, pks: []const *PublicKey, pks_validate: bool, sigs: []const *@This(), sigs_groupcheck: bool, rands: [][]const u8, rand_bits: usize, pairing_buffer: []u8) BLST_ERROR!void {
             const n_elems = pks.len;
             if (n_elems == 0 or msgs.len != n_elems or sigs.len != n_elems or rands.len != n_elems) {
                 return BLST_ERROR.VERIFY_FAIL;
@@ -380,10 +635,14 @@ pub fn createSigVariant(
 
             // TODO - check msg uniqueness?
 
-            var pairing = Pairing.new(pairing_buffer, hash_or_encode, dst) catch return BLST_ERROR.FAILED_PAIRING;
+            if (pairing_buffer.len < Pairing.sizeOf()) {
+                return BLST_ERROR.FAILED_PAIRING;
+            }
+
+            var pairing = Pairing.new(&pairing_buffer[0], pairing_buffer.len, hash_or_encode, &dst[0], dst.len) catch return BLST_ERROR.FAILED_PAIRING;
 
             for (0..n_elems) |i| {
-                try pairing.mulAndAggregate(&pks[i].point, pks_validate, &sigs[i].point, sigs_groupcheck, rands[i], rand_bits, msgs[i], null);
+                try pairing.mulAndAggregate(&pks[i].point, pks_validate, &sigs[i].point, sigs_groupcheck, &rands[i][0], rand_bits, &msgs[i][0], msgs[i].len, null);
             }
 
             pairing.commit();
@@ -393,61 +652,132 @@ pub fn createSigVariant(
             }
         }
 
+        /// C-ABI version of verifyMultiple() with
+        /// - extra msg_len parameter, all messages should have the same length
+        pub fn verifyMultipleSignatures(msgs: [*c][*c]const u8, msgs_len: usize, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks: [*c]*const pk_aff_type, pks_len: usize, pks_validate: bool, sigs: [*c]*const sig_aff_type, sigs_len: usize, sigs_groupcheck: bool, rands: [*c][*c]const u8, rands_len: usize, rand_bits: usize, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+            if (pks_len == 0 or msgs_len != pks_len or sigs_len != pks_len or rands_len != pks_len) {
+                return c.BLST_VERIFY_FAIL;
+            }
+
+            if (pairing_buffer_len < Pairing.sizeOf()) {
+                return c.BLST_VERIFY_FAIL;
+            }
+
+            var pairing = Pairing.new(pairing_buffer, pairing_buffer_len, hash_or_encode, dst, dst_len) catch return c.BLST_VERIFY_FAIL;
+
+            for (0..pks_len) |i| {
+                pairing.mulAndAggregate(pks[i], pks_validate, sigs[i], sigs_groupcheck, rands[i], rand_bits, msgs[i], msg_len, null) catch return c.BLST_VERIFY_FAIL;
+            }
+
+            pairing.commit();
+
+            if (!pairing.finalVerify(null)) {
+                return c.BLST_VERIFY_FAIL;
+            }
+
+            return c.BLST_SUCCESS;
+        }
+
         pub fn fromAggregate(comptime AggregateSignature: type, agg_sig: *const AggregateSignature) @This() {
             var sig_aff = @This().default();
-            sig_to_aff_fn(&sig_aff.point, &agg_sig.point);
+            signatureFromAggregate(&sig_aff.point, &agg_sig.point);
             return sig_aff;
+        }
+
+        pub fn signatureFromAggregate(out: *sig_aff_type, agg_sig: *const sig_type) void {
+            return sig_to_aff_fn(out, agg_sig);
         }
 
         pub fn compress(self: *const @This()) [sig_comp_size]u8 {
             var sig_comp = [_]u8{0} ** sig_comp_size;
-            sig_comp_fn(&sig_comp[0], &self.point);
+            compressSignature(&sig_comp[0], &self.point);
             return sig_comp;
+        }
+
+        pub fn compressSignature(out: *u8, point: *const sig_aff_type) void {
+            sig_comp_fn(out, point);
         }
 
         pub fn serialize(self: *const @This()) [sig_ser_size]u8 {
             var sig_out = [_]u8{0} ** sig_ser_size;
-            sig_ser_fn(&sig_out[0], &self.point);
+            serializeSignature(&sig_out[0], &self.point);
             return sig_out;
         }
 
+        pub fn serializeSignature(out: *u8, point: *const sig_aff_type) void {
+            sig_ser_fn(out, point);
+        }
+
         pub fn uncompress(sig_comp: []const u8) BLST_ERROR!@This() {
-            if (sig_comp.len == sig_comp_size and (sig_comp[0] & 0x80) != 0) {
-                var sig = @This().default();
-                const res = sig_uncomp_fn(&sig.point, &sig_comp[0]);
-                if (res != null) {
-                    return res;
-                }
-                return sig;
+            if (sig_comp.len == 0) {
+                return BLST_ERROR.BAD_ENCODING;
             }
 
-            return BLST_ERROR.BAD_ENCODING;
+            const sig = @This().default();
+            const res = uncompressSignature(&sig.point, &sig_comp[0], sig_comp.len);
+            return toBlstError(res) orelse sig;
+        }
+
+        pub fn uncompressSignature(out: *sig_aff_type, sig_comp: [*c]const u8, len: usize) c_uint {
+            if (len == sig_comp_size and (sig_comp.* & 0x80) != 0) {
+                return sig_uncomp_fn(out, sig_comp);
+            }
+
+            return c.BLST_BAD_ENCODING;
         }
 
         pub fn deserialize(sig_in: []const u8) BLST_ERROR!@This() {
-            if ((sig_in.len == sig_ser_size and (sig_in[0] & 0x80) == 0) or (sig_in.len == sig_comp_size and sig_in[0] & 0x80 != 0)) {
-                var sig = @This().default();
-                const res = sig_deser_fn(&sig.point, &sig_in[0]);
-                return toBlstError(res) orelse sig;
+            if (sig_in.len == 0) {
+                return BLST_ERROR.BAD_ENCODING;
             }
 
-            return BLST_ERROR.BAD_ENCODING;
+            var sig = @This().default();
+
+            const res = deserializeSignature(&sig.point, &sig_in[0], sig_in.len);
+
+            return toBlstError(res) orelse sig;
+        }
+
+        pub fn deserializeSignature(out: *sig_aff_type, sig_in: [*c]const u8, len: usize) c_uint {
+            if ((len == sig_ser_size and (sig_in.* & 0x80) == 0) or
+                (len == sig_comp_size and (sig_in.* & 0x80) != 0))
+            {
+                return sig_deser_fn(out, sig_in);
+            }
+
+            return c.BLST_BAD_ENCODING;
         }
 
         pub fn fromBytes(sig_in: []const u8) BLST_ERROR!@This() {
             return @This().deserialize(sig_in);
         }
 
+        pub fn signatureFromBytes(out: *sig_aff_type, sig_in: [*c]const u8, len: usize) c_uint {
+            return deserializeSignature(out, sig_in, len);
+        }
+
         pub fn toBytes(self: *const @This()) [sig_comp_size]u8 {
             return self.compress();
         }
 
+        pub fn signatureToBytes(out: *u8, point: *sig_aff_type) void {
+            return compressSignature(out, point);
+        }
+
         pub fn subgroupCheck(self: *const @This()) bool {
-            return sig_in_group_fn(&self.point);
+            return signatureSubgroupCheck(&self.point);
+        }
+
+        pub fn signatureSubgroupCheck(point: *sig_aff_type) bool {
+            return sig_in_group_fn(point);
         }
 
         pub fn isEqual(self: *const @This(), other: *const @This()) bool {
-            return sig_eq_fn(&self.point, &other.point);
+            return isSignatureEqual(&self.point, &other.point);
+        }
+
+        pub fn isSignatureEqual(point: *const sig_aff_type, other: *const sig_aff_type) bool {
+            return sig_eq_fn(point, other);
         }
     };
 
@@ -460,11 +790,23 @@ pub fn createSigVariant(
             };
         }
 
+        pub fn defaultAggregateSignature(out: *sig_type) void {
+            out.* = default_agg_sig_fn();
+        }
+
         pub fn validate(self: *const @This()) BLST_ERROR!void {
-            const res = sig_aggr_in_group_fn(&self.point);
-            if (toBlstError(res)) |err| {
-                return err;
+            const res = subgroupCheckC(&self.point);
+            if (!res) {
+                return BLST_ERROR.POINT_NOT_IN_GROUP;
             }
+        }
+
+        pub fn validateAggregateSignature(point: *const sig_type) c_uint {
+            if (!subgroupCheckC(point)) {
+                return c.BLST_POINT_NOT_IN_GROUP;
+            }
+
+            return c.BLST_SUCCESS;
         }
 
         pub fn fromSignature(sig: *const Signature) @This() {
@@ -473,10 +815,18 @@ pub fn createSigVariant(
             return agg_sig;
         }
 
+        pub fn aggregateFromSignature(out: *sig_type, sig: *const sig_aff_type) void {
+            sig_from_aff_fn(out, sig);
+        }
+
         pub fn toSignature(self: *const @This()) Signature {
             var sig = Signature.default();
             sig_to_aff_fn(&sig.point, &self.point);
             return sig;
+        }
+
+        pub fn aggregateToSignature(out: *sig_aff_type, agg_sig: *const sig_type) void {
+            sig_to_aff_fn(out, agg_sig);
         }
 
         // Aggregate
@@ -484,22 +834,41 @@ pub fn createSigVariant(
             if (sigs.len == 0) {
                 return BLST_ERROR.AGGR_TYPE_MISMATCH;
             }
+
+            // this is unsafe code but we scanned through testTypeAlignment unit test
+            const sigs_ptr: [*c]*const sig_aff_type = @ptrCast(&sigs[0]);
+            var agg_sig = @This().default();
+            const res = aggregateSignatures(&agg_sig.point, sigs_ptr, sigs.len, sigs_groupcheck);
+            return toBlstError(res) orelse agg_sig;
+        }
+
+        pub fn aggregateSignatures(out: *sig_type, sigs: [*c]*const sig_aff_type, len: usize, sigs_groupcheck: bool) c_uint {
+            if (len == 0) {
+                return c.BLST_AGGR_TYPE_MISMATCH;
+            }
             if (sigs_groupcheck) {
                 // We can't actually judge if input is individual or
                 // aggregated signature, so we can't enforce infinity
                 // check.
-                try sigs[0].validate(false);
-            }
-
-            var agg_sig = @This().fromSignature(sigs[0]);
-            for (sigs[1..]) |s| {
-                if (sigs_groupcheck) {
-                    try s.validate(false);
+                const res = Signature.validateSignature(sigs[0], false);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
                 }
-                sig_add_or_dbl_aff_fn(&agg_sig.point, &agg_sig.point, &s.point);
             }
 
-            return agg_sig;
+            aggregateFromSignature(out, sigs[0]);
+            for (1..len) |i| {
+                if (sigs_groupcheck) {
+                    const res = Signature.validateSignature(sigs[i], false);
+                    if (res != c.BLST_SUCCESS) {
+                        return res;
+                    }
+                }
+
+                sig_add_or_dbl_aff_fn(out, out, sigs[i]);
+            }
+
+            return c.BLST_SUCCESS;
         }
 
         // TODO: aggregate_with_randomness
@@ -520,8 +889,54 @@ pub fn createSigVariant(
             return agg_sig;
         }
 
+        /// C-ABI version of aggregateSerialized
+        /// all signatures should have the same len
+        pub fn aggregateSerializedC(out: *sig_type, sigs: [*c][*c]const u8, sigs_len: usize, sig_len: usize, sigs_groupcheck: bool) c_uint {
+            if (sigs_len == 0) {
+                return c.BLST_AGGR_TYPE_MISMATCH;
+            }
+
+            var sig = Signature.default().point;
+            var res = Signature.signatureFromBytes(&sig, sigs[0], sig_len);
+            if (res != c.BLST_SUCCESS) {
+                return res;
+            }
+
+            if (sigs_groupcheck) {
+                res = Signature.validateSignature(&sig, false);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
+            }
+
+            aggregateFromSignature(out, &sig);
+
+            for (1..sigs_len) |i| {
+                var point = Signature.default().point;
+                res = Signature.signatureFromBytes(&point, sigs[i], sig_len);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
+
+                if (sigs_groupcheck) {
+                    res = Signature.validateSignature(&point, false);
+                    if (res != c.BLST_SUCCESS) {
+                        return res;
+                    }
+                }
+
+                sig_add_or_dbl_aff_fn(out, out, &point);
+            }
+
+            return c.BLST_SUCCESS;
+        }
+
         pub fn addAggregate(self: *@This(), agg_sig: *const @This()) void {
             sig_add_or_dbl_fn(&self.point, &self.point, &agg_sig.point);
+        }
+
+        pub fn addAggregateC(out: *sig_type, agg_sig: *const sig_type) void {
+            sig_add_or_dbl_fn(out, out, agg_sig);
         }
 
         pub fn addSignature(self: *@This(), sig: *const Signature, sig_groupcheck: bool) BLST_ERROR!void {
@@ -531,12 +946,32 @@ pub fn createSigVariant(
             sig_add_or_dbl_aff_fn(&self.point, &self.point, &sig.point);
         }
 
+        pub fn addSignatureToAggregate(out: *sig_type, sig: *const sig_aff_type, sig_groupcheck: bool) c_uint {
+            if (sig_groupcheck) {
+                const res = Signature.validateSignature(sig, false);
+                if (res != c.BLST_SUCCESS) {
+                    return res;
+                }
+            }
+
+            sig_add_or_dbl_aff_fn(out, out, sig);
+            return c.BLST_SUCCESS;
+        }
+
         pub fn subgroupCheck(self: *const @This()) bool {
             return sig_aggr_in_group_fn(&self.point);
         }
 
+        pub fn subgroupCheckC(agg_sig: *const sig_type) bool {
+            return sig_aggr_in_group_fn(agg_sig);
+        }
+
         pub fn isEqual(self: *const @This(), other: *const @This()) bool {
             return agg_sig_eq_fn(&self.point, &other.point);
+        }
+
+        pub fn isAggregateSignatureEqual(point: *const sig_type, other: *const sig_type) bool {
+            return agg_sig_eq_fn(point, other);
         }
     };
 
@@ -547,6 +982,10 @@ pub fn createSigVariant(
             return .{
                 .value = util.default_blst_scalar(),
             };
+        }
+
+        pub fn defaultSecretKey(out: *c.blst_scalar) void {
+            out.* = util.default_blst_scalar();
         }
 
         pub fn keyGen(ikm: []const u8, key_info: ?[]const u8) BLST_ERROR!@This() {
@@ -562,6 +1001,15 @@ pub fn createSigVariant(
             return sk;
         }
 
+        pub fn secretKeyGen(out: *c.blst_scalar, ikm: [*c]const u8, ikm_len: usize, key_info: [*c]const u8, key_info_len: usize) c_uint {
+            if (ikm_len < 32) {
+                return c.BLST_BAD_ENCODING;
+            }
+
+            c.blst_keygen(out, ikm, ikm_len, key_info, key_info_len);
+            return c.BLST_SUCCESS;
+        }
+
         pub fn keyGenV3(ikm: []const u8, key_info: ?[]const u8) BLST_ERROR!@This() {
             if (ikm.len < 32) {
                 return BLST_ERROR.BAD_ENCODING;
@@ -573,6 +1021,15 @@ pub fn createSigVariant(
 
             c.blst_keygen_v3(&sk.value, &ikm[0], ikm.len, key_info_ptr, key_info_len);
             return sk;
+        }
+
+        pub fn secretKeyGenV3(out: *c.blst_scalar, ikm: [*c]const u8, ikm_len: usize, key_info: [*c]const u8, key_info_len: usize) c_uint {
+            if (ikm_len < 32) {
+                return c.BLST_BAD_ENCODING;
+            }
+
+            c.blst_keygen_v3(out, ikm, ikm_len, key_info, key_info_len);
+            return c.BLST_SUCCESS;
         }
 
         pub fn keyGenV45(ikm: []const u8, salt: []const u8, info: ?[]const u8) BLST_ERROR!@This() {
@@ -588,6 +1045,15 @@ pub fn createSigVariant(
             return sk;
         }
 
+        pub fn secretKeyGenV45(out: *c.blst_scalar, ikm: [*c]const u8, ikm_len: usize, salt: [*c]const u8, salt_len: usize, info: [*c]const u8, info_len: usize) c_uint {
+            if (ikm_len < 32) {
+                return c.BLST_BAD_ENCODING;
+            }
+
+            c.blst_keygen_v4_5(out, ikm, ikm_len, salt, salt_len, info, info_len);
+            return c.BLST_SUCCESS;
+        }
+
         pub fn keyGenV5(ikm: []const u8, salt: []const u8, info: ?[]const u8) BLST_ERROR!@This() {
             if (ikm.len < 32) {
                 return BLST_ERROR.BAD_ENCODING;
@@ -601,6 +1067,15 @@ pub fn createSigVariant(
             return sk;
         }
 
+        pub fn secretKeyGenV5(out: *c.blst_scalar, ikm: [*c]const u8, ikm_len: usize, salt: [*c]const u8, salt_len: usize, info: [*c]const u8, info_len: usize) c_uint {
+            if (ikm_len < 32) {
+                return c.BLST_BAD_ENCODING;
+            }
+
+            c.blst_keygen_v5(out, ikm, ikm_len, salt, salt_len, info, info_len);
+            return c.BLST_SUCCESS;
+        }
+
         pub fn deriveMasterEip2333(ikm: []const u8) BLST_ERROR!@This() {
             if (ikm.len < 32) {
                 return BLST_ERROR.BAD_ENCODING;
@@ -611,10 +1086,23 @@ pub fn createSigVariant(
             return sk;
         }
 
+        pub fn secretKeyDeriveMasterEip2333(out: *c.blst_scalar, ikm: [*c]const u8, ikm_len: usize) c_uint {
+            if (ikm_len < 32) {
+                return c.BLST_BAD_ENCODING;
+            }
+
+            c.blst_derive_master_eip2333(out, ikm, ikm_len);
+            return c.BLST_SUCCESS;
+        }
+
         pub fn deriveChildEip2333(self: *const @This(), child_index: u32) BLST_ERROR!@This() {
             var sk = @This().default();
             c.blst_derive_child_eip2333(&sk.value, &self.value, child_index);
             return sk;
+        }
+
+        pub fn secretKeyDeriveChildEip2333(out: *c.blst_scalar, sk: *const c.blst_scalar, child_index: u32) void {
+            c.blst_derive_child_eip2333(out, sk, child_index);
         }
 
         pub fn skToPk(self: *const @This()) PublicKey {
@@ -623,16 +1111,24 @@ pub fn createSigVariant(
             return pk_aff;
         }
 
+        pub fn secretKeyToPublicKey(out: *pk_aff_type, sk: *const c.blst_scalar) void {
+            sk_to_pk_fn(null, out, sk);
+        }
+
         // Sign
         pub fn sign(self: *const @This(), msg: []const u8, dst: []const u8, aug: ?[]const u8) Signature {
             // TODO - would the user like the serialized/compressed sig as well?
-            var q = default_agg_sig_fn();
             var sig_aff = Signature.default();
             const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
             const aug_len = if (aug != null) aug.?.len else 0;
-            hash_or_encode_to_fn(&q, &msg[0], msg.len, &dst[0], dst.len, aug_ptr, aug_len);
-            sign_fn(null, &sig_aff.point, &q, &self.value);
+            signC(&sig_aff.point, &self.value, &msg[0], msg.len, &dst[0], dst.len, aug_ptr, aug_len);
             return sig_aff;
+        }
+
+        pub fn signC(out: *sig_aff_type, sk: *const c.blst_scalar, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, aug: [*c]const u8, aug_len: usize) void {
+            var q = default_agg_sig_fn();
+            hash_or_encode_to_fn(&q, msg, msg_len, dst, dst_len, aug, aug_len);
+            sign_fn(null, out, &q, sk);
         }
 
         // TODO - formally speaking application is entitled to have
@@ -648,6 +1144,10 @@ pub fn createSigVariant(
             return sk_out;
         }
 
+        pub fn serializeSecretKey(out: *u8, sk: *const c.blst_scalar) void {
+            c.blst_bendian_from_scalar(out, sk);
+        }
+
         // deserialize
         pub fn deserialize(sk_in: []const u8) BLST_ERROR!@This() {
             var sk = @This().default();
@@ -655,20 +1155,36 @@ pub fn createSigVariant(
                 return BLST_ERROR.BAD_ENCODING;
             }
 
-            c.blst_scalar_from_bendian(&sk.value, &sk_in[0]);
-            if (!c.blst_sk_check(&sk.value)) {
-                return BLST_ERROR.BAD_ENCODING;
+            const res = deserializeSecretKey(&sk.value, &sk_in[0], sk_in.len);
+            return toBlstError(res) orelse sk;
+        }
+
+        pub fn deserializeSecretKey(out: *c.blst_scalar, sk_in: [*c]const u8, len: usize) c_uint {
+            if (len != 32) {
+                return c.BLST_BAD_ENCODING;
+            }
+            c.blst_scalar_from_bendian(out, sk_in);
+            if (!c.blst_sk_check(out)) {
+                return c.BLST_BAD_ENCODING;
             }
 
-            return sk;
+            return c.BLST_SUCCESS;
         }
 
         pub fn toBytes(self: *const @This()) [32]u8 {
             return self.serialize();
         }
 
+        pub fn secretKeyToBytes(out: *u8, sk: *const c.blst_scalar) void {
+            serializeSecretKey(out, sk);
+        }
+
         pub fn fromBytes(sk_in: []const u8) BLST_ERROR!@This() {
             return @This().deserialize(sk_in);
+        }
+
+        pub fn secretKeyFromBytes(out: *c.blst_scalar, sk_in: [*c]const u8, len: usize) c_uint {
+            return deserializeSecretKey(out, sk_in, len);
         }
     };
 
@@ -735,6 +1251,26 @@ pub fn createSigVariant(
             return AggregateSignature;
         }
 
+        pub fn getPublicKeyType() type {
+            return pk_aff_type;
+        }
+
+        pub fn getAggregatePublicKeyType() type {
+            return pk_type;
+        }
+
+        pub fn getSignatureType() type {
+            return sig_aff_type;
+        }
+
+        pub fn getAggregateSignatureType() type {
+            return sig_type;
+        }
+
+        pub fn getSecretKeyType() type {
+            return c.blst_scalar;
+        }
+
         pub fn pubkeyFromAggregate(agg_pk: *const AggregatePublicKey) PublicKey {
             var pk_aff = PublicKey.default();
             pk_to_aff_fn(&pk_aff.point, &agg_pk.point);
@@ -742,80 +1278,105 @@ pub fn createSigVariant(
         }
 
         /// pk_scratch and sig_scratch are in []u8 to make it friendly to FFI
-        /// let consumer decide the best Allocator to use
-        pub fn aggregateWithRandomness(allocator: Allocator, sets: []*const PkAndSerializedSig, pk_scratch_u8: []u8, sig_scratch_u8: []u8, pk_out: *PublicKey, sig_out: *Signature) !void {
-            if (sets.len == 0) {
+        pub fn aggregateWithRandomness(sets: []*const PkAndSerializedSig, pk_scratch_u8: []u8, sig_scratch_u8: []u8, pk_out: *PublicKey, sig_out: *Signature) !void {
+            if (sets.len == 0 or sets.len > MAX_SIGNATURE_SETS) {
                 return error.InvalidLen;
             }
 
-            const sig_scratch = try util.asU64Slice(sig_scratch_u8);
-            const pk_scratch = try util.asU64Slice(pk_scratch_u8);
+            try aggregateWithRandomnessC(&sets[0], sets.len, &pk_scratch_u8[0], pk_scratch_u8.len, &sig_scratch_u8[0], sig_scratch_u8.len, &pk_out.point, &sig_out.point);
+        }
 
-            const pks_refs = try allocator.alloc(*PublicKey, sets.len);
-            const sigs_refs = try allocator.alloc(*const Signature, sets.len);
-            defer allocator.free(pks_refs);
-            defer allocator.free(sigs_refs);
-
-            for (sets, 0..) |set, i| {
-                pks_refs[i] = set.pk;
-                const sig = try Signature.sigValidate(set.sig, true);
-                sigs_refs[i] = &sig;
+        // TODO: make extern struct and export this function
+        pub fn aggregateWithRandomnessC(sets: [*c]*const PkAndSerializedSig, sets_len: usize, pk_scratch_u8: [*c]u8, pk_scratch_len: usize, sig_scratch_u8: [*c]u8, sig_scratch_len: usize, pk_out: *pk_aff_type, sig_out: *sig_aff_type) !void {
+            if (sets_len == 0 or sets_len > MAX_SIGNATURE_SETS) {
+                return error.InvalidLen;
             }
 
-            const rands = try allocator.alloc(u8, 32 * sets.len);
-            defer allocator.free(rands);
+            const sig_scratch = try util.asU64Slice(sig_scratch_u8[0..pk_scratch_len]);
+            const pk_scratch = try util.asU64Slice(pk_scratch_u8[0..sig_scratch_len]);
+
+            var pks_refs: [MAX_SIGNATURE_SETS]*pk_aff_type = undefined;
+            var sigs_refs: [MAX_SIGNATURE_SETS]*const sig_aff_type = undefined;
+
+            for (0..sets_len) |i| {
+                const set = sets[i];
+                pks_refs[i] = &set.pk.point;
+                const sig = try Signature.sigValidate(set.sig, true);
+                sigs_refs[i] = &sig.point;
+            }
+
+            var rands: [32 * MAX_SIGNATURE_SETS]u8 = [_]u8{0} ** (32 * MAX_SIGNATURE_SETS);
             randBytes(rands[0..]);
 
-            const scalars_refs = try allocator.alloc(*u8, sets.len);
-            defer allocator.free(scalars_refs);
-
-            for (0..sets.len) |i| {
+            var scalars_refs: [MAX_SIGNATURE_SETS]*u8 = undefined;
+            for (0..sets_len) |i| {
                 scalars_refs[i] = &rands[i * 32];
             }
 
             const n_bits = 64;
-            const mult_pk = try multPublicKeys(pks_refs, scalars_refs, n_bits, pk_scratch);
-            const pk_from_mult = mult_pk.toPublicKey();
-            const mult_sig = try multSignatures(sigs_refs, scalars_refs, n_bits, sig_scratch);
-            const sig_from_mult = mult_sig.toSignature();
 
-            pk_out.* = pk_from_mult;
-            sig_out.* = sig_from_mult;
+            var mult_pk_res = default_agg_pubkey_fn();
+            multPublicKeysC(&mult_pk_res, &pks_refs[0], sets_len, &scalars_refs[0], n_bits, &pk_scratch[0]);
+            AggregatePublicKey.aggregateToPublicKey(pk_out, &mult_pk_res);
+
+            var mult_sig_res = default_agg_sig_fn();
+            multSignaturesC(&mult_sig_res, &sigs_refs[0], sets_len, &scalars_refs[0], n_bits, &sig_scratch[0]);
+            AggregateSignature.aggregateToSignature(sig_out, &mult_sig_res);
         }
 
         /// Multipoint
-        pub fn addPublicKeys(pks: []*const PublicKey) !AggregatePublicKey {
+        pub fn addPublicKeys(pks: []*const PublicKey) AggregatePublicKey {
             // this is unsafe code but we scanned through testTypeAlignment unit test
             // Rust does the same thing here
             const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
-            const pk_point = try PkMultiPoint.add(pk_aff_points);
-            return .{ .point = pk_point };
+            var agg_pk = AggregatePublicKey.default();
+            PkMultiPoint.add(&agg_pk.point, &pk_aff_points[0], pk_aff_points.len);
+            return agg_pk;
+        }
+
+        pub fn addPublicKeysC(out: *pk_type, pks: [*c]*const pk_aff_type, pks_len: usize) void {
+            PkMultiPoint.add(out, pks, pks_len);
         }
 
         // scratch param is designed to be reused across multiple calls
-        pub fn multPublicKeys(pks: []*const PublicKey, scalars: []*const u8, n_bits: usize, scratch: []u64) !AggregatePublicKey {
+        pub fn multPublicKeys(pks: []*const PublicKey, scalars: []*const u8, n_bits: usize, scratch: []u64) AggregatePublicKey {
             // this is unsafe code but we scanned through testTypeAlignment unit test
             // Rust does the same thing here
             const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
-            const pk_point = try PkMultiPoint.mult(pk_aff_points, scalars, n_bits, scratch);
-            return .{ .point = pk_point };
+            var agg_pk = AggregatePublicKey.default();
+            PkMultiPoint.mult(&agg_pk.point, &pk_aff_points[0], pk_aff_points.len, &scalars[0], n_bits, &scratch[0]);
+            return agg_pk;
         }
 
-        pub fn addSignatures(sigs: []*const Signature) !AggregateSignature {
+        pub fn multPublicKeysC(out: *pk_type, pks: [*c]*const pk_aff_type, pks_len: usize, scalars: [*c]*const u8, n_bits: usize, scratch: [*c]u64) void {
+            PkMultiPoint.mult(out, pks, pks_len, scalars, n_bits, scratch);
+        }
+
+        pub fn addSignatures(sigs: []*const Signature) AggregateSignature {
             // this is unsafe code but we scanned through testTypeAlignment unit test
             // Rust does the same thing here
             const sig_aff_points: []*const sig_aff_type = @ptrCast(sigs);
-            const sig_point = try SigMultiPoint.add(sig_aff_points);
-            return .{ .point = sig_point };
+            var agg_sig = AggregateSignature.default();
+            SigMultiPoint.add(&agg_sig.point, &sig_aff_points[0], sig_aff_points.len);
+            return agg_sig;
+        }
+
+        pub fn addSignaturesC(out: *sig_type, sigs: [*c]*const sig_aff_type, sigs_len: usize) void {
+            SigMultiPoint.add(out, sigs, sigs_len);
         }
 
         // scratch param is designed to be reused across multiple calls
-        pub fn multSignatures(sigs: []*const Signature, scalars: []*const u8, n_bits: usize, scratch: []u64) !AggregateSignature {
+        pub fn multSignatures(sigs: []*const Signature, scalars: []*const u8, n_bits: usize, scratch: []u64) AggregateSignature {
             // this is unsafe code but we scanned through testTypeAlignment unit test
             // Rust does the same thing here
             const sig_aff_points: []*const sig_aff_type = @ptrCast(sigs);
-            const sig_point = try SigMultiPoint.mult(sig_aff_points, scalars, n_bits, scratch);
-            return .{ .point = sig_point };
+            var agg_sig = AggregateSignature.default();
+            SigMultiPoint.mult(&agg_sig.point, &sig_aff_points[0], sig_aff_points.len, &scalars[0], n_bits, &scratch[0]);
+            return agg_sig;
+        }
+
+        pub fn multSignaturesC(out: *sig_type, sigs: [*c]*const sig_aff_type, sigs_len: usize, scalars: [*c]*const u8, n_bits: usize, scratch: [*c]u64) void {
+            SigMultiPoint.mult(out, sigs, sigs_len, scalars, n_bits, scratch);
         }
 
         /// testing methods for this lib, should not export to consumers
@@ -999,6 +1560,9 @@ pub fn createSigVariant(
                 // Test current aggregate signature with aggregated pks
                 try sigs[i].fastAggregateVerifyPreAggregated(false, msgs[i], dst, &pks[i], pairing_buffer);
 
+                const res = Signature.fastAggregateVerifyPreAggregatedC(&sigs[i].point, false, &msgs[i][0], msgs[i].len, &dst[0], dst.len, &pks[i].point, &pairing_buffer[0], pairing_buffer.len);
+                try std.testing.expect(res == c.BLST_SUCCESS);
+
                 // negative test
                 if (i != 0) {
                     const verify_res = sigs[i - 1].fastAggregateVerifyPreAggregated(false, msgs[i], dst, &pks[i], pairing_buffer);
@@ -1045,24 +1609,24 @@ pub fn createSigVariant(
                 sig_rev_refs[num_sigs - i - 1] = sig;
             }
 
-            try Signature.verifyMultipleAggregateSignatures(msgs[0..], dst, pks_refs[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
+            try Signature.verifyMultiple(msgs[0..], dst, pks_refs[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
 
             // negative tests (use reverse msgs, pks, and sigs)
-            var verify_res = Signature.verifyMultipleAggregateSignatures(msgs_rev[0..], dst, pks_refs[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
+            var verify_res = Signature.verifyMultiple(msgs_rev[0..], dst, pks_refs[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
             if (verify_res) {
                 try std.testing.expect(false);
             } else |err| {
                 try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
             }
 
-            verify_res = Signature.verifyMultipleAggregateSignatures(msgs[0..], dst, pks_rev[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
+            verify_res = Signature.verifyMultiple(msgs[0..], dst, pks_rev[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
             if (verify_res) {
                 try std.testing.expect(false);
             } else |err| {
                 try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
             }
 
-            verify_res = Signature.verifyMultipleAggregateSignatures(msgs[0..], dst, pks_refs[0..], false, sig_rev_refs[0..], false, rands[0..], 64, pairing_buffer);
+            verify_res = Signature.verifyMultiple(msgs[0..], dst, pks_refs[0..], false, sig_rev_refs[0..], false, rands[0..], 64, pairing_buffer);
             if (verify_res) {
                 try std.testing.expect(false);
             } else |err| {
@@ -1229,9 +1793,9 @@ pub fn createSigVariant(
             try sig_from_agg.verify(true, msg[0..], dst, null, &pk_from_agg, true);
 
             // test multi-point aggregation using add
-            const added_pk = try addPublicKeys(pks_refs[0..]);
+            const added_pk = addPublicKeys(pks_refs[0..]);
             const pk_from_add = added_pk.toPublicKey();
-            const added_sig = try addSignatures(sigs_refs[0..]);
+            const added_sig = addSignatures(sigs_refs[0..]);
             const sig_from_add = added_sig.toSignature();
             try sig_from_add.verify(true, msg[0..], dst, null, &pk_from_add, true);
 
@@ -1254,9 +1818,9 @@ pub fn createSigVariant(
             const sig_scratch = try allocator.alloc(u64, sig_scratch_size_of_fn(num_pks) / 8);
             defer allocator.free(sig_scratch);
 
-            const mult_pk = try multPublicKeys(pks_refs[0..], scalars_refs[0..], n_bits, pk_scratch);
+            const mult_pk = multPublicKeys(pks_refs[0..], scalars_refs[0..], n_bits, pk_scratch);
             const pk_from_mult = mult_pk.toPublicKey();
-            const mult_sig = try multSignatures(sigs_refs[0..], scalars_refs[0..], n_bits, sig_scratch);
+            const mult_sig = multSignatures(sigs_refs[0..], scalars_refs[0..], n_bits, sig_scratch);
             const sig_from_mult = mult_sig.toSignature();
             try sig_from_mult.verify(true, msg[0..], dst, null, &pk_from_mult, true);
         }
@@ -1328,7 +1892,7 @@ pub fn createSigVariant(
             const pk_scratch_u8 = util.asU8Slice(pk_scratch);
             const sig_scratch_u8 = util.asU8Slice(sig_scratch);
 
-            try aggregateWithRandomness(std.testing.allocator, set[0..], pk_scratch_u8, sig_scratch_u8, &agg_pk, &agg_sig);
+            try aggregateWithRandomness(set[0..], pk_scratch_u8, sig_scratch_u8, &agg_pk, &agg_sig);
 
             try agg_sig.verify(true, msg[0..], dst, null, &agg_pk, true);
         }

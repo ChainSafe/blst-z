@@ -10,37 +10,14 @@ pub fn createMultiPoint(comptime IT: type, comptime OT: type, it_default_fn: any
         /// Rust accepts []OT here which make it convenient for test_add
         /// bringing that here makes us deal with allocator
         /// instead of that, it accepts []IT, the conversion of []IT to []OT is done at consumer side
-        pub fn add(points: []*const IT) !OT {
-            if (points.len == 0) {
-                return error.ZeroPoints;
-            }
-
-            var result = ot_default_fn();
+        pub fn add(out: *OT, points: [*c]*const IT, len: usize) void {
             // consumer usually need to convert []IT to []*IT which is not required in Rust
-            add_fn(&result, &points[0], points.len);
-            return result;
+            add_fn(out, points, len);
         }
 
         /// scratch parameter is designed to be reused here
-        pub fn mult(points: []*const IT, scalars: []*const u8, n_bits: usize, scratch: []u64) !OT {
-            if (points.len == 0) {
-                return error.ZeroPoints;
-            }
-
-            const n_points = points.len;
-            // this is different from Rust but it helps the test passed
-            if (scalars.len < n_points) {
-                return error.ScalarLenMismatch;
-            }
-
-            if (scratch.len < (scratch_sizeof_fn(n_points) / 8)) {
-                return error.ScratchLenMismatch;
-            }
-
-            var result = ot_default_fn();
-            multi_scalar_mult_fn(&result, &points[0], points.len, &scalars[0], n_bits, &scratch[0]);
-
-            return result;
+        pub fn mult(out: *OT, points: [*c]*const IT, points_len: usize, scalars: [*c]*const u8, n_bits: usize, scratch: [*c]u64) void {
+            multi_scalar_mult_fn(out, points, points_len, scalars, n_bits, scratch);
         }
     };
 
@@ -80,8 +57,8 @@ pub fn createMultiPoint(comptime IT: type, comptime OT: type, it_default_fn: any
             }
 
             to_affines_fn(aff_points_refs[0], &points_refs, n_points);
-
-            const add_res = MultiPoint.add(aff_points_refs[0..]) catch return error.TestAddFailed;
+            var add_res = ot_default_fn();
+            MultiPoint.add(&add_res, &aff_points_refs[0], aff_points_refs.len);
             try std.testing.expect(out_eql_fn(&naive, &add_res));
         }
 
@@ -126,7 +103,8 @@ pub fn createMultiPoint(comptime IT: type, comptime OT: type, it_default_fn: any
                 // TODO: this is not efficient as it contains duplicate works
                 to_affines_fn(aff_points_refs[0], &points_refs, (i + 1));
                 if (i < 27) {
-                    const mult_res = MultiPoint.mult(aff_points_refs[0..(i + 1)], scalars_refs[0..], n_bits, scratch) catch return error.TestMultFailed;
+                    var mult_res = ot_default_fn();
+                    MultiPoint.mult(&mult_res, &aff_points_refs[0], (i + 1), &scalars_refs[0], n_bits, &scratch[0]);
                     try std.testing.expect(out_eql_fn(&naive, &mult_res));
                 }
             }
@@ -137,7 +115,8 @@ pub fn createMultiPoint(comptime IT: type, comptime OT: type, it_default_fn: any
 
             to_affines_fn(aff_points_refs[0], &points_refs, n_points);
 
-            const mult_res = MultiPoint.mult(aff_points_refs[0..], scalars_refs[0..], n_bits, scratch) catch return error.TestMultFailed;
+            var mult_res = ot_default_fn();
+            MultiPoint.mult(&mult_res, &aff_points_refs[0], aff_points_refs.len, &scalars_refs[0], n_bits, &scratch[0]);
             try std.testing.expect(out_eql_fn(&naive, &mult_res));
         }
     };
