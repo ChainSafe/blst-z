@@ -13,6 +13,9 @@ const util = @import("util.zig");
 const BLST_ERROR = util.BLST_ERROR;
 const toBlstError = util.toBlstError;
 
+/// specific constant used in aggregateWithRandomness() to avoid heap allocation
+const MAX_SIGNATURE_SETS = 128;
+
 /// generic implementation for both min_pk and min_sig
 /// this is equivalent to Rust binding in blst/bindings/rust/src/lib.rs
 pub fn createSigVariant(
@@ -1264,18 +1267,16 @@ pub fn createSigVariant(
 
         /// pk_scratch and sig_scratch are in []u8 to make it friendly to FFI
         /// let consumer decide the best Allocator to use
-        pub fn aggregateWithRandomness(allocator: Allocator, sets: []*const PkAndSerializedSig, pk_scratch_u8: []u8, sig_scratch_u8: []u8, pk_out: *PublicKey, sig_out: *Signature) !void {
-            if (sets.len == 0) {
+        pub fn aggregateWithRandomness(sets: []*const PkAndSerializedSig, pk_scratch_u8: []u8, sig_scratch_u8: []u8, pk_out: *PublicKey, sig_out: *Signature) !void {
+            if (sets.len == 0 or sets.len > MAX_SIGNATURE_SETS) {
                 return error.InvalidLen;
             }
 
             const sig_scratch = try util.asU64Slice(sig_scratch_u8);
             const pk_scratch = try util.asU64Slice(pk_scratch_u8);
 
-            const pks_refs = try allocator.alloc(*PublicKey, sets.len);
-            const sigs_refs = try allocator.alloc(*const Signature, sets.len);
-            defer allocator.free(pks_refs);
-            defer allocator.free(sigs_refs);
+            var pks_refs: [MAX_SIGNATURE_SETS]*PublicKey = undefined;
+            var sigs_refs: [MAX_SIGNATURE_SETS]*const Signature = undefined;
 
             for (sets, 0..) |set, i| {
                 pks_refs[i] = set.pk;
@@ -1283,21 +1284,18 @@ pub fn createSigVariant(
                 sigs_refs[i] = &sig;
             }
 
-            const rands = try allocator.alloc(u8, 32 * sets.len);
-            defer allocator.free(rands);
+            var rands: [32 * MAX_SIGNATURE_SETS]u8 = [_]u8{0} ** (32 * MAX_SIGNATURE_SETS);
             randBytes(rands[0..]);
 
-            const scalars_refs = try allocator.alloc(*u8, sets.len);
-            defer allocator.free(scalars_refs);
-
+            var scalars_refs: [MAX_SIGNATURE_SETS]*u8 = undefined;
             for (0..sets.len) |i| {
                 scalars_refs[i] = &rands[i * 32];
             }
 
             const n_bits = 64;
-            const mult_pk = multPublicKeys(pks_refs, scalars_refs, n_bits, pk_scratch);
+            const mult_pk = multPublicKeys(pks_refs[0..sets.len], scalars_refs[0..sets.len], n_bits, pk_scratch);
             const pk_from_mult = mult_pk.toPublicKey();
-            const mult_sig = multSignatures(sigs_refs, scalars_refs, n_bits, sig_scratch);
+            const mult_sig = multSignatures(sigs_refs[0..sets.len], scalars_refs[0..sets.len], n_bits, sig_scratch);
             const sig_from_mult = mult_sig.toSignature();
 
             pk_out.* = pk_from_mult;
@@ -1872,7 +1870,7 @@ pub fn createSigVariant(
             const pk_scratch_u8 = util.asU8Slice(pk_scratch);
             const sig_scratch_u8 = util.asU8Slice(sig_scratch);
 
-            try aggregateWithRandomness(std.testing.allocator, set[0..], pk_scratch_u8, sig_scratch_u8, &agg_pk, &agg_sig);
+            try aggregateWithRandomness(set[0..], pk_scratch_u8, sig_scratch_u8, &agg_pk, &agg_sig);
 
             try agg_sig.verify(true, msg[0..], dst, null, &agg_pk, true);
         }
