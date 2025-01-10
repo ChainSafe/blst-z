@@ -187,7 +187,9 @@ export fn aggregateVerify(sig: *const SignatureType, sig_groupcheck: bool, msgs:
     return Signature.aggregateVerifyC(sig, sig_groupcheck, msgs, msgs_len, msg_len, dst, dst_len, pks, pks_len, pks_validate, pairing_buffer, pairing_buffer_len);
 }
 
-// TODO: fastAggregateVerify: wait for AggregateSignatureType to be implemented
+export fn fastAggregateVerify(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks: [*c]*const PublicKeyType, pks_len: usize, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+    return Signature.fastAggregateVerifyC(sig, sig_groupcheck, msg, msg_len, dst, dst_len, pks, pks_len, pairing_buffer, pairing_buffer_len);
+}
 
 export fn fastAggregateVerifyPreAggregated(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, pk: *PublicKeyType, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
     return Signature.fastAggregateVerifyPreAggregatedC(sig, sig_groupcheck, msg, msg_len, dst, dst_len, pk, pairing_buffer, pairing_buffer_len);

@@ -584,15 +584,28 @@ pub fn createSigVariant(
 
         /// same to fast_aggregate_verify in Rust with extra `pairing_buffer` parameter
         pub fn fastAggregateVerify(self: *const @This(), sig_groupcheck: bool, msg: []const u8, dst: []const u8, pks: []*const PublicKey, pairing_buffer: []u8) BLST_ERROR!void {
-            const agg_pk = try AggregatePublicKey.aggregate(pks, false);
-            var pk = agg_pk.toPublicKey();
-            var msg_arr = [_][]const u8{msg};
-            const msgs: [][]const u8 = msg_arr[0..];
-            const pk_arr = [_]*PublicKey{&pk};
-            try self.aggregateVerify(sig_groupcheck, msgs[0..], dst, pk_arr[0..], false, pairing_buffer);
+            // this is unsafe code but we scanned through testTypeAlignment unit test
+            const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
+            const res = fastAggregateVerifyC(&self.point, sig_groupcheck, &msg[0], msg.len, &dst[0], dst.len, &pk_aff_points[0], pk_aff_points.len, &pairing_buffer[0], pairing_buffer.len);
+            const err_res = toBlstError(res);
+            if (err_res) |err| {
+                return err;
+            }
         }
 
-        // TODO: C-ABI version for fastAggregateVerify(): need to implement C-ABI version for AggregatePublicKey first
+        pub fn fastAggregateVerifyC(sig: *const sig_aff_type, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks: [*c]*const pk_aff_type, pks_len: usize, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+            var agg_pk = default_agg_pubkey_fn();
+            const res = AggregatePublicKey.aggregatePublicKeys(&agg_pk, pks, pks_len, false);
+            if (res != c.BLST_SUCCESS) {
+                return res;
+            }
+            var pk = default_pubkey_fn();
+            PublicKey.publicKeyFromAggregate(&pk, &agg_pk);
+
+            var msgs_arr = [_][*c]const u8{msg};
+            var pks_arr = [_]*pk_aff_type{&pk};
+            return aggregateVerifyC(sig, sig_groupcheck, &msgs_arr, 1, msg_len, dst, dst_len, &pks_arr, 1, false, pairing_buffer, pairing_buffer_len);
+        }
 
         /// same to fast_aggregate_verify_pre_aggregated in Rust with extra `pairing_buffer` parameter
         /// TODO: make pk as *const PublicKey, then all other functions should make pks as []const *const PublicKey
