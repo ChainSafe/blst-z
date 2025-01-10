@@ -484,13 +484,12 @@ pub fn createSigVariant(
             return sig;
         }
 
-        pub fn signatureBytesValidate(sig_in: [*c]const u8, sig_len: usize, sig_infcheck: bool) c_uint {
-            var point = default().point;
-            const res = signatureFromBytes(&point, sig_in, sig_len);
+        pub fn sigValidateC(out: *sig_aff_type, sig_in: [*c]const u8, sig_len: usize, sig_infcheck: bool) c_uint {
+            const res = signatureFromBytes(out, sig_in, sig_len);
             if (res != c.BLST_SUCCESS) {
                 return res;
             }
-            return validateSignature(&point, sig_infcheck);
+            return validateSignature(out, sig_infcheck);
         }
 
         // same to non-std verify in Rust
@@ -1266,40 +1265,50 @@ pub fn createSigVariant(
         }
 
         /// pk_scratch and sig_scratch are in []u8 to make it friendly to FFI
-        /// let consumer decide the best Allocator to use
         pub fn aggregateWithRandomness(sets: []*const PkAndSerializedSig, pk_scratch_u8: []u8, sig_scratch_u8: []u8, pk_out: *PublicKey, sig_out: *Signature) !void {
             if (sets.len == 0 or sets.len > MAX_SIGNATURE_SETS) {
                 return error.InvalidLen;
             }
 
-            const sig_scratch = try util.asU64Slice(sig_scratch_u8);
-            const pk_scratch = try util.asU64Slice(pk_scratch_u8);
+            try aggregateWithRandomnessC(&sets[0], sets.len, &pk_scratch_u8[0], pk_scratch_u8.len, &sig_scratch_u8[0], sig_scratch_u8.len, &pk_out.point, &sig_out.point);
+        }
 
-            var pks_refs: [MAX_SIGNATURE_SETS]*PublicKey = undefined;
-            var sigs_refs: [MAX_SIGNATURE_SETS]*const Signature = undefined;
+        // TODO: make extern struct and export this function
+        pub fn aggregateWithRandomnessC(sets: [*c]*const PkAndSerializedSig, sets_len: usize, pk_scratch_u8: [*c]u8, pk_scratch_len: usize, sig_scratch_u8: [*c]u8, sig_scratch_len: usize, pk_out: *pk_aff_type, sig_out: *sig_aff_type) !void {
+            if (sets_len == 0 or sets_len > MAX_SIGNATURE_SETS) {
+                return error.InvalidLen;
+            }
 
-            for (sets, 0..) |set, i| {
-                pks_refs[i] = set.pk;
+            const sig_scratch = try util.asU64Slice(sig_scratch_u8[0..pk_scratch_len]);
+            const pk_scratch = try util.asU64Slice(pk_scratch_u8[0..sig_scratch_len]);
+
+            var pks_refs: [MAX_SIGNATURE_SETS]*pk_aff_type = undefined;
+            var sigs_refs: [MAX_SIGNATURE_SETS]*const sig_aff_type = undefined;
+
+            for (0..sets_len) |i| {
+                const set = sets[i];
+                pks_refs[i] = &set.pk.point;
                 const sig = try Signature.sigValidate(set.sig, true);
-                sigs_refs[i] = &sig;
+                sigs_refs[i] = &sig.point;
             }
 
             var rands: [32 * MAX_SIGNATURE_SETS]u8 = [_]u8{0} ** (32 * MAX_SIGNATURE_SETS);
             randBytes(rands[0..]);
 
             var scalars_refs: [MAX_SIGNATURE_SETS]*u8 = undefined;
-            for (0..sets.len) |i| {
+            for (0..sets_len) |i| {
                 scalars_refs[i] = &rands[i * 32];
             }
 
             const n_bits = 64;
-            const mult_pk = multPublicKeys(pks_refs[0..sets.len], scalars_refs[0..sets.len], n_bits, pk_scratch);
-            const pk_from_mult = mult_pk.toPublicKey();
-            const mult_sig = multSignatures(sigs_refs[0..sets.len], scalars_refs[0..sets.len], n_bits, sig_scratch);
-            const sig_from_mult = mult_sig.toSignature();
 
-            pk_out.* = pk_from_mult;
-            sig_out.* = sig_from_mult;
+            var mult_pk_res = default_agg_pubkey_fn();
+            multPublicKeysC(&mult_pk_res, &pks_refs[0], sets_len, &scalars_refs[0], n_bits, &pk_scratch[0]);
+            AggregatePublicKey.aggregateToPublicKey(pk_out, &mult_pk_res);
+
+            var mult_sig_res = default_agg_sig_fn();
+            multSignaturesC(&mult_sig_res, &sigs_refs[0], sets_len, &scalars_refs[0], n_bits, &sig_scratch[0]);
+            AggregateSignature.aggregateToSignature(sig_out, &mult_sig_res);
         }
 
         /// Multipoint

@@ -175,8 +175,8 @@ export fn validateSignature(sig: *const SignatureType, sig_infcheck: bool) c_uin
     return Signature.validateSignature(sig, sig_infcheck);
 }
 
-export fn signatureBytesValidate(sig: [*c]const u8, sig_len: usize, sig_infcheck: bool) c_uint {
-    return Signature.signatureBytesValidate(sig, sig_len, sig_infcheck);
+export fn sigValidate(out: *SignatureType, sig: [*c]const u8, sig_len: usize, sig_infcheck: bool) c_uint {
+    return Signature.sigValidateC(out, sig, sig_len, sig_infcheck);
 }
 
 export fn verifySignature(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, aug_ptr: [*c]const u8, aug_len: usize, pk: *const PublicKeyType, pk_validate: bool) c_uint {
@@ -343,6 +343,8 @@ export fn addSignatures(out: *AggregateSignatureType, sigs: [*c]*const Signature
 export fn multSignaturesC(out: *AggregateSignatureType, sigs: [*c]*const SignatureType, sigs_len: usize, scalars: [*c]*const u8, n_bits: usize, scratch: [*c]u64) void {
     return SigVariant.multSignaturesC(out, sigs, sigs_len, scalars, n_bits, scratch);
 }
+
+// TODO: aggregateWithRandomnessC: need to implement extern struct
 
 test "test_sign_n_verify" {
     try SigVariant.testSignNVerify();
