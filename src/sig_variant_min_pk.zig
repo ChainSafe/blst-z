@@ -11,6 +11,9 @@ const toBlstError = util.toBlstError;
 
 const createSigVariant = @import("./sig_variant.zig").createSigVariant;
 
+/// See https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#bls-signatures
+const DST = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
+
 const SigVariant = createSigVariant(
     util.default_blst_p1_affline,
     util.default_blst_p1,
@@ -309,8 +312,8 @@ export fn secretKeyToPublicKey(out: *PublicKeyType, sk: *const SecretKeyType) vo
     return SecretKey.secretKeyToPublicKey(out, sk);
 }
 
-export fn sign(out: *SignatureType, sk: *const SecretKeyType, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, aug: [*c]const u8, aug_len: usize) void {
-    return SecretKey.signC(out, sk, msg, msg_len, dst, dst_len, aug, aug_len);
+export fn sign(out: *SignatureType, sk: *const SecretKeyType, msg: [*c]const u8, msg_len: usize) void {
+    return SecretKey.signC(out, sk, msg, msg_len, &DST[0], DST.len, null, 0);
 }
 
 export fn serializeSecretKey(out: *u8, sk: *const SecretKeyType) void {
