@@ -627,7 +627,7 @@ pub fn createSigVariant(
         /// - extra `pairing_buffer` parameter
         /// - `rands` parameter type changed to `[][]const u8` instead of []blst_scalar because mulAndAggregateG1() accepts []const u8 anyway
         /// rand_bits is always 64 in all tests
-        pub fn verifyMultiple(msgs: [][]const u8, dst: []const u8, pks: []const *PublicKey, pks_validate: bool, sigs: []const *@This(), sigs_groupcheck: bool, rands: [][]const u8, rand_bits: usize, pairing_buffer: []u8) BLST_ERROR!void {
+        pub fn verifyMultipleAggregateSignatures(msgs: [][]const u8, dst: []const u8, pks: []const *PublicKey, pks_validate: bool, sigs: []const *@This(), sigs_groupcheck: bool, rands: [][]const u8, rand_bits: usize, pairing_buffer: []u8) BLST_ERROR!void {
             const n_elems = pks.len;
             if (n_elems == 0 or msgs.len != n_elems or sigs.len != n_elems or rands.len != n_elems) {
                 return BLST_ERROR.VERIFY_FAIL;
@@ -652,9 +652,9 @@ pub fn createSigVariant(
             }
         }
 
-        /// C-ABI version of verifyMultiple() with
+        /// C-ABI version of verifyMultipleAggregateSignatures() with
         /// - extra msg_len parameter, all messages should have the same length
-        pub fn verifyMultipleSignatures(msgs: [*c][*c]const u8, msgs_len: usize, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks: [*c]*const pk_aff_type, pks_len: usize, pks_validate: bool, sigs: [*c]*const sig_aff_type, sigs_len: usize, sigs_groupcheck: bool, rands: [*c][*c]const u8, rands_len: usize, rand_bits: usize, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+        pub fn verifyMultipleAggregateSignaturesC(msgs: [*c][*c]const u8, msgs_len: usize, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks: [*c]*const pk_aff_type, pks_len: usize, pks_validate: bool, sigs: [*c]*const sig_aff_type, sigs_len: usize, sigs_groupcheck: bool, rands: [*c][*c]const u8, rands_len: usize, rand_bits: usize, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
             if (pks_len == 0 or msgs_len != pks_len or sigs_len != pks_len or rands_len != pks_len) {
                 return c.BLST_VERIFY_FAIL;
             }
@@ -1609,24 +1609,24 @@ pub fn createSigVariant(
                 sig_rev_refs[num_sigs - i - 1] = sig;
             }
 
-            try Signature.verifyMultiple(msgs[0..], dst, pks_refs[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
+            try Signature.verifyMultipleAggregateSignatures(msgs[0..], dst, pks_refs[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
 
             // negative tests (use reverse msgs, pks, and sigs)
-            var verify_res = Signature.verifyMultiple(msgs_rev[0..], dst, pks_refs[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
+            var verify_res = Signature.verifyMultipleAggregateSignatures(msgs_rev[0..], dst, pks_refs[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
             if (verify_res) {
                 try std.testing.expect(false);
             } else |err| {
                 try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
             }
 
-            verify_res = Signature.verifyMultiple(msgs[0..], dst, pks_rev[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
+            verify_res = Signature.verifyMultipleAggregateSignatures(msgs[0..], dst, pks_rev[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
             if (verify_res) {
                 try std.testing.expect(false);
             } else |err| {
                 try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
             }
 
-            verify_res = Signature.verifyMultiple(msgs[0..], dst, pks_refs[0..], false, sig_rev_refs[0..], false, rands[0..], 64, pairing_buffer);
+            verify_res = Signature.verifyMultipleAggregateSignatures(msgs[0..], dst, pks_refs[0..], false, sig_rev_refs[0..], false, rands[0..], 64, pairing_buffer);
             if (verify_res) {
                 try std.testing.expect(false);
             } else |err| {
