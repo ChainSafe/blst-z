@@ -350,6 +350,10 @@ export fn multSignatures(out: *AggregateSignatureType, sigs: [*c]*const Signatur
     return SigVariant.multSignaturesC(out, sigs, sigs_len, scalars, n_bits, scratch);
 }
 
+export fn sizeOfPairing() c_uint {
+    return @intCast(Pairing.sizeOf());
+}
+
 // TODO: aggregateWithRandomnessC: need to implement extern struct
 
 test "test_sign_n_verify" {
