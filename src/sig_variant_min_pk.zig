@@ -86,6 +86,7 @@ const AggregatePublicKeyType = SigVariant.getAggregatePublicKeyType();
 const SignatureType = SigVariant.getSignatureType();
 const AggregateSignatureType = SigVariant.getAggregateSignatureType();
 const SecretKeyType = SigVariant.getSecretKeyType();
+const SignatureSetType = SigVariant.getSignatureSetType();
 
 /// PublicKey functions
 export fn defaultPublicKey(out: *PublicKeyType) void {
@@ -198,8 +199,8 @@ export fn fastAggregateVerifyPreAggregated(sig: *const SignatureType, sig_groupc
     return Signature.fastAggregateVerifyPreAggregatedC(sig, sig_groupcheck, msg, msg_len, &DST[0], DST.len, pk, pairing_buffer, pairing_buffer_len);
 }
 
-export fn verifyMultipleAggregateSignatures(msgs: [*c][*c]const u8, msgs_len: usize, msg_len: usize, pks: [*c]*const PublicKeyType, pks_len: usize, pks_validate: bool, sigs: [*c]*const SignatureType, sigs_len: usize, sigs_groupcheck: bool, rands: [*c][*c]const u8, rands_len: usize, rand_bits: usize, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
-    return Signature.verifyMultipleAggregateSignaturesC(msgs, msgs_len, msg_len, &DST[0], DST.len, pks, pks_len, pks_validate, sigs, sigs_len, sigs_groupcheck, rands, rands_len, rand_bits, pairing_buffer, pairing_buffer_len);
+export fn verifyMultipleAggregateSignatures(sets: [*c]*const SignatureSetType, sets_len: usize, msg_len: usize, pks_validate: bool, sigs_groupcheck: bool, rands: [*c][*c]const u8, rands_len: usize, rand_bits: usize, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+    return Signature.verifyMultipleAggregateSignaturesC(sets, sets_len, msg_len, &DST[0], DST.len, pks_validate, sigs_groupcheck, rands, rands_len, rand_bits, pairing_buffer, pairing_buffer_len);
 }
 
 export fn signatureFromAggregate(out: *SignatureType, agg_sig: *const AggregateSignatureType) void {
@@ -345,7 +346,7 @@ export fn addSignatures(out: *AggregateSignatureType, sigs: [*c]*const Signature
     return SigVariant.addSignaturesC(out, sigs, sigs_len);
 }
 
-export fn multSignaturesC(out: *AggregateSignatureType, sigs: [*c]*const SignatureType, sigs_len: usize, scalars: [*c]*const u8, n_bits: usize, scratch: [*c]u64) void {
+export fn multSignatures(out: *AggregateSignatureType, sigs: [*c]*const SignatureType, sigs_len: usize, scalars: [*c]*const u8, n_bits: usize, scratch: [*c]u64) void {
     return SigVariant.multSignaturesC(out, sigs, sigs_len, scalars, n_bits, scratch);
 }
 
@@ -360,7 +361,11 @@ test "test_aggregate" {
 }
 
 test "test_multiple_agg_sigs" {
-    try SigVariant.testMultipleAggSigs();
+    try SigVariant.testMultipleAggSigs(true);
+}
+
+test "test_verify_multiple_aggregate_signatures" {
+    try SigVariant.testMultipleAggSigs(false);
 }
 
 test "test_serialization" {
