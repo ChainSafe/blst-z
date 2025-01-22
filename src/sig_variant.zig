@@ -1642,6 +1642,16 @@ pub fn createSigVariant(
                 try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
             }
 
+            var verify_c_res: c_uint = 0;
+            if (!is_diff_msg_len) {
+                var sets_msgs_rev: [num_sigs]*const SignatureSet = undefined;
+                for (0..num_sigs) |i| {
+                    sets_msgs_rev[i] = &.{ .msg = &msgs_rev[i][0], .pk = &pks[i].point, .sig = &sigs[i].point };
+                }
+                verify_c_res = Signature.verifyMultipleAggregateSignaturesC(&sets_msgs_rev[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, &pairing_buffer[0], pairing_buffer.len);
+                try std.testing.expect(verify_c_res != c.BLST_SUCCESS);
+            }
+
             verify_res = Signature.verifyMultipleAggregateSignatures(msgs[0..], dst, pks_rev[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
             if (verify_res) {
                 try std.testing.expect(false);
@@ -1649,11 +1659,29 @@ pub fn createSigVariant(
                 try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
             }
 
+            if (!is_diff_msg_len) {
+                var sets_pks_rev: [num_sigs]*const SignatureSet = undefined;
+                for (0..num_sigs) |i| {
+                    sets_pks_rev[i] = &.{ .msg = &msgs[i][0], .pk = &pks_rev[i].point, .sig = &sigs[i].point };
+                }
+                verify_c_res = Signature.verifyMultipleAggregateSignaturesC(&sets_pks_rev[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, &pairing_buffer[0], pairing_buffer.len);
+                try std.testing.expect(verify_c_res != c.BLST_SUCCESS);
+            }
+
             verify_res = Signature.verifyMultipleAggregateSignatures(msgs[0..], dst, pks_refs[0..], false, sig_rev_refs[0..], false, rands[0..], 64, pairing_buffer);
             if (verify_res) {
                 try std.testing.expect(false);
             } else |err| {
                 try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
+            }
+
+            if (!is_diff_msg_len) {
+                var sets_sigs_rev: [num_sigs]*const SignatureSet = undefined;
+                for (0..num_sigs) |i| {
+                    sets_sigs_rev[i] = &.{ .msg = &msgs[i][0], .pk = &pks[i].point, .sig = &sig_rev_refs[i].point };
+                }
+                verify_c_res = Signature.verifyMultipleAggregateSignaturesC(&sets_sigs_rev[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, &pairing_buffer[0], pairing_buffer.len);
+                try std.testing.expect(verify_c_res != c.BLST_SUCCESS);
             }
         }
 
