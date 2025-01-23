@@ -10,6 +10,8 @@ const BLST_ERROR = util.BLST_ERROR;
 const toBlstError = util.toBlstError;
 
 const createSigVariant = @import("./sig_variant.zig").createSigVariant;
+const MAX_SIGNATURE_SETS = @import("./sig_variant.zig").MAX_SIGNATURE_SETS;
+const randBytes = @import("./sig_variant.zig").randBytes;
 
 /// See https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#bls-signatures
 const DST = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
@@ -89,8 +91,8 @@ const SecretKeyType = SigVariant.getSecretKeyType();
 const SignatureSetType = SigVariant.getSignatureSetType();
 
 /// PublicKey functions
-export fn defaultPublicKey(out: *PublicKeyType) void {
-    return PublicKey.defaultPublicKey(out);
+export fn defaultPublicKey() PublicKeyType {
+    return PublicKey.defaultPublicKey();
 }
 
 export fn validatePublicKey(pk: *const PublicKeyType) c_uint {
@@ -171,8 +173,8 @@ export fn isAggregatePublicKeyEqual(agg_pk: *const AggregatePublicKeyType, other
 }
 
 /// Signature functions
-export fn defaultSignature(out: *SignatureType) void {
-    return Signature.defaultSignature(out);
+export fn defaultSignature() SignatureType {
+    return Signature.defaultSignature();
 }
 
 export fn validateSignature(sig: *const SignatureType, sig_infcheck: bool) c_uint {
@@ -199,8 +201,26 @@ export fn fastAggregateVerifyPreAggregated(sig: *const SignatureType, sig_groupc
     return Signature.fastAggregateVerifyPreAggregatedC(sig, sig_groupcheck, msg, msg_len, &DST[0], DST.len, pk, pairing_buffer, pairing_buffer_len);
 }
 
-export fn verifyMultipleAggregateSignatures(sets: [*c]*const SignatureSetType, sets_len: usize, msg_len: usize, pks_validate: bool, sigs_groupcheck: bool, rands: [*c][*c]const u8, rands_len: usize, rand_bits: usize, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
-    return Signature.verifyMultipleAggregateSignaturesC(sets, sets_len, msg_len, &DST[0], DST.len, pks_validate, sigs_groupcheck, rands, rands_len, rand_bits, pairing_buffer, pairing_buffer_len);
+const RAND_BYTES = 8;
+const RAND_BITS = 8 * RAND_BYTES;
+var rands: [RAND_BYTES * MAX_SIGNATURE_SETS]u8 = [_]u8{0} ** (RAND_BYTES * MAX_SIGNATURE_SETS);
+var rand_refs: [MAX_SIGNATURE_SETS][*c]u8 = undefined;
+
+fn initRandRefs() void {
+    for (0..MAX_SIGNATURE_SETS) |i| {
+        rand_refs[i] = &rands[i * 8];
+    }
+}
+
+/// this is single thread version so it can reuse some params:
+/// - pairing_buffer: reuse at consumer side
+/// - random bytes: do stack allocation and reuse
+export fn verifyMultipleAggregateSignatures(sets: [*c]*const SignatureSetType, sets_len: usize, msg_len: usize, pks_validate: bool, sigs_groupcheck: bool, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+    if (sets_len > MAX_SIGNATURE_SETS) {
+        return c.BLST_BAD_ENCODING;
+    }
+    randBytes(rands[0 .. sets_len * 8]);
+    return Signature.verifyMultipleAggregateSignaturesC(sets, sets_len, msg_len, &DST[0], DST.len, pks_validate, sigs_groupcheck, &rand_refs[0], sets_len, RAND_BITS, pairing_buffer, pairing_buffer_len);
 }
 
 export fn signatureFromAggregate(out: *SignatureType, agg_sig: *const AggregateSignatureType) void {
@@ -281,8 +301,8 @@ export fn isAggregateSignatureEqual(point: *const AggregateSignatureType, other:
 }
 
 // SecretKeyType functions
-export fn defaultSecretKey(out: *SecretKeyType) void {
-    return SecretKey.defaultSecretKey(out);
+export fn defaultSecretKey() SecretKeyType {
+    return SecretKey.defaultSecretKey();
 }
 
 export fn secretKeyGen(out: *SecretKeyType, ikm: [*c]const u8, ikm_len: usize, key_info: [*c]const u8, key_info_len: usize) c_uint {
@@ -407,4 +427,34 @@ test "test_multi_point" {
 
 test "test_aggregate_with_randomness" {
     try SigVariant.testAggregateWithRandomness();
+}
+
+test "verify_multipleaggregatesignatures" {
+    // sanity test for verifyMultipleAggregateSignatures, we already test verifyMultipleAggregateSignaturesC inside sig_variant
+    initRandRefs();
+    const msg0 = [_]u8{0} ** 32;
+    var sk0 = defaultSecretKey();
+    var ikm = [_]u8{0} ** 32;
+    var res = secretKeyGen(&sk0, &ikm[0], ikm.len, null, 0);
+    try std.testing.expect(res == 0);
+
+    var pk0 = defaultPublicKey();
+    secretKeyToPublicKey(&pk0, &sk0);
+
+    var sig0 = defaultSignature();
+    sign(&sig0, &sk0, &msg0[0], msg0.len);
+
+    const allocator = std.testing.allocator;
+    const pairing_buffer = try allocator.alloc(u8, Pairing.sizeOf());
+    defer allocator.free(pairing_buffer);
+
+    const set: SignatureSetType = .{
+        .msg = &msg0[0],
+        .pk = &pk0,
+        .sig = &sig0,
+    };
+    var sets = [_]*const SignatureSetType{&set};
+
+    res = verifyMultipleAggregateSignatures(&sets[0], 1, msg0.len, false, false, &pairing_buffer[0], pairing_buffer.len);
+    try std.testing.expect(res == 0);
 }

@@ -14,7 +14,7 @@ const BLST_ERROR = util.BLST_ERROR;
 const toBlstError = util.toBlstError;
 
 /// specific constant used in aggregateWithRandomness() to avoid heap allocation
-const MAX_SIGNATURE_SETS = 128;
+pub const MAX_SIGNATURE_SETS = 128;
 
 /// generic implementation for both min_pk and min_sig
 /// this is equivalent to Rust binding in blst/bindings/rust/src/lib.rs
@@ -131,8 +131,8 @@ pub fn createSigVariant(
             };
         }
 
-        pub fn defaultPublicKey(out: *pk_aff_type) void {
-            out.* = default_pubkey_fn();
+        pub fn defaultPublicKey() pk_aff_type {
+            return default_pubkey_fn();
         }
 
         // Core operations
@@ -457,8 +457,8 @@ pub fn createSigVariant(
             };
         }
 
-        pub fn defaultSignature(out: *sig_aff_type) void {
-            out.* = default_sig_fn();
+        pub fn defaultSignature() sig_aff_type {
+            return default_sig_fn();
         }
 
         // sig_infcheck, check for infinity, is a way to avoid going
@@ -991,8 +991,8 @@ pub fn createSigVariant(
             };
         }
 
-        pub fn defaultSecretKey(out: *c.blst_scalar) void {
-            out.* = util.default_blst_scalar();
+        pub fn defaultSecretKey() c.blst_scalar {
+            return util.default_blst_scalar();
         }
 
         pub fn keyGen(ikm: []const u8, key_info: ?[]const u8) BLST_ERROR!@This() {
@@ -1959,17 +1959,7 @@ pub fn createSigVariant(
     };
 }
 
-var random: ?std.rand.DefaultPrng = null;
-
-fn getRandom() std.rand.DefaultPrng {
-    if (random == null) {
-        const timestamp: u64 = @intCast(std.time.milliTimestamp());
-        random = std.rand.DefaultPrng.init(timestamp);
-    }
-    return random.?;
-}
-
-fn randNonZero() u64 {
+pub fn randNonZero() u64 {
     var rand = getRandom();
     var res = rand.int(u64);
     while (res == 0) {
@@ -1978,7 +1968,17 @@ fn randNonZero() u64 {
     return res;
 }
 
-fn randBytes(bytes: []u8) void {
+pub fn randBytes(bytes: []u8) void {
     var rand = getRandom();
     rand.random().bytes(bytes);
+}
+
+var random: ?std.rand.DefaultPrng = null;
+
+fn getRandom() std.rand.DefaultPrng {
+    if (random == null) {
+        const timestamp: u64 = @intCast(std.time.milliTimestamp());
+        random = std.rand.DefaultPrng.init(timestamp);
+    }
+    return random.?;
 }
