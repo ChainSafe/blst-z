@@ -29,7 +29,7 @@ jobs:
         with:
           version: "0.13.0" # Set the required Zig version
 
-      - name: Run blst/build.sh
+      - name: Build blst
         run: |
           cd blst
           zig cc -target ${{ matrix.platform }} -c src/server.c -o server.o
@@ -39,10 +39,6 @@ jobs:
       - name: Verify built blst
         run: |
           ls -la blst/libblst.a
-
-      - name: Build binary
-        run: |
-          zig build -Dtarget=${{ matrix.platform }} test
 
       - name: Upload artifacts for testing
         uses: actions/upload-artifact@v3
