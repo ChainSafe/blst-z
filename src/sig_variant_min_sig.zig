@@ -88,7 +88,7 @@ test "test_aggregate" {
 }
 
 test "test_multiple_agg_sigs" {
-    try SigVariant.testMultipleAggSigs();
+    try SigVariant.testMultipleAggSigs(true);
 }
 
 test "test_serialization" {

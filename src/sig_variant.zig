@@ -14,7 +14,7 @@ const BLST_ERROR = util.BLST_ERROR;
 const toBlstError = util.toBlstError;
 
 /// specific constant used in aggregateWithRandomness() to avoid heap allocation
-const MAX_SIGNATURE_SETS = 128;
+pub const MAX_SIGNATURE_SETS = 128;
 
 /// generic implementation for both min_pk and min_sig
 /// this is equivalent to Rust binding in blst/bindings/rust/src/lib.rs
@@ -131,8 +131,8 @@ pub fn createSigVariant(
             };
         }
 
-        pub fn defaultPublicKey(out: *pk_aff_type) void {
-            out.* = default_pubkey_fn();
+        pub fn defaultPublicKey() pk_aff_type {
+            return default_pubkey_fn();
         }
 
         // Core operations
@@ -442,6 +442,12 @@ pub fn createSigVariant(
         }
     };
 
+    const SignatureSet = extern struct {
+        msg: [*c]const u8,
+        pk: *const pk_aff_type,
+        sig: *const sig_aff_type,
+    };
+
     const Signature = struct {
         point: sig_aff_type,
 
@@ -451,8 +457,8 @@ pub fn createSigVariant(
             };
         }
 
-        pub fn defaultSignature(out: *sig_aff_type) void {
-            out.* = default_sig_fn();
+        pub fn defaultSignature() sig_aff_type {
+            return default_sig_fn();
         }
 
         // sig_infcheck, check for infinity, is a way to avoid going
@@ -627,7 +633,7 @@ pub fn createSigVariant(
         /// - extra `pairing_buffer` parameter
         /// - `rands` parameter type changed to `[][]const u8` instead of []blst_scalar because mulAndAggregateG1() accepts []const u8 anyway
         /// rand_bits is always 64 in all tests
-        pub fn verifyMultiple(msgs: [][]const u8, dst: []const u8, pks: []const *PublicKey, pks_validate: bool, sigs: []const *@This(), sigs_groupcheck: bool, rands: [][]const u8, rand_bits: usize, pairing_buffer: []u8) BLST_ERROR!void {
+        pub fn verifyMultipleAggregateSignatures(msgs: [][]const u8, dst: []const u8, pks: []const *PublicKey, pks_validate: bool, sigs: []const *@This(), sigs_groupcheck: bool, rands: [][]const u8, rand_bits: usize, pairing_buffer: []u8) BLST_ERROR!void {
             const n_elems = pks.len;
             if (n_elems == 0 or msgs.len != n_elems or sigs.len != n_elems or rands.len != n_elems) {
                 return BLST_ERROR.VERIFY_FAIL;
@@ -652,10 +658,10 @@ pub fn createSigVariant(
             }
         }
 
-        /// C-ABI version of verifyMultiple() with
+        /// C-ABI version of verifyMultipleAggregateSignatures() with
         /// - extra msg_len parameter, all messages should have the same length
-        pub fn verifyMultipleSignatures(msgs: [*c][*c]const u8, msgs_len: usize, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks: [*c]*const pk_aff_type, pks_len: usize, pks_validate: bool, sigs: [*c]*const sig_aff_type, sigs_len: usize, sigs_groupcheck: bool, rands: [*c][*c]const u8, rands_len: usize, rand_bits: usize, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
-            if (pks_len == 0 or msgs_len != pks_len or sigs_len != pks_len or rands_len != pks_len) {
+        pub fn verifyMultipleAggregateSignaturesC(sets: [*c]*const SignatureSet, sets_len: usize, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks_validate: bool, sigs_groupcheck: bool, rands: [*c][*c]const u8, rands_len: usize, rand_bits: usize, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+            if (sets_len == 0 or rands_len != sets_len) {
                 return c.BLST_VERIFY_FAIL;
             }
 
@@ -665,8 +671,9 @@ pub fn createSigVariant(
 
             var pairing = Pairing.new(pairing_buffer, pairing_buffer_len, hash_or_encode, dst, dst_len) catch return c.BLST_VERIFY_FAIL;
 
-            for (0..pks_len) |i| {
-                pairing.mulAndAggregate(pks[i], pks_validate, sigs[i], sigs_groupcheck, rands[i], rand_bits, msgs[i], msg_len, null) catch return c.BLST_VERIFY_FAIL;
+            for (0..sets_len) |i| {
+                const set = sets[i];
+                pairing.mulAndAggregate(set.pk, pks_validate, set.sig, sigs_groupcheck, rands[i], rand_bits, set.msg, msg_len, null) catch return c.BLST_VERIFY_FAIL;
             }
 
             pairing.commit();
@@ -984,8 +991,8 @@ pub fn createSigVariant(
             };
         }
 
-        pub fn defaultSecretKey(out: *c.blst_scalar) void {
-            out.* = util.default_blst_scalar();
+        pub fn defaultSecretKey() c.blst_scalar {
+            return util.default_blst_scalar();
         }
 
         pub fn keyGen(ikm: []const u8, key_info: ?[]const u8) BLST_ERROR!@This() {
@@ -1271,6 +1278,10 @@ pub fn createSigVariant(
             return c.blst_scalar;
         }
 
+        pub fn getSignatureSetType() type {
+            return SignatureSet;
+        }
+
         pub fn pubkeyFromAggregate(agg_pk: *const AggregatePublicKey) PublicKey {
             var pk_aff = PublicKey.default();
             pk_to_aff_fn(&pk_aff.point, &agg_pk.point);
@@ -1476,7 +1487,7 @@ pub fn createSigVariant(
             }
         }
 
-        pub fn testMultipleAggSigs() !void {
+        pub fn testMultipleAggSigs(comptime is_diff_msg_len: bool) !void {
             var allocator = std.testing.allocator;
             // single pairing_buffer allocation that could be reused multiple times
             const pairing_buffer = try allocator.alloc(u8, Pairing.sizeOf());
@@ -1492,9 +1503,12 @@ pub fn createSigVariant(
             var sigs: [num_sigs]Signature = undefined;
             var pks: [num_sigs]PublicKey = undefined;
             var rands: [num_sigs][]u8 = undefined;
+            var rands_c: [num_sigs][*c]u8 = undefined;
 
             // random message len
-            const msg_lens: [num_sigs]u64 = comptime .{ 33, 34, 39, 22, 43, 1, 24, 60, 2, 41 };
+            // different message length for each signature to test verifyMultipleAggregateSignatures
+            // same message length to test verifyMultipleAggregateSignaturesC
+            const msg_lens: [num_sigs]u64 = comptime if (is_diff_msg_len) .{ 33, 34, 39, 22, 43, 1, 24, 60, 2, 41 } else [_]u64{32} ** num_sigs;
             const max_len = 64;
 
             // use inline for to keep scopes of all variable in this function instead of block scope
@@ -1503,6 +1517,7 @@ pub fn createSigVariant(
                 msgs[i] = msg[0..];
                 var rand = [_]u8{0} ** 32;
                 rands[i] = rand[0..];
+                rands_c[i] = &rand[0];
             }
 
             for (0..num_sigs) |i| {
@@ -1609,28 +1624,64 @@ pub fn createSigVariant(
                 sig_rev_refs[num_sigs - i - 1] = sig;
             }
 
-            try Signature.verifyMultiple(msgs[0..], dst, pks_refs[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
+            try Signature.verifyMultipleAggregateSignatures(msgs[0..], dst, pks_refs[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
+            var sets: [num_sigs]*const SignatureSet = undefined;
+            for (0..num_sigs) |i| {
+                sets[i] = &.{ .msg = &msgs[i][0], .pk = &pks[i].point, .sig = &sigs[i].point };
+            }
+
+            // only expect this to pass if all messages are the same length
+            const res = Signature.verifyMultipleAggregateSignaturesC(&sets[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, &pairing_buffer[0], pairing_buffer.len);
+            try std.testing.expect(is_diff_msg_len == (res != c.BLST_SUCCESS));
 
             // negative tests (use reverse msgs, pks, and sigs)
-            var verify_res = Signature.verifyMultiple(msgs_rev[0..], dst, pks_refs[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
+            var verify_res = Signature.verifyMultipleAggregateSignatures(msgs_rev[0..], dst, pks_refs[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
             if (verify_res) {
                 try std.testing.expect(false);
             } else |err| {
                 try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
             }
 
-            verify_res = Signature.verifyMultiple(msgs[0..], dst, pks_rev[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
+            var verify_c_res: c_uint = 0;
+            if (!is_diff_msg_len) {
+                var sets_msgs_rev: [num_sigs]*const SignatureSet = undefined;
+                for (0..num_sigs) |i| {
+                    sets_msgs_rev[i] = &.{ .msg = &msgs_rev[i][0], .pk = &pks[i].point, .sig = &sigs[i].point };
+                }
+                verify_c_res = Signature.verifyMultipleAggregateSignaturesC(&sets_msgs_rev[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, &pairing_buffer[0], pairing_buffer.len);
+                try std.testing.expect(verify_c_res != c.BLST_SUCCESS);
+            }
+
+            verify_res = Signature.verifyMultipleAggregateSignatures(msgs[0..], dst, pks_rev[0..], false, sigs_refs[0..], false, rands[0..], 64, pairing_buffer);
             if (verify_res) {
                 try std.testing.expect(false);
             } else |err| {
                 try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
             }
 
-            verify_res = Signature.verifyMultiple(msgs[0..], dst, pks_refs[0..], false, sig_rev_refs[0..], false, rands[0..], 64, pairing_buffer);
+            if (!is_diff_msg_len) {
+                var sets_pks_rev: [num_sigs]*const SignatureSet = undefined;
+                for (0..num_sigs) |i| {
+                    sets_pks_rev[i] = &.{ .msg = &msgs[i][0], .pk = &pks_rev[i].point, .sig = &sigs[i].point };
+                }
+                verify_c_res = Signature.verifyMultipleAggregateSignaturesC(&sets_pks_rev[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, &pairing_buffer[0], pairing_buffer.len);
+                try std.testing.expect(verify_c_res != c.BLST_SUCCESS);
+            }
+
+            verify_res = Signature.verifyMultipleAggregateSignatures(msgs[0..], dst, pks_refs[0..], false, sig_rev_refs[0..], false, rands[0..], 64, pairing_buffer);
             if (verify_res) {
                 try std.testing.expect(false);
             } else |err| {
                 try std.testing.expectEqual(BLST_ERROR.VERIFY_FAIL, err);
+            }
+
+            if (!is_diff_msg_len) {
+                var sets_sigs_rev: [num_sigs]*const SignatureSet = undefined;
+                for (0..num_sigs) |i| {
+                    sets_sigs_rev[i] = &.{ .msg = &msgs[i][0], .pk = &pks[i].point, .sig = &sig_rev_refs[i].point };
+                }
+                verify_c_res = Signature.verifyMultipleAggregateSignaturesC(&sets_sigs_rev[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, &pairing_buffer[0], pairing_buffer.len);
+                try std.testing.expect(verify_c_res != c.BLST_SUCCESS);
             }
         }
 
@@ -1908,17 +1959,7 @@ pub fn createSigVariant(
     };
 }
 
-var random: ?std.rand.DefaultPrng = null;
-
-fn getRandom() std.rand.DefaultPrng {
-    if (random == null) {
-        const timestamp: u64 = @intCast(std.time.milliTimestamp());
-        random = std.rand.DefaultPrng.init(timestamp);
-    }
-    return random.?;
-}
-
-fn randNonZero() u64 {
+pub fn randNonZero() u64 {
     var rand = getRandom();
     var res = rand.int(u64);
     while (res == 0) {
@@ -1927,7 +1968,17 @@ fn randNonZero() u64 {
     return res;
 }
 
-fn randBytes(bytes: []u8) void {
+pub fn randBytes(bytes: []u8) void {
     var rand = getRandom();
     rand.random().bytes(bytes);
+}
+
+var random: ?std.rand.DefaultPrng = null;
+
+fn getRandom() std.rand.DefaultPrng {
+    if (random == null) {
+        const timestamp: u64 = @intCast(std.time.milliTimestamp());
+        random = std.rand.DefaultPrng.init(timestamp);
+    }
+    return random.?;
 }
