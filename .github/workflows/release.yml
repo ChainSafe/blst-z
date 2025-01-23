@@ -24,19 +24,21 @@ jobs:
           git submodule update --init --recursive
           ls -la blst
 
-      - name: Run blst/build.sh
-        run: |
-          cd blst
-          ./build.sh CROSS_COMPILE=${{ matrix.platform }}
-
-      - name: Verify built blst
-        run: |
-          ls -la blst/libblst.a
-
       - name: Install Zig
         uses: mlugg/setup-zig@v1
         with:
           version: "0.13.0" # Set the required Zig version
+
+      - name: Run blst/build.sh
+        run: |
+          cd blst
+          zig cc -target ${{ matrix.platform }} -c src/server.c -o server.o
+          zig cc -target ${{ matrix.platform }} -c build/assembly.S -o assembly.o
+          zig ar rcs libblst.a server.o assembly.o
+
+      - name: Verify built blst
+        run: |
+          ls -la blst/libblst.a
 
       - name: Build binary
         run: |
