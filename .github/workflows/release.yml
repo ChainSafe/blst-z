@@ -40,6 +40,10 @@ jobs:
         run: |
           ls -la blst/libblst.a
 
+      - name: Build blst-z
+        run: |
+          zig build -Dtarget=${{ matrix.platform }} test
+
       - name: Upload artifacts for testing
         uses: actions/upload-artifact@v3
         with:
