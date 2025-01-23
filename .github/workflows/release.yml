@@ -1,0 +1,49 @@
+name: Zig Build and Test
+
+on:
+  push:
+    branches:
+      - te/publish_built_files
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [x86_64-linux, aarch64-linux, x86_64-macos]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive # Ensures submodules are cloned
+          fetch-depth: 0        # Fetches the entire history for all branches
+
+      - name: Verify Submodules
+        run: |
+          git submodule update --init --recursive
+          ls -la blst
+
+      - name: Run blst/build.sh
+        run: |
+          cd blst
+          ./build.sh
+
+      - name: Verify built blst
+        run: |
+          ls -la blst/libblst.a
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v1
+        with:
+          version: "0.13.0" # Set the required Zig version
+
+      - name: Build binary
+        run: |
+          zig build -Dtarget=${{ matrix.platform }} test
+
+      - name: Upload artifacts for testing
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output-${{ matrix.platform }}
+          path: zig-out/lib/*
