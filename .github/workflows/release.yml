@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        platform: [x86_64-linux, aarch64-linux, x86_64-macos]
+        platform: [x86_64-macos]
 
     steps:
       - name: Checkout Repository
@@ -27,7 +27,7 @@ jobs:
       - name: Run blst/build.sh
         run: |
           cd blst
-          ./build.sh
+          ./build.sh CROSS_COMPILE=${{ matrix.platform }}
 
       - name: Verify built blst
         run: |
