@@ -32,8 +32,8 @@ jobs:
       - name: Build blst on host
         run: |
           cd blst
-          zig cc -c src/server.c -o server.o
-          zig cc -c build/assembly.S -o assembly.o
+          zig cc -target x86_64-linux -c src/server.c -o server.o
+          zig cc -target x86_64-linux -c build/assembly.S -o assembly.o
           zig ar rcs libblst.a server.o assembly.o
 
       - name: Verify built blst on host
