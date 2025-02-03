@@ -61,7 +61,7 @@ jobs:
           zig build -Dtarget=${{ matrix.platform }}
 
       - name: Upload artifacts for ${{ matrix.platform }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-output-${{ matrix.platform }}
-          path: zig-out/lib/*
+          paths: zig-out/lib/*
