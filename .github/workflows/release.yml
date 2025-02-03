@@ -47,6 +47,7 @@ jobs:
       - name: Build blst on ${{ matrix.platform }}
         run: |
           cd blst
+          rm -f libblst.a
           zig cc -target ${{ matrix.platform }} -c src/server.c -o server.o
           zig cc -target ${{ matrix.platform }} -c build/assembly.S -o assembly.o
           zig ar rcs libblst.a server.o assembly.o
