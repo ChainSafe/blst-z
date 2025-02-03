@@ -64,4 +64,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-output-${{ matrix.platform }}
-          paths: zig-out/lib/*
+          path: zig-out/lib/*
