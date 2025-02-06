@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        platform: [x86_64-macos, aarch64-macos, x86_64-linux, aarch64-linux]
+        platform: [x86_64-linux] # x86_64-macos, aarch64-macos, aarch64-linux
 
     steps:
       - name: Checkout Repository
@@ -58,7 +58,7 @@ jobs:
 
       - name: Build blst-z on ${{ matrix.platform }}
         run: |
-          zig build -Dtarget=${{ matrix.platform }}
+          zig build -Dtarget=${{ matrix.platform }} test
 
       - name: Upload static library artifact for ${{ matrix.platform }}
         uses: actions/upload-artifact@v4
