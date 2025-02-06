@@ -63,6 +63,9 @@ jobs:
       - name: Upload artifacts for ${{ matrix.platform }}
         uses: actions/upload-artifact@v4
         with:
-          name: build-output-${{ matrix.platform }}
-          path: zig-out/lib/*
-          compression-level: 0 # No compression
+          name: libblst_${{ matrix.platform }}.a
+          path: zig-out/lib/libblst.a
+        uses: actions/upload-artifact@v4
+        with:
+          name: libblst_min_pk${{ matrix.platform }}.dylib
+          path: zig-out/lib/libblst_min_pk.dylib
