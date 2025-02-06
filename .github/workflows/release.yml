@@ -32,8 +32,8 @@ jobs:
       - name: Build blst on host
         run: |
           cd blst
-          zig cc -target x86_64-linux -c src/server.c -o server.o
-          zig cc -target x86_64-linux -c build/assembly.S -o assembly.o
+          zig cc -fno-builtin -fPIC -target x86_64-linux -c src/server.c -o server.o
+          zig cc -fno-builtin -fPIC -target x86_64-linux -c build/assembly.S -o assembly.o
           zig ar rcs libblst.a server.o assembly.o
 
       - name: Verify built blst on host
@@ -48,8 +48,8 @@ jobs:
         run: |
           cd blst
           rm -f libblst.a
-          zig cc -target ${{ matrix.platform }} -c src/server.c -o server.o
-          zig cc -target ${{ matrix.platform }} -c build/assembly.S -o assembly.o
+          zig cc -fno-builtin -fPIC -target ${{ matrix.platform }} -c src/server.c -o server.o
+          zig cc -fno-builtin -fPIC -target ${{ matrix.platform }} -c build/assembly.S -o assembly.o
           zig ar rcs libblst.a server.o assembly.o
 
       - name: Verify built blst on ${{ matrix.platform }}
