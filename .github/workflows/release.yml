@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [x86_64-linux, aarch64-linux, x86_64-macos, aarch64-macos]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive # Ensures submodules are cloned
+          fetch-depth: 0        # Fetches the entire history for all branches
+
+      - name: Verify Submodules
+        run: |
+          git submodule update --init --recursive
+          ls -la blst
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@v1
+        with:
+          version: "0.13.0" # Set the required Zig version
+
+      - name: Build blst on host
+        run: |
+          cd blst
+          zig cc -fno-builtin -fPIC -target x86_64-linux -c src/server.c -o server.o
+          zig cc -fno-builtin -fPIC -target x86_64-linux -c build/assembly.S -o assembly.o
+          zig ar rcs libblst.a server.o assembly.o
+
+      - name: Verify built blst on host
+        run: |
+          ls -la blst/libblst.a
+
+      - name: Build and test blst-z on host
+        run: |
+          zig build test
+
+      - name: Build blst on ${{ matrix.platform }}
+        run: |
+          cd blst
+          rm -f libblst.a
+          zig cc -fno-builtin -fPIC -target ${{ matrix.platform }} -c src/server.c -o server.o
+          zig cc -fno-builtin -fPIC -target ${{ matrix.platform }} -c build/assembly.S -o assembly.o
+          zig ar rcs libblst.a server.o assembly.o
+
+      - name: Verify built blst on ${{ matrix.platform }}
+        run: |
+          ls -la blst/libblst.a
+
+      - name: Build blst-z on ${{ matrix.platform }}
+        run: |
+          zig build -Dtarget=${{ matrix.platform }}
+
+      - name: Upload static library artifact for ${{ matrix.platform }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: libblst_${{ matrix.platform }}.a
+          path: zig-out/lib/libblst.a
+          compression-level: 0 # No compression
+
+      - name: Set shared library extension
+        id: set_extension
+        run: |
+          case "${{ matrix.platform }}" in
+            x86_64-linux|aarch64-linux) echo "EXT=so" >> $GITHUB_ENV ;;
+            *) echo "EXT=dylib" >> $GITHUB_ENV ;;
+          esac
+
+      - name: Upload shared library artifact for ${{ matrix.platform }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: libblst_min_pk_${{ matrix.platform }}.${{ env.EXT }}
+          path: zig-out/lib/libblst_min_pk.${{ env.EXT }}
+          compression-level: 0 # No compression
+
+  create-release:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ github.ref }}
+          name: Release ${{ github.ref }}
+          files: |
+            libblst_x86_64-linux.a
+            libblst_aarch64-linux.a
+            libblst_x86_64-macos.a
+            libblst_aarch64-macos.a
+            libblst_min_pk_x86_64-linux.so
+            libblst_min_pk_aarch64-linux.so
+            libblst_min_pk_x86_64-macos.dylib
+            libblst_min_pk_aarch64-macos.dylib
+          draft: false
+          prerelease: false
