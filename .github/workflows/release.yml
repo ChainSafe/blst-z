@@ -3,14 +3,14 @@ name: Zig Build and Test
 on:
   push:
     branches:
-      - te/publish_built_files
+      - te/publish_built_files_linux
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        platform: [x86_64-macos, aarch64-macos, x86_64-linux, aarch64-linux]
+        platform: [x86_64-linux, aarch64-linux, x86_64-macos, aarch64-macos]
 
     steps:
       - name: Checkout Repository
@@ -32,8 +32,8 @@ jobs:
       - name: Build blst on host
         run: |
           cd blst
-          zig cc -target x86_64-linux -c src/server.c -o server.o
-          zig cc -target x86_64-linux -c build/assembly.S -o assembly.o
+          zig cc -fno-builtin -fPIC -target x86_64-linux -c src/server.c -o server.o
+          zig cc -fno-builtin -fPIC -target x86_64-linux -c build/assembly.S -o assembly.o
           zig ar rcs libblst.a server.o assembly.o
 
       - name: Verify built blst on host
@@ -48,8 +48,8 @@ jobs:
         run: |
           cd blst
           rm -f libblst.a
-          zig cc -target ${{ matrix.platform }} -c src/server.c -o server.o
-          zig cc -target ${{ matrix.platform }} -c build/assembly.S -o assembly.o
+          zig cc -fno-builtin -fPIC -target ${{ matrix.platform }} -c src/server.c -o server.o
+          zig cc -fno-builtin -fPIC -target ${{ matrix.platform }} -c build/assembly.S -o assembly.o
           zig ar rcs libblst.a server.o assembly.o
 
       - name: Verify built blst on ${{ matrix.platform }}
@@ -67,9 +67,17 @@ jobs:
           path: zig-out/lib/libblst.a
           compression-level: 0 # No compression
 
+      - name: Set shared library extension
+        id: set_extension
+        run: |
+          case "${{ matrix.platform }}" in
+            x86_64-linux|aarch64-linux) echo "EXT=so" >> $GITHUB_ENV ;;
+            *) echo "EXT=dylib" >> $GITHUB_ENV ;;
+          esac
+
       - name: Upload shared library artifact for ${{ matrix.platform }}
         uses: actions/upload-artifact@v4
         with:
-          name: libblst_min_pk_${{ matrix.platform }}.dylib
-          path: zig-out/lib/libblst_min_pk.dylib
+          name: libblst_min_pk_${{ matrix.platform }}.${{ env.EXT }}
+          path: zig-out/lib/libblst_min_pk.${{ env.EXT }}
           compression-level: 0 # No compression
