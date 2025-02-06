@@ -69,11 +69,15 @@ jobs:
 
       - name: Set shared library extension
         id: set_extension
-        run: echo "ext=$([[ ${{ matrix.platform }} == 'x86_64-linux' ]] && echo 'so' || [[ ${{ matrix.platform }} == 'aarch64-linux' ]] && echo 'so' || echo 'dylib')" >> $GITHUB_ENV
+        run: |
+          case "${{ matrix.platform }}" in
+            x86_64-linux|aarch64-linux) echo "EXT=so" >> $GITHUB_ENV ;;
+            *) echo "EXT=dylib" >> $GITHUB_ENV ;;
+          esac
 
       - name: Upload shared library artifact for ${{ matrix.platform }}
         uses: actions/upload-artifact@v4
         with:
-          name: libblst_min_pk_${{ matrix.platform }}.${{ env.ext }}
-          path: zig-out/lib/libblst_min_pk.${{ env.ext }}
+          name: libblst_min_pk_${{ matrix.platform }}.${{ env.EXT }}
+          path: zig-out/lib/libblst_min_pk.${{ env.EXT }}
           compression-level: 0 # No compression
