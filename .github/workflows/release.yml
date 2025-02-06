@@ -3,7 +3,7 @@ name: Zig Build and Test
 on:
   push:
     branches:
-      - origin/te/publish_built_files_linux
+      - te/publish_built_files_linux
 
 jobs:
   build-and-test:
