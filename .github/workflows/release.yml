@@ -65,3 +65,4 @@ jobs:
         with:
           name: build-output-${{ matrix.platform }}
           path: zig-out/lib/*
+          compression-level: 0 # No compression
