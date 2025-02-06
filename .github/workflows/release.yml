@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        platform: [x86_64-macos, arm64-macos]
+        platform: [x86_64-macos, aarch64-macos]
 
     steps:
       - name: Checkout Repository
