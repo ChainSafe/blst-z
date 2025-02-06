@@ -65,6 +65,5 @@ jobs:
         with:
           name: libblst_${{ matrix.platform }}.a
           path: zig-out/lib/libblst.a
-        with:
           name: libblst_min_pk${{ matrix.platform }}.dylib
           path: zig-out/lib/libblst_min_pk.dylib
