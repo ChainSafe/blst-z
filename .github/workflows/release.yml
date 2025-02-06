@@ -58,7 +58,7 @@ jobs:
 
       - name: Build blst-z on ${{ matrix.platform }}
         run: |
-          zig build zig build --verbose --verbose-link -Dtarget=${{ matrix.platform }}
+          zig build --verbose --verbose-link -Dtarget=${{ matrix.platform }}
 
       - name: Upload static library artifact for ${{ matrix.platform }}
         uses: actions/upload-artifact@v4
