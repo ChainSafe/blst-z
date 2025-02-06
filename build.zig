@@ -27,7 +27,6 @@ pub fn build(b: *std.Build) !void {
 
     // TODO: build.bat for windows
 
-    // TODO: may need to build this manually for development flow, on release.yml it's built by "zig cc"
     const blst_file_path = "blst/libblst.a";
     const fs = std.fs.cwd();
     const file_exist = blk: {
@@ -62,8 +61,6 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    // On Linux, shared libraries must be compiled with -fPIC
-    sharedLib.pie = true;
     sharedLib.addObjectFile(b.path(blst_file_path));
     sharedLib.addIncludePath(b.path("blst/bindings"));
     b.installArtifact(sharedLib);
