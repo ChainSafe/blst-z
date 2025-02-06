@@ -65,9 +65,11 @@ jobs:
         with:
           name: libblst_${{ matrix.platform }}.a
           path: zig-out/lib/libblst.a
+          compression-level: 0 # No compression
 
       - name: Upload shared library artifact for ${{ matrix.platform }}
         uses: actions/upload-artifact@v4
         with:
-          name: libblst_min_pk${{ matrix.platform }}.dylib
+          name: libblst_min_pk_${{ matrix.platform }}.dylib
           path: zig-out/lib/libblst_min_pk.dylib
+          compression-level: 0 # No compression
