@@ -93,6 +93,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release
+          pattern: libblst_*
           merge-multiple: true
       - run: ls -R release
 
