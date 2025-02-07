@@ -94,6 +94,7 @@ jobs:
         with:
           path: release
           merge-multiple: true
+      - run: ls -R release
 
       - name: List files in release directory
         run: ls -la ${{ github.workspace }}/release
