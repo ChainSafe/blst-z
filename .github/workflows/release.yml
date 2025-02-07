@@ -2,8 +2,8 @@ name: Release
 
 on:
   push:
-    tags:
-      - v*
+    branches:
+      - te/fix_release
 
 jobs:
   build-and-test:
@@ -100,12 +100,13 @@ jobs:
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
             ${{ github.workspace }}/release/*
           tag_name: ${{ github.ref }}
-          name: Release ${{ github.ref }}
+          name: Test Release ${{ github.ref }}
           fail_on_unmatched_files: true
+          draft: true
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
