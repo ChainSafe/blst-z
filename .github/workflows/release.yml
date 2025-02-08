@@ -120,7 +120,9 @@ jobs:
           files: |
             ${{ github.workspace }}/release/*
           tag_name: ${{ github.ref_name }}
-          name: Test Release ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
           fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
