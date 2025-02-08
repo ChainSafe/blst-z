@@ -91,21 +91,38 @@ jobs:
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          path: release_tmp
+          pattern: libblst_*
+
+      - name: List folders in release_tmp directory
+        run: ls -la ${{ github.workspace }}/release_tmp
+
+      - name: Organize Release Artifacts
+        run: |
+          mkdir -p release
+          mv release_tmp/libblst_x86_64-linux.a/libblst.a release/libblst_x86_64-linux.a
+          mv release_tmp/libblst_aarch64-linux.a/libblst.a release/libblst_aarch64-linux.a
+          mv release_tmp/libblst_x86_64-macos.a/libblst.a release/libblst_x86_64-macos.a
+          mv release_tmp/libblst_aarch64-macos.a/libblst.a release/libblst_aarch64-macos.a
+          mv release_tmp/libblst_min_pk_x86_64-linux.so/libblst_min_pk.so release/libblst_min_pk_x86_64-linux.so
+          mv release_tmp/libblst_min_pk_aarch64-linux.so/libblst_min_pk.so release/libblst_min_pk_aarch64-linux.so
+          mv release_tmp/libblst_min_pk_x86_64-macos.dylib/libblst_min_pk.dylib release/libblst_min_pk_x86_64-macos.dylib
+          mv release_tmp/libblst_min_pk_aarch64-macos.dylib/libblst_min_pk.dylib release/libblst_min_pk_aarch64-macos.dylib
+
+      - name: List files in release directory
+        run: ls -la ${{ github.workspace }}/release
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
-          tag_name: ${{ github.ref }}
-          name: Release ${{ github.ref }}
           files: |
-            libblst_x86_64-linux.a
-            libblst_aarch64-linux.a
-            libblst_x86_64-macos.a
-            libblst_aarch64-macos.a
-            libblst_min_pk_x86_64-linux.so
-            libblst_min_pk_aarch64-linux.so
-            libblst_min_pk_x86_64-macos.dylib
-            libblst_min_pk_aarch64-macos.dylib
+            ${{ github.workspace }}/release/*
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          fail_on_unmatched_files: true
           draft: false
           prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
