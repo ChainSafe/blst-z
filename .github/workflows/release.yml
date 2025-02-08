@@ -92,10 +92,23 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: release
+          path: release_tmp
           pattern: libblst_*
-          merge-multiple: true
-      - run: ls -R release
+
+      - name: List folders in release_tmp directory
+        run: ls -la ${{ github.workspace }}/release_tmp
+
+      - name: Organize Release Artifacts
+        run: |
+          mkdir -p release
+          mv release_tmp/libblst_x86_64-linux.a/libblst.a release/libblst_x86_64-linux.a
+          mv release_tmp/libblst_aarch64-linux.a/libblst.a release/libblst_aarch64-linux.a
+          mv release_tmp/libblst_x86_64-macos.a/libblst.a release/libblst_x86_64-macos.a
+          mv release_tmp/libblst_aarch64-macos.a/libblst.a release/libblst_aarch64-macos.a
+          mv release_tmp/libblst_min_pk_x86_64-linux.so/libblst_min_pk.so release/libblst_min_pk_x86_64-linux.so
+          mv release_tmp/libblst_min_pk_aarch64-linux.so/libblst_min_pk.so release/libblst_min_pk_aarch64-linux.so
+          mv release_tmp/libblst_min_pk_x86_64-macos.dylib/libblst_min_pk.dylib release/libblst_min_pk_x86_64-macos.dylib
+          mv release_tmp/libblst_min_pk_aarch64-macos.dylib/libblst_min_pk.dylib release/libblst_min_pk_aarch64-macos.dylib
 
       - name: List files in release directory
         run: ls -la ${{ github.workspace }}/release
