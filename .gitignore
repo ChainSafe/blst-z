@@ -1,2 +1,3 @@
 zig-out/
 .zig-cache/
+blst-bun/node_modules/
