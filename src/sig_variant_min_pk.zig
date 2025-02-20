@@ -185,8 +185,9 @@ export fn sigValidate(out: *SignatureType, sig: [*c]const u8, sig_len: usize, si
     return Signature.sigValidateC(out, sig, sig_len, sig_infcheck);
 }
 
-export fn verifySignature(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, aug_ptr: [*c]const u8, aug_len: usize, pk: *const PublicKeyType, pk_validate: bool) c_uint {
-    return Signature.verifySignature(sig, sig_groupcheck, msg, msg_len, &DST[0], DST.len, aug_ptr, aug_len, pk, pk_validate);
+export fn verifySignature(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, pk: *const PublicKeyType, pk_validate: bool) c_uint {
+    // aug_ptr is null, aug_len is 0
+    return Signature.verifySignature(sig, sig_groupcheck, msg, msg_len, &DST[0], DST.len, null, 0, pk, pk_validate);
 }
 
 export fn aggregateVerify(sig: *const SignatureType, sig_groupcheck: bool, msgs: [*c][*c]const u8, msgs_len: usize, msg_len: usize, pks: [*c]const *PublicKeyType, pks_len: usize, pks_validate: bool, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
@@ -381,7 +382,11 @@ test "test_sign_n_verify" {
 }
 
 test "test_aggregate" {
-    try SigVariant.testAggregate();
+    try SigVariant.testAggregate(true);
+}
+
+test "test_aggregate with aggregateVerifyC" {
+    try SigVariant.testAggregate(false);
 }
 
 test "test_multiple_agg_sigs" {

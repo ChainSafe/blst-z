@@ -1410,7 +1410,7 @@ pub fn createSigVariant(
             try sig.verify(true, msg[0..], dst[0..], null, &pk, true);
         }
 
-        pub fn testAggregate() !void {
+        pub fn testAggregate(comptime is_diff_msg_len: bool) !void {
             const num_msgs = 10;
             const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
 
@@ -1438,7 +1438,9 @@ pub fn createSigVariant(
 
             var msgs: [num_msgs][]u8 = undefined;
             // random message len
-            const msg_lens: [num_msgs]u64 = comptime .{ 33, 34, 39, 22, 43, 1, 24, 60, 2, 41 };
+            // same message length to test aggregateVerifyC
+            const same_msg_len = 32;
+            const msg_lens: [num_msgs]u64 = comptime if (is_diff_msg_len) .{ 33, 34, 39, 22, 43, 1, 24, 60, 2, 41 } else [_]u64{same_msg_len} ** num_msgs;
 
             inline for (0..num_msgs) |i| {
                 var msg = [_]u8{0} ** msg_lens[i];
@@ -1477,6 +1479,21 @@ pub fn createSigVariant(
 
             // positive test
             try agg_sig.aggregateVerify(false, msgs[0..], dst, pks_ptr[0..], false, pairing_buffer);
+
+            // only expect this to pass if all messages are the same length
+            // const res = Signature.verifyMultipleAggregateSignaturesC(&sets[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, &pairing_buffer[0], pairing_buffer.len);
+            if (is_diff_msg_len == false) {
+                var msgs_refs: [num_msgs][*c]const u8 = undefined;
+                for (msgs[0..], 0..num_msgs) |msg, i| {
+                    msgs_refs[i] = &msg[0];
+                }
+                var pks_refs: [num_msgs]*pk_aff_type = undefined;
+                for (pks_ptr[0..], 0..num_msgs) |pk, i| {
+                    pks_refs[i] = &pk.point;
+                }
+                const res = Signature.aggregateVerifyC(&agg_sig.point, false, &msgs_refs[0], msgs_refs.len, same_msg_len, &dst[0], dst.len, &pks_refs[0], pks_refs.len, false, &pairing_buffer[0], pairing_buffer.len);
+                try std.testing.expect(res == c.BLST_SUCCESS);
+            }
 
             // Swap message/public key pairs to create bad signature
             if (agg_sig.aggregateVerify(false, msgs[0..], dst, pks_ptr_rev[0..], false, pairing_buffer)) {
