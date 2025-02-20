@@ -9,8 +9,8 @@ describe("Verify", () => {
   beforeAll(() => {
     testSet = getTestSet();
   });
-  // TODO: fix blst-z
-  describe.skip("verify", () => {
+
+  describe("verify", () => {
     it("should return a boolean", () => {
       expect(verify(testSet.msg, testSet.pk, testSet.sig)).toBeBoolean();
     });
@@ -39,13 +39,13 @@ describe("Aggregate Verify", () => {
         expect(aggregateVerify([sullyUint8Array(testSet.msg)], [testSet.pk], testSet.sig)).toBeFalse();
       });
     });
-    it.only("should return true for valid sets", () => {
+    it("should return true for valid sets", () => {
       expect(aggregateVerify([testSet.msg], [testSet.pk], testSet.sig)).toBeTrue();
     });
   });
 });
 
-describe.skip("Fast Aggregate Verify", () => {
+describe("Fast Aggregate Verify", () => {
   let testSet: TestSet;
   beforeAll(() => {
     testSet = getTestSet();

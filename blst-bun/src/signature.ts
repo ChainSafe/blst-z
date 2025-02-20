@@ -5,7 +5,8 @@ import { writePublicKeysReference, type PublicKey } from "./publicKey";
 import { blstErrorToReason, fromHex, toHex } from "./util";
 
 export class Signature {
-  private blst_point: Uint8Array;
+  // this is mapped directly to `*const SignatureType` in Zig
+  blst_point: Uint8Array;
   private constructor(buffer: Uint8Array) {
     this.blst_point = buffer;
   }
@@ -102,10 +103,6 @@ export interface SignatureSet {
 
 // global pairing buffer to be reused across multiple calls
 const pairing = new Uint8Array(binding.sizeOfPairing());
-// global signature reference to be reused across multiple calls
-const signature_reference = new Uint32Array(2);
-const message_reference = new Uint32Array(2);
-const public_key_reference = new Uint32Array(2);
 
 /**
  * Verify a signature against a message and public key.
@@ -115,11 +112,7 @@ const public_key_reference = new Uint32Array(2);
  * If `sig_groupcheck` is `true`, the signature will be group checked.
  */
 export function verify(msg: Uint8Array, pk: PublicKey, sig: Signature, pkValidate?: boolean | undefined | null, sigGroupcheck?: boolean | undefined | null): boolean {
-  writeReference(msg, message_reference, 0);
-  pk.writeReference(public_key_reference, 0);
-  sig.writeReference(signature_reference, 0);
-
-  const res = binding.verifySignature(signature_reference, sigGroupcheck ?? false, message_reference, msg.length, public_key_reference, pkValidate ?? false);
+  const res = binding.verifySignature(sig.blst_point, sigGroupcheck ?? false, msg, msg.length, pk.blst_point, pkValidate ?? false);
   return res === 0;
 }
 
@@ -147,11 +140,9 @@ export function aggregateVerify(msgs: Array<Uint8Array>, pks: Array<PublicKey>, 
     }
   }
 
-  sig.writeReference(signature_reference, 0);
   const msgs_ref = writeMessagesReference(msgs);
   const pks_references = writePublicKeysReference(pks);
-  const res = binding.aggregateVerify(signature_reference, sigsGroupcheck ?? false, msgs_ref, msgs.length, msgLen, pks_references, pks.length, pkValidate ?? false, pairing, pairing.length);
-  console.log("@@@ aggregateVerify res = ", res);
+  const res = binding.aggregateVerify(sig.blst_point, sigsGroupcheck ?? false, msgs_ref, msgs.length, msgLen, pks_references, pks.length, pkValidate ?? false, pairing, pairing.length);
   return res == 0;
 }
 
@@ -163,9 +154,8 @@ export function aggregateVerify(msgs: Array<Uint8Array>, pks: Array<PublicKey>, 
  * If `sigs_groupcheck` is `true`, the signatures will be group checked.
  */
 export function fastAggregateVerify(msg: Uint8Array, pks: Array<PublicKey>, sig: Signature, sigsGroupcheck?: boolean | undefined | null): boolean {
-  sig.writeReference(signature_reference, 0);
   const pks_references = writePublicKeysReference(pks);
-  const res = binding.fastAggregateVerify(signature_reference, sigsGroupcheck ?? false, msg, msg.length, pks_references, pks.length, pairing, pairing.length);
+  const res = binding.fastAggregateVerify(sig.blst_point, sigsGroupcheck ?? false, msg, msg.length, pks_references, pks.length, pairing, pairing.length);
   return res === 0;
 }
 
