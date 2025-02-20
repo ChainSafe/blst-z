@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll } from "bun:test";
-import {verifyMultipleAggregateSignatures} from "../../src/signature";
+import {verifyMultipleAggregateSignatures} from "../../src/verifyMultipleAggregateSignatures";
 import {getTestSet, getTestSets} from "../utils";
 import { closeBinding } from "../../src/binding";
 

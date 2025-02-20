@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll, beforeAll } from "bun:test";
 
-import {aggregateVerify, fastAggregateVerify, verify} from "../../src/signature";
+import {aggregateVerify, fastAggregateVerify, verify} from "../../src/verify";
 import {sullyUint8Array, getTestSet} from "../utils";
 import {type TestSet} from "../utils/types";
 

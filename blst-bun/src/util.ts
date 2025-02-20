@@ -1,3 +1,7 @@
+import { binding } from "./binding";
+
+// global pairing buffer to be reused across multiple calls
+export const pairing = new Uint8Array(binding.sizeOfPairing());
 
 export function toHex(buffer: Uint8Array | Parameters<typeof Buffer.from>[0]): string {
   if (Buffer.isBuffer(buffer)) {
