@@ -136,8 +136,8 @@ export fn isPublicKeyEqual(point: *PublicKeyType, other: *PublicKeyType) bool {
 }
 
 /// AggregatePublicKeyType functions
-export fn defaultAggregatePublicKey(out: *AggregatePublicKeyType) void {
-    return AggregatePublicKey.defaultAggregatePublicKey(out);
+export fn defaultAggregatePublicKey() AggregatePublicKeyType {
+    return AggregatePublicKey.defaultAggregatePublicKey();
 }
 
 export fn aggregateFromPublicKey(out: *AggregatePublicKeyType, pk: *const PublicKeyType) void {
@@ -148,16 +148,18 @@ export fn aggregateToPublicKey(out: *PublicKeyType, agg_pk: *const AggregatePubl
     return AggregatePublicKey.aggregateToPublicKey(out, agg_pk);
 }
 
-export fn aggregatePublicKeys(out: *AggregatePublicKeyType, pks: [*c]*const PublicKeyType, len: usize, pks_validate: bool) c_uint {
-    return AggregatePublicKey.aggregatePublicKeys(out, pks, len, pks_validate);
+export fn aggregatePublicKeys(out: *PublicKeyType, pks: [*c]*const PublicKeyType, len: usize, pks_validate: bool) c_uint {
+    var aggregate_pk = defaultAggregatePublicKey();
+    const res = AggregatePublicKey.aggregatePublicKeys(&aggregate_pk, pks, len, pks_validate);
+    aggregateToPublicKey(out, &aggregate_pk);
+    return res;
 }
 
-export fn aggregateCompressedPublicKeys(out: *AggregatePublicKeyType, pks: [*c][*c]const u8, len: usize, pks_validate: bool) c_uint {
-    return AggregatePublicKey.aggregateCompressedPublicKeys(out, pks, len, pks_validate);
-}
-
-export fn aggregateSerializedPublicKeys(out: *AggregatePublicKeyType, pks: [*c][*c]const u8, len: usize, pks_validate: bool) c_uint {
-    return AggregatePublicKey.aggregateSerializedPublicKeys(out, pks, len, pks_validate);
+export fn aggregateSerializedPublicKeys(out: *PublicKeyType, pks: [*c][*c]const u8, pks_len: usize, pk_len: usize, pks_validate: bool) c_uint {
+    var aggregate_pk = defaultAggregatePublicKey();
+    const res = AggregatePublicKey.aggregateSerializedPublicKeys(&aggregate_pk, pks, pks_len, pk_len, pks_validate);
+    aggregateToPublicKey(out, &aggregate_pk);
+    return res;
 }
 
 export fn addAggregatePublicKey(out: *AggregatePublicKeyType, agg_pk: *const AggregatePublicKeyType) void {
@@ -261,8 +263,8 @@ export fn isSignatureEqual(point: *const SignatureType, other: *const SignatureT
 }
 
 /// AggregateSignatureType functions
-export fn defaultAggregateSignature(out: *AggregateSignatureType) void {
-    return AggregateSignature.defaultAggregateSignature(out);
+export fn defaultAggregateSignature() AggregateSignatureType {
+    return AggregateSignature.defaultAggregateSignature();
 }
 
 export fn validateAggregateSignature(point: *const AggregateSignatureType) c_uint {
@@ -277,12 +279,18 @@ export fn aggregateToSignature(out: *SignatureType, agg_sig: *const AggregateSig
     return AggregateSignature.aggregateToSignature(out, agg_sig);
 }
 
-export fn aggregateSignatures(out: *AggregateSignatureType, sigs: [*c]*const SignatureType, len: usize, sigs_groupcheck: bool) c_uint {
-    return AggregateSignature.aggregateSignatures(out, sigs, len, sigs_groupcheck);
+export fn aggregateSignatures(out: *SignatureType, sigs: [*c]*const SignatureType, len: usize, sigs_groupcheck: bool) c_uint {
+    var aggregate_sig = defaultAggregateSignature();
+    const res = AggregateSignature.aggregateSignatures(&aggregate_sig, sigs, len, sigs_groupcheck);
+    aggregateToSignature(out, &aggregate_sig);
+    return res;
 }
 
-export fn aggregateSerialized(out: *AggregateSignatureType, sigs: [*c][*c]const u8, sigs_len: usize, sig_len: usize, sigs_groupcheck: bool) c_uint {
-    return AggregateSignature.aggregateSerializedC(out, sigs, sigs_len, sig_len, sigs_groupcheck);
+export fn aggregateSerializedSignatures(out: *SignatureType, sigs: [*c][*c]const u8, sigs_len: usize, sig_len: usize, sigs_groupcheck: bool) c_uint {
+    var aggregate_sig = defaultAggregateSignature();
+    const res = AggregateSignature.aggregateSerializedC(&aggregate_sig, sigs, sigs_len, sig_len, sigs_groupcheck);
+    aggregateToSignature(out, &aggregate_sig);
+    return res;
 }
 
 export fn addAggregate(out: *AggregateSignatureType, agg_sig: *const AggregateSignatureType) void {

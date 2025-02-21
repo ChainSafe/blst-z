@@ -273,8 +273,8 @@ pub fn createSigVariant(
             };
         }
 
-        pub fn defaultAggregatePublicKey(out: *pk_type) void {
-            out.* = default_agg_pubkey_fn();
+        pub fn defaultAggregatePublicKey() pk_type {
+            return default_agg_pubkey_fn();
         }
 
         pub fn fromPublicKey(pk: *const PublicKey) @This() {
@@ -359,16 +359,7 @@ pub fn createSigVariant(
             return agg_pk;
         }
 
-        /// equivalent to aggregateSerialized but for compressed pks
-        pub fn aggregateCompressedPublicKeys(out: *pk_type, pks: [*c][*c]const u8, pks_len: usize, pks_validate: bool) c_uint {
-            return aggregateSerializedPublicKeysToOut(out, pks, pks_len, pk_comp_size, pks_validate);
-        }
-
-        pub fn aggregateSerializedPublicKeys(out: *pk_type, pks: [*c][*c]const u8, pks_len: usize, pks_validate: bool) c_uint {
-            return aggregateSerializedPublicKeysToOut(out, pks, pks_len, pk_ser_size, pks_validate);
-        }
-
-        fn aggregateSerializedPublicKeysToOut(out: *pk_type, pks: [*c][*c]const u8, pks_len: usize, pk_len: usize, pks_validate: bool) c_uint {
+        pub fn aggregateSerializedPublicKeys(out: *pk_type, pks: [*c][*c]const u8, pks_len: usize, pk_len: usize, pks_validate: bool) c_uint {
             if (pks_len <= 0) {
                 return c.BLST_AGGR_TYPE_MISMATCH;
             }
@@ -797,8 +788,8 @@ pub fn createSigVariant(
             };
         }
 
-        pub fn defaultAggregateSignature(out: *sig_type) void {
-            out.* = default_agg_sig_fn();
+        pub fn defaultAggregateSignature() sig_type {
+            return default_agg_sig_fn();
         }
 
         pub fn validate(self: *const @This()) BLST_ERROR!void {
@@ -877,8 +868,6 @@ pub fn createSigVariant(
 
             return c.BLST_SUCCESS;
         }
-
-        // TODO: aggregate_with_randomness
 
         pub fn aggregateSerialized(sigs: [][]const u8, sigs_groupcheck: bool) BLST_ERROR!@This() {
             // TODO - threading
