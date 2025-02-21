@@ -80,7 +80,6 @@ pub const AggregatePublicKey = SigVariant.createAggregatePublicKey();
 pub const Signature = SigVariant.createSignature();
 pub const AggregateSignature = SigVariant.createAggregateSignature();
 pub const SecretKey = SigVariant.createSecretKey();
-pub const aggregateWithRandomness = SigVariant.aggregateWithRandomness;
 
 /// exported C-ABI functions need to be declared at top level, and they only work with extern struct
 const PublicKeyType = SigVariant.getPublicKeyType();
@@ -89,6 +88,7 @@ const SignatureType = SigVariant.getSignatureType();
 const AggregateSignatureType = SigVariant.getAggregateSignatureType();
 const SecretKeyType = SigVariant.getSecretKeyType();
 const SignatureSetType = SigVariant.getSignatureSetType();
+const PkAndSerializedSigType = SigVariant.getPkAndSerializedSigType();
 
 /// PublicKey functions
 export fn defaultPublicKey() PublicKeyType {
@@ -376,6 +376,33 @@ export fn sizeOfPairing() c_uint {
 }
 
 // TODO: aggregateWithRandomnessC: need to implement extern struct
+
+export fn aggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_scratch_u8: [*c]u8, pk_scratch_len: c_uint, sig_scratch_u8: [*c]u8, sig_scratch_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType) c_uint {
+    return SigVariant.aggregateWithRandomnessC(sets, sets_len, pk_scratch_u8, pk_scratch_len, sig_scratch_u8, sig_scratch_len, pk_out, sig_out);
+}
+
+pub const CallbackFn = *const fn (result: c_uint) callconv(.C) void;
+
+export fn asyncAggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_scratch_u8: [*c]u8, pk_scratch_len: c_uint, sig_scratch_u8: [*c]u8, sig_scratch_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType, callback: CallbackFn) c_uint {
+    // TODO: use thread pool
+    _ = std.Thread.spawn(.{}, struct {
+        fn run(sets_t: [*c]*const PkAndSerializedSigType, sets_len_t: c_uint, pk_scratch_u8_t: [*c]u8, pk_scratch_len_t: c_uint, sig_scratch_u8_t: [*c]u8, sig_scratch_len_t: c_uint, pk_out_t: *PublicKeyType, sig_out_t: *SignatureType, callback_t: CallbackFn) void {
+            const res = SigVariant.aggregateWithRandomnessC(sets_t, sets_len_t, pk_scratch_u8_t, pk_scratch_len_t, sig_scratch_u8_t, sig_scratch_len_t, pk_out_t, sig_out_t);
+            callback_t(res);
+        }
+    }.run, .{ sets, sets_len, pk_scratch_u8, pk_scratch_len, sig_scratch_u8, sig_scratch_len, pk_out, sig_out, callback }) catch return 0;
+
+    return 0;
+}
+
+// this returns size in u8
+export fn sizeOfScratchPk(num_pks: usize) usize {
+    return c.blst_p1s_mult_pippenger_scratch_sizeof(num_pks);
+}
+
+export fn sizeOfScratchSig(num_sigs: usize) usize {
+    return c.blst_p2s_mult_pippenger_scratch_sizeof(num_sigs);
+}
 
 test "test_sign_n_verify" {
     try SigVariant.testSignNVerify();
