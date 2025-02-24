@@ -10,6 +10,14 @@ export class Signature {
   }
 
   /**
+   * Supposed to be used to mutate the signature after this call
+   */
+  public static defaultSignature(): Signature {
+    const buffer = new Uint8Array(SIGNATURE_LENGTH_UNCOMPRESSED);
+    return new Signature(buffer);
+  }
+
+  /**
    * Called from SecretKey so that we keep the constructor private.
    */
   public static sign(msg: Uint8Array, sk: Uint8Array): Signature {
@@ -91,4 +99,23 @@ export class Signature {
     writeReference(this.blst_point, out, offset);
   }
 
+}
+
+const MAX_PKS = 128;
+// global public key references to be reused across multiple calls
+const signatures_refs = new Uint32Array(MAX_PKS * 2);
+
+/**
+ * Map Signature[] in typescript to [*c]const *SignatureType in Zig.
+ */
+export function writeSignaturesReference(sigs: Signature[]): Uint32Array {
+  if (sigs.length > MAX_PKS) {
+    throw new Error(`Too many signatures, max is ${MAX_PKS}`);
+  }
+
+  for (let i = 0; i < sigs.length; i++) {
+    sigs[i].writeReference(signatures_refs, i * 2);
+  }
+
+  return signatures_refs.subarray(0, sigs.length * 2);
 }

@@ -115,6 +115,39 @@ const lib = dlopen(binaryPath, {
     args: [],
     returns: "u32",
   },
+  aggregatePublicKeys: {
+    args: ["ptr", "ptr", "u32", "bool"],
+    returns: "u32",
+  },
+  aggregateSignatures: {
+    args: ["ptr", "ptr", "u32", "bool"],
+    returns: "u32",
+  },
+  aggregateWithRandomness: {
+    args: ["ptr", "u32", "ptr", "u32", "ptr", "u32", "ptr", "ptr"],
+    returns: "u32",
+  },
+  asyncAggregateWithRandomness: {
+    args: ["ptr", "u32", "ptr", "u32", "ptr", "u32", "ptr", "ptr", "callback"],
+    // TODO: may return void instead
+    returns: "u32",
+  },
+  aggregateSerializedPublicKeys: {
+    args: ["ptr", "ptr", "u32", "u32", "bool"],
+    returns: "u32",
+  },
+  aggregateSerializedSignatures: {
+    args: ["ptr", "ptr", "u32", "u32", "bool"],
+    returns: "u32",
+  },
+  sizeOfScratchPk: {
+    args: ["u32"],
+    returns: "u32",
+  },
+  sizeOfScratchSig: {
+    args: ["u32"],
+    returns: "u32",
+  }
 });
 
 export const binding = lib.symbols;
@@ -135,7 +168,40 @@ export function writeReference(data: Uint8Array | Uint32Array, out: Uint32Array,
 
   const pointer = ptr(data);
 
+  writeNumber(pointer, out, offset);
+}
+
+/**
+ * Write a number to "usize" in Zig, which takes 8 bytes
+ */
+export function writeNumber(data: number, out: Uint32Array, offset: number): void {
+  if (offset + 2 > out.length) {
+    throw new Error("Output buffer must be at least 8 bytes long");
+  }
+
   // TODO: check endianess, this is for little endian
-  out[offset] = pointer & 0xFFFFFFFF;
-  out[offset + 1] = Math.floor(pointer / Math.pow(2, 32));
+  out[offset] = data & 0xFFFFFFFF;
+  out[offset + 1] = Math.floor(data / Math.pow(2, 32));
+}
+
+/**
+ * Common util to map Uint8Array[] to `[*c][*c]const u8` in Zig
+ */
+export function writeUint8ArrayArray(data: Uint8Array[], maxItem: number, tag: string, out: Uint32Array): void {
+  if (data.length > maxItem) {
+    throw new Error(`Too many ${tag}s, max is ${maxItem}`);
+  }
+
+  if (out.length < data.length * 2) {
+    throw new Error(`Output buffer must be at least double data size. out: ${out.length}, data: ${data.length}`);
+  }
+
+  const pk_length = data[0].length;
+
+  for (let i = 0; i < data.length; i++) {
+    if (data[i].length !== pk_length) {
+      throw new Error(`All ${tag}s must be the same length`);
+    }
+    writeReference(data[i], out, i * 2);
+  }
 }

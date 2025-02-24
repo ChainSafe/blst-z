@@ -38,12 +38,12 @@ export const validPublicKey = {
     "8ae7e5822ba97ab07877ea318e747499da648b27302414f9d0b9bb7e3646d248be90c9fdaddfdb93485a6e9334f01093"
   ),
 };
-// export const badPublicKey = Uint8Array.from(
-//   Buffer.from([
-//     ...Uint8Array.prototype.slice.call(getTestSet().pk.toBytes(false), 8),
-//     ...Buffer.from("0123456789abcdef", "hex"),
-//   ])
-// );
+export const badPublicKey = Uint8Array.from(
+  Buffer.from([
+    ...Uint8Array.prototype.slice.call(getTestSet().pk.toBytes(false), 8),
+    ...Buffer.from("0123456789abcdef", "hex"),
+  ])
+);
 
 export const G1_POINT_AT_INFINITY =
   "c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
@@ -65,4 +65,4 @@ export const validSignature = {
   ),
 };
 
-// export const badSignature = sullyUint8Array(getTestSet().sig.toBytes(false));
+export const badSignature = sullyUint8Array(getTestSet().sig.toBytes(false));

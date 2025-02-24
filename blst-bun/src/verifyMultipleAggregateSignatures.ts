@@ -11,7 +11,7 @@ export interface SignatureSet {
 };
 
 // global signature sets reference to be reused across multiple calls
-// each 2 tems are 8 bytes, store the reference of each signature set
+// each 2 items are 8 bytes, store the reference of each signature set
 const signature_sets_ref = new Uint32Array(MAX_SIGNATURE_SETS_PER_JOB * 2);
 
 /**

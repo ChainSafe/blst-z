@@ -10,6 +10,14 @@ export class PublicKey {
   }
 
   /**
+   * Supposed to be used to mutate the public key after this call
+   */
+  public static defaultPublicKey(): PublicKey {
+    const buffer = new Uint8Array(PUBLIC_KEY_LENGTH_UNCOMPRESSED);
+    return new PublicKey(buffer);
+  }
+
+  /**
    * Called from SecretKey so that we keep the constructor private.
    */
   public static fromSecretKey(sk: Uint8Array): PublicKey {
