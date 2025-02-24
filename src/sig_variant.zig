@@ -1320,24 +1320,18 @@ pub fn createSigVariant(
             var pks_refs: [MAX_SIGNATURE_SETS]*pk_aff_type = undefined;
             var sigs = [_]sig_aff_type{default_sig_fn()} ** MAX_SIGNATURE_SETS;
             var sigs_refs: [MAX_SIGNATURE_SETS]*sig_aff_type = undefined;
-            for (0..sets_len) |i| {
-                sigs_refs[i] = &sigs[i];
-            }
+            var rands: [32 * MAX_SIGNATURE_SETS]u8 = [_]u8{0} ** (32 * MAX_SIGNATURE_SETS);
+            randBytes(rands[0..(32 * sets_len)]);
+            var scalars_refs: [MAX_SIGNATURE_SETS]*u8 = undefined;
 
             for (0..sets_len) |i| {
                 var set = sets[i];
                 pks_refs[i] = set.pk;
+                sigs_refs[i] = &sigs[i];
                 const res = Signature.sigValidateC(sigs_refs[i], &set.sig[0], set.sig_len, true);
                 if (res != c.BLST_SUCCESS) {
                     return res;
                 }
-            }
-
-            var rands: [32 * MAX_SIGNATURE_SETS]u8 = [_]u8{0} ** (32 * MAX_SIGNATURE_SETS);
-            randBytes(rands[0..sets_len]);
-
-            var scalars_refs: [MAX_SIGNATURE_SETS]*u8 = undefined;
-            for (0..sets_len) |i| {
                 scalars_refs[i] = &rands[i * 32];
             }
 
