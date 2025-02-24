@@ -2005,10 +2005,10 @@ pub fn randBytes(bytes: []u8) void {
 
 var random: ?std.rand.DefaultPrng = null;
 
-fn getRandom() std.rand.DefaultPrng {
+fn getRandom() *std.rand.DefaultPrng {
     if (random == null) {
         const timestamp: u64 = @intCast(std.time.milliTimestamp());
         random = std.rand.DefaultPrng.init(timestamp);
     }
-    return random.?;
+    return &random.?;
 }
