@@ -219,10 +219,13 @@ fn initRandRefs() void {
 /// - pairing_buffer: reuse at consumer side
 /// - random bytes: do stack allocation and reuse
 export fn verifyMultipleAggregateSignatures(sets: [*c]*const SignatureSetType, sets_len: usize, msg_len: usize, pks_validate: bool, sigs_groupcheck: bool, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+    if (rand_refs[0] == undefined) {
+        initRandRefs();
+    }
     if (sets_len > MAX_SIGNATURE_SETS) {
         return c.BLST_BAD_ENCODING;
     }
-    randBytes(rands[0 .. sets_len * 8]);
+    randBytes(rands[0..(sets_len * 8)]);
     return Signature.verifyMultipleAggregateSignaturesC(sets, sets_len, msg_len, &DST[0], DST.len, pks_validate, sigs_groupcheck, &rand_refs[0], sets_len, RAND_BITS, pairing_buffer, pairing_buffer_len);
 }
 
@@ -471,7 +474,6 @@ test "test_aggregate_with_randomness" {
 
 test "verify_multipleaggregatesignatures" {
     // sanity test for verifyMultipleAggregateSignatures, we already test verifyMultipleAggregateSignaturesC inside sig_variant
-    initRandRefs();
     const msg0 = [_]u8{0} ** 32;
     var sk0 = defaultSecretKey();
     var ikm = [_]u8{0} ** 32;
