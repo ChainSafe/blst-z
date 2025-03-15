@@ -52,7 +52,7 @@ pub fn build(b: *std.Build) !void {
     // passed by "zig build -Dforce-adx"
     const force_adx = b.option(bool, "force-adx", "Enable ADX optimizations") orelse false;
 
-    try addBlst(b, staticLib, false, portable, force_adx);
+    try withBlst(b, staticLib, false, portable, force_adx);
 
     // the folder where blst.h is located
     staticLib.addIncludePath(b.path("blst/bindings"));
@@ -70,7 +70,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
     // sharedLib.addObjectFile(b.path(blst_file_path));
-    try addBlst(b, sharedLib, true, portable, force_adx);
+    try withBlst(b, sharedLib, true, portable, force_adx);
     sharedLib.addIncludePath(b.path("blst/bindings"));
     b.installArtifact(sharedLib);
 
@@ -140,7 +140,7 @@ pub fn build(b: *std.Build) !void {
     test_step.dependOn(&run_exe_unit_tests.step);
 }
 
-fn addBlst(b: *std.Build, blst_z_lib: *Compile, is_shared_lib: bool, portable: bool, force_adx: bool) !void {
+fn withBlst(b: *std.Build, blst_z_lib: *Compile, is_shared_lib: bool, portable: bool, force_adx: bool) !void {
     const target = blst_z_lib.rootModuleTarget();
     // const optimize = blst_z_lib.root_module.optimize;
 
@@ -148,8 +148,10 @@ fn addBlst(b: *std.Build, blst_z_lib: *Compile, is_shared_lib: bool, portable: b
     // blst_z_lib.addCSourceFile(b.path("blst/src/server.c"));
     const arch = target.cpu.arch;
     if (arch == .x86_64 or arch == .aarch64) {
+        std.debug.print("Adding assembly file {} \n", .{arch});
         blst_z_lib.addAssemblyFile(b.path("blst/build/assembly.S"));
     } else {
+        std.debug.print("Do not add assembly file {} \n", .{arch});
         blst_z_lib.defineCMacro("__BLST_NO_ASM__", "");
     }
 
