@@ -1,4 +1,5 @@
 const std = @import("std");
+const Compile = std.Build.Step.Compile;
 
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
@@ -27,24 +28,31 @@ pub fn build(b: *std.Build) !void {
 
     // TODO: build.bat for windows
 
-    const blst_file_path = "blst/libblst.a";
-    const fs = std.fs.cwd();
-    const file_exist = blk: {
-        fs.access(blst_file_path, .{}) catch |err| switch (err) {
-            error.FileNotFound => break :blk false,
-            else => return err,
-        };
-        break :blk true;
-    };
+    // const blst_file_path = "blst/libblst.a";
+    // const fs = std.fs.cwd();
+    // const file_exist = blk: {
+    //     fs.access(blst_file_path, .{}) catch |err| switch (err) {
+    //         error.FileNotFound => break :blk false,
+    //         else => return err,
+    //     };
+    //     break :blk true;
+    // };
 
-    if (!file_exist) {
-        const blst_step = b.addSystemCommand(([_][]const u8{"./build.sh"})[0..]);
-        blst_step.cwd = b.path("blst");
-        staticLib.step.dependOn(&blst_step.step);
-    }
+    // if (!file_exist) {
+    //     const blst_step = b.addSystemCommand(([_][]const u8{"./build.sh"})[0..]);
+    //     blst_step.cwd = b.path("blst");
+    //     staticLib.step.dependOn(&blst_step.step);
+    // }
 
     // Add the static library, this point to the output file
-    staticLib.addObjectFile(b.path(blst_file_path));
+    // staticLib.addObjectFile(b.path(blst_file_path));
+
+    // passed by "zig build -Dportable"
+    const portable = b.option(bool, "portable", "Enable portable implementation") orelse false;
+    // passed by "zig build -Dforce-adx"
+    const force_adx = b.option(bool, "force-adx", "Enable ADX optimizations") orelse false;
+
+    try addBlst(b, staticLib, false, portable, force_adx);
 
     // the folder where blst.h is located
     staticLib.addIncludePath(b.path("blst/bindings"));
@@ -61,7 +69,8 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    sharedLib.addObjectFile(b.path(blst_file_path));
+    // sharedLib.addObjectFile(b.path(blst_file_path));
+    try addBlst(b, sharedLib, true, portable, force_adx);
     sharedLib.addIncludePath(b.path("blst/bindings"));
     b.installArtifact(sharedLib);
 
@@ -110,7 +119,7 @@ pub fn build(b: *std.Build) !void {
 
     lib_unit_tests.linkLibrary(staticLib);
     // it's optional to do this on MacOS, but required in CI
-    lib_unit_tests.addObjectFile(b.path(blst_file_path));
+    // lib_unit_tests.addObjectFile(b.path(blst_file_path));
     lib_unit_tests.addIncludePath(b.path("blst/bindings"));
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
@@ -129,4 +138,57 @@ pub fn build(b: *std.Build) !void {
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_lib_unit_tests.step);
     test_step.dependOn(&run_exe_unit_tests.step);
+}
+
+fn addBlst(b: *std.Build, blst_z_lib: *Compile, is_shared_lib: bool, portable: bool, force_adx: bool) !void {
+    const target = blst_z_lib.rootModuleTarget();
+    // const optimize = blst_z_lib.root_module.optimize;
+
+    // add later, once we have cflags
+    // blst_z_lib.addCSourceFile(b.path("blst/src/server.c"));
+    const arch = target.cpu.arch;
+    if (arch == .x86_64 or arch == .aarch64) {
+        blst_z_lib.addAssemblyFile(b.path("blst/build/assembly.S"));
+    } else {
+        blst_z_lib.defineCMacro("__BLST_NO_ASM__", "");
+    }
+
+    // TODO: how to get target_env?
+    // TODO: may have a separate build version for adx
+    // then at Bun side, it has to detect if the target is x86_64 and has adx or not
+    if (portable == true and force_adx == false) {
+        // panic if target_env is sgx
+        // blst_z_lib.defineCMacro("__BLST_PORTABLE__", "");
+        // use this instead
+        blst_z_lib.root_module.addCMacro("__BLST_PORTABLE__", "");
+    } else if (portable == false and force_adx == true) {
+        if (arch == .x86_64) {
+            blst_z_lib.root_module.addCMacro("__ADX__", "");
+        } else {
+            std.debug.print("`force-adx` is ignored for non-x86_64 targets \n", .{});
+        }
+    }
+
+    blst_z_lib.no_builtin = true;
+
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+
+    defer _ = gpa.deinit();
+
+    var cflags = std.ArrayList([]const u8).init(allocator);
+    defer cflags.deinit();
+
+    // get this error in Mac arm: unsupported option '-mno-avx' for target 'aarch64-unknown-macosx15.1.0-unknown'
+    // try cflags.append("-mno-avx"); // avoid costly transitions
+    // the no_builtin should help, set here just to make sure
+    try cflags.append("-fno-builtin");
+    try cflags.append("-Wno-unused-function");
+    try cflags.append("-Wno-unused-command-line-argument");
+
+    if (is_shared_lib) {
+        try cflags.append("-fPIC");
+    }
+
+    blst_z_lib.addCSourceFile(.{ .file = b.path("blst/src/server.c"), .flags = cflags.items });
 }
