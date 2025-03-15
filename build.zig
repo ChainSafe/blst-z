@@ -191,4 +191,13 @@ fn addBlst(b: *std.Build, blst_z_lib: *Compile, is_shared_lib: bool, portable: b
     }
 
     blst_z_lib.addCSourceFile(.{ .file = b.path("blst/src/server.c"), .flags = cflags.items });
+
+    // fix this error on Linux: 'stdlib.h' file not found
+    // zig cc -E -Wp,-v -
+    // /usr/local/include
+    //  /usr/include/x86_64-linux-gnu
+    //  /usr/include
+    blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
+    blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include/x86_64-linux-gnu" });
+    blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include" });
 }
