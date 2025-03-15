@@ -189,7 +189,9 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, is_shared_lib: bool, portable: 
 
     if (arch == .x86_64 or arch == .aarch64) {
         std.debug.print("Adding assembly file {} \n", .{arch});
-        blst_z_lib.addAssemblyFile(b.path("blst/build/assembly.S"));
+        // this only works with compiled assembly file
+        // blst_z_lib.addAssemblyFile(b.path("blst/build/assembly.S"));
+        blst_z_lib.addCSourceFile(.{ .file = b.path("blst/build/assembly.S"), .flags = cflags.items });
     } else {
         std.debug.print("Do not add assembly file {} \n", .{arch});
         blst_z_lib.defineCMacro("__BLST_NO_ASM__", "");
