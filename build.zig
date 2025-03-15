@@ -147,13 +147,6 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, is_shared_lib: bool, portable: 
     // add later, once we have cflags
     // blst_z_lib.addCSourceFile(b.path("blst/src/server.c"));
     const arch = target.cpu.arch;
-    if (arch == .x86_64 or arch == .aarch64) {
-        std.debug.print("Adding assembly file {} \n", .{arch});
-        blst_z_lib.addAssemblyFile(b.path("blst/build/assembly.S"));
-    } else {
-        std.debug.print("Do not add assembly file {} \n", .{arch});
-        blst_z_lib.defineCMacro("__BLST_NO_ASM__", "");
-    }
 
     // TODO: how to get target_env?
     // TODO: may have a separate build version for adx
@@ -193,6 +186,14 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, is_shared_lib: bool, portable: 
     }
 
     blst_z_lib.addCSourceFile(.{ .file = b.path("blst/src/server.c"), .flags = cflags.items });
+
+    if (arch == .x86_64 or arch == .aarch64) {
+        std.debug.print("Adding assembly file {} \n", .{arch});
+        blst_z_lib.addAssemblyFile(b.path("blst/build/assembly.S"));
+    } else {
+        std.debug.print("Do not add assembly file {} \n", .{arch});
+        blst_z_lib.defineCMacro("__BLST_NO_ASM__", "");
+    }
 
     // fix this error on Linux: 'stdlib.h' file not found
     // zig cc -E -Wp,-v -
