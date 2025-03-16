@@ -1,5 +1,7 @@
 const std = @import("std");
 const Compile = std.Build.Step.Compile;
+const ResolvedTarget = std.Build.ResolvedTarget;
+const OptimizeMode = std.builtin.OptimizeMode;
 
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
@@ -52,7 +54,7 @@ pub fn build(b: *std.Build) !void {
     // passed by "zig build -Dforce-adx"
     const force_adx = b.option(bool, "force-adx", "Enable ADX optimizations") orelse false;
 
-    try withBlst(b, staticLib, false, portable, force_adx);
+    try withBlst(b, staticLib, target, optimize, false, portable, force_adx);
 
     // the folder where blst.h is located
     staticLib.addIncludePath(b.path("blst/bindings"));
@@ -70,7 +72,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
     // sharedLib.addObjectFile(b.path(blst_file_path));
-    try withBlst(b, sharedLib, true, portable, force_adx);
+    try withBlst(b, sharedLib, target, optimize, true, portable, force_adx);
     sharedLib.addIncludePath(b.path("blst/bindings"));
     b.installArtifact(sharedLib);
 
@@ -140,13 +142,13 @@ pub fn build(b: *std.Build) !void {
     test_step.dependOn(&run_exe_unit_tests.step);
 }
 
-fn withBlst(b: *std.Build, blst_z_lib: *Compile, is_shared_lib: bool, portable: bool, force_adx: bool) !void {
-    const target = blst_z_lib.rootModuleTarget();
+fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, optimize: OptimizeMode, is_shared_lib: bool, portable: bool, force_adx: bool) !void {
+    // const target = blst_z_lib.rootModuleTarget();
     // const optimize = blst_z_lib.root_module.optimize;
 
     // add later, once we have cflags
     // blst_z_lib.addCSourceFile(b.path("blst/src/server.c"));
-    const arch = target.cpu.arch;
+    const arch = target.result.cpu.arch;
 
     // TODO: how to get target_env?
     // TODO: may have a separate build version for adx
@@ -188,10 +190,20 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, is_shared_lib: bool, portable: 
     blst_z_lib.addCSourceFile(.{ .file = b.path("blst/src/server.c"), .flags = cflags.items });
 
     if (arch == .x86_64 or arch == .aarch64) {
-        std.debug.print("Adding assembly file {} \n", .{arch});
         // this only works with compiled assembly file
         // blst_z_lib.addAssemblyFile(b.path("blst/build/assembly.S"));
-        blst_z_lib.addCSourceFile(.{ .file = b.path("blst/build/assembly.S"), .flags = cflags.items });
+        // blst_z_lib.addCSourceFile(.{ .file = b.path("blst/build/assembly.S"), .flags = cflags.items });
+
+        const assembly_obj = b.addObject(.{
+            .name = "assembly",
+            .target = target,
+            .optimize = optimize,
+        });
+
+        std.debug.print("Adding compiled assembly file {} \n", .{arch});
+        assembly_obj.addCSourceFile(.{ .file = b.path("blst/build/assembly.S"), .flags = cflags.items });
+        // link the compiled assembly file
+        blst_z_lib.addObject(assembly_obj);
     } else {
         std.debug.print("Do not add assembly file {} \n", .{arch});
         blst_z_lib.defineCMacro("__BLST_NO_ASM__", "");
