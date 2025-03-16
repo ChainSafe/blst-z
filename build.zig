@@ -201,7 +201,7 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, optimiz
         });
 
         std.debug.print("Adding compiled assembly file {} \n", .{arch});
-        assembly_obj.addCSourceFile(.{ .file = b.path("blst/build/assembly.S"), .flags = cflags.items });
+        assembly_obj.addCSourceFile(.{ .file = b.path("blst/build/assembly.S") });
         // link the compiled assembly file
         blst_z_lib.addObject(assembly_obj);
     } else {
