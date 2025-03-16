@@ -177,7 +177,9 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, optimiz
     defer cflags.deinit();
 
     // get this error in Mac arm: unsupported option '-mno-avx' for target 'aarch64-unknown-macosx15.1.0-unknown'
-    // try cflags.append("-mno-avx"); // avoid costly transitions
+    if (arch == .x86_64) {
+        try cflags.append("-mno-avx"); // avoid costly transitions
+    }
     // the no_builtin should help, set here just to make sure
     try cflags.append("-fno-builtin");
     try cflags.append("-Wno-unused-function");
