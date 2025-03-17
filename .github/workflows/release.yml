@@ -31,11 +31,11 @@ jobs:
 
       - name: Build and test blst-z on host
         run: |
-          zig build -Dportable=true test
+          zig build -Doptimize=ReleaseFast test
 
       - name: Build blst-z on ${{ matrix.platform }}
         run: |
-          zig build -Dtarget=${{ matrix.platform }} -Dportable=true -Doptimize=ReleaseFast
+          zig build -Dtarget=${{ matrix.platform }} -Doptimize=ReleaseFast
 
       - name: Upload static library artifact for ${{ matrix.platform }}
         uses: actions/upload-artifact@v4
