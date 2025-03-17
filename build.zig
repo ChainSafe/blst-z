@@ -28,30 +28,9 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
-    // TODO: build.bat for windows
-
-    // const blst_file_path = "blst/libblst.a";
-    // const fs = std.fs.cwd();
-    // const file_exist = blk: {
-    //     fs.access(blst_file_path, .{}) catch |err| switch (err) {
-    //         error.FileNotFound => break :blk false,
-    //         else => return err,
-    //     };
-    //     break :blk true;
-    // };
-
-    // if (!file_exist) {
-    //     const blst_step = b.addSystemCommand(([_][]const u8{"./build.sh"})[0..]);
-    //     blst_step.cwd = b.path("blst");
-    //     staticLib.step.dependOn(&blst_step.step);
-    // }
-
-    // Add the static library, this point to the output file
-    // staticLib.addObjectFile(b.path(blst_file_path));
-
-    // passed by "zig build -Dportable"
+    // passed by "zig build -Dportable=true"
     const portable = b.option(bool, "portable", "Enable portable implementation") orelse false;
-    // passed by "zig build -Dforce-adx"
+    // passed by "zig build -Dforce-adx=true"
     const force_adx = b.option(bool, "force-adx", "Enable ADX optimizations") orelse false;
 
     try withBlst(b, staticLib, target, optimize, false, portable, force_adx);
@@ -120,8 +99,6 @@ pub fn build(b: *std.Build) !void {
     });
 
     lib_unit_tests.linkLibrary(staticLib);
-    // it's optional to do this on MacOS, but required in CI
-    // lib_unit_tests.addObjectFile(b.path(blst_file_path));
     lib_unit_tests.addIncludePath(b.path("blst/bindings"));
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
@@ -142,20 +119,18 @@ pub fn build(b: *std.Build) !void {
     test_step.dependOn(&run_exe_unit_tests.step);
 }
 
+/// instead of treating blst as a dependency lib, build and link it, we add its resource to our libs
+/// and zig will handle a mixture of C, assembly and Zig code
+///  reference to https://github.com/supranational/blst/blob/v0.3.13/bindings/rust/build.rs
 fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, optimize: OptimizeMode, is_shared_lib: bool, portable: bool, force_adx: bool) !void {
-    // const target = blst_z_lib.rootModuleTarget();
-    // const optimize = blst_z_lib.root_module.optimize;
-
     // add later, once we have cflags
-    // blst_z_lib.addCSourceFile(b.path("blst/src/server.c"));
     const arch = target.result.cpu.arch;
 
     // TODO: how to get target_env?
     // TODO: may have a separate build version for adx
     // then at Bun side, it has to detect if the target is x86_64 and has adx or not
     if (portable == true and force_adx == false) {
-        // panic if target_env is sgx
-        // blst_z_lib.defineCMacro("__BLST_PORTABLE__", "");
+        // TODO: panic if target_env is sgx
         // use this instead
         blst_z_lib.root_module.addCMacro("__BLST_PORTABLE__", "");
     } else if (portable == false and force_adx == true) {
@@ -212,10 +187,11 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, optimiz
     }
 
     // fix this error on Linux: 'stdlib.h' file not found
+    // since "zig cc" works fine, we just follow it
     // zig cc -E -Wp,-v -
-    // /usr/local/include
-    //  /usr/include/x86_64-linux-gnu
-    //  /usr/include
+    //   /usr/local/include
+    //   /usr/include/x86_64-linux-gnu
+    //   /usr/include
     blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
     blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include/x86_64-linux-gnu" });
     blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include" });
