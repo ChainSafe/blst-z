@@ -29,9 +29,7 @@ pub fn build(b: *std.Build) !void {
     });
 
     // passed by "zig build -Dportable=true"
-    // turn it on by default, otherwise got this error: "undefined symbol" on Linux
-    // it was turned on in blst-ts anyway: https://github.com/ChainSafe/blst-ts/pull/154
-    const portable = b.option(bool, "portable", "Enable portable implementation") orelse true;
+    const portable = b.option(bool, "portable", "Enable portable implementation") orelse false;
     // passed by "zig build -Dforce-adx=true"
     const force_adx = b.option(bool, "force-adx", "Enable ADX optimizations") orelse false;
 
