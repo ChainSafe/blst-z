@@ -139,6 +139,17 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, optimiz
         } else {
             std.debug.print("`force-adx` is ignored for non-x86_64 targets \n", .{});
         }
+    } else if (portable == false and force_adx == false) {
+        // TODO: how to detect adx like this Rust call
+        // if std::is_x86_feature_detected!("adx") {
+        if (arch == .x86_64) {
+            std.debug.print("ADX is turned on by default for x86_64 targets \n", .{});
+            blst_z_lib.root_module.addCMacro("__ADX__", "");
+        }
+        // otherwise get: "undefined symbol redcx_mont_256" when run tests in Linux
+    } else {
+        // both are true
+        @panic("Cannot set both `portable` and `force-adx` to true");
     }
 
     blst_z_lib.no_builtin = true;
