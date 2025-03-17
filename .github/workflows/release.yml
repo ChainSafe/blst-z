@@ -29,36 +29,13 @@ jobs:
         with:
           version: "0.13.0" # Set the required Zig version
 
-      - name: Build blst on host
-        run: |
-          cd blst
-          zig cc -fno-builtin -fPIC -target x86_64-linux -c src/server.c -o server.o
-          zig cc -fno-builtin -fPIC -target x86_64-linux -c build/assembly.S -o assembly.o
-          zig ar rcs libblst.a server.o assembly.o
-
-      - name: Verify built blst on host
-        run: |
-          ls -la blst/libblst.a
-
       - name: Build and test blst-z on host
         run: |
-          zig build test
-
-      - name: Build blst on ${{ matrix.platform }}
-        run: |
-          cd blst
-          rm -f libblst.a
-          zig cc -fno-builtin -fPIC -target ${{ matrix.platform }} -c src/server.c -o server.o
-          zig cc -fno-builtin -fPIC -target ${{ matrix.platform }} -c build/assembly.S -o assembly.o
-          zig ar rcs libblst.a server.o assembly.o
-
-      - name: Verify built blst on ${{ matrix.platform }}
-        run: |
-          ls -la blst/libblst.a
+          zig build -Dportable=true test
 
       - name: Build blst-z on ${{ matrix.platform }}
         run: |
-          zig build -Dtarget=${{ matrix.platform }}
+          zig build -Dtarget=${{ matrix.platform }} -Dportable=true -Doptimize=ReleaseFast
 
       - name: Upload static library artifact for ${{ matrix.platform }}
         uses: actions/upload-artifact@v4

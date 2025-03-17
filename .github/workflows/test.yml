@@ -38,6 +38,10 @@ jobs:
         with:
           version: "0.13.0" # Set the required Zig version
 
-      - name: Build and Test
+      - name: Build and Test without portable
         run: |
           zig build test
+
+      - name: Build and Test with portable
+        run: |
+          zig build -Dportable=true test
