@@ -33,7 +33,7 @@ pub fn build(b: *std.Build) !void {
     // passed by "zig build -Dforce-adx=true"
     const force_adx = b.option(bool, "force-adx", "Enable ADX optimizations") orelse false;
 
-    try withBlst(b, staticLib, target, optimize, false, portable, force_adx);
+    try withBlst(b, staticLib, target, false, portable, force_adx);
 
     // the folder where blst.h is located
     staticLib.addIncludePath(b.path("blst/bindings"));
@@ -51,7 +51,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
     // sharedLib.addObjectFile(b.path(blst_file_path));
-    try withBlst(b, sharedLib, target, optimize, true, portable, force_adx);
+    try withBlst(b, sharedLib, target, true, portable, force_adx);
     sharedLib.addIncludePath(b.path("blst/bindings"));
     b.installArtifact(sharedLib);
 
@@ -122,7 +122,7 @@ pub fn build(b: *std.Build) !void {
 /// instead of treating blst as a dependency lib, build and link it, we add its resource to our libs
 /// and zig will handle a mixture of C, assembly and Zig code
 ///  reference to https://github.com/supranational/blst/blob/v0.3.13/bindings/rust/build.rs
-fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, optimize: OptimizeMode, is_shared_lib: bool, portable: bool, force_adx: bool) !void {
+fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, is_shared_lib: bool, portable: bool, force_adx: bool) !void {
     // add later, once we have cflags
     const arch = target.result.cpu.arch;
 
