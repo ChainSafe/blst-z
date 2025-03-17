@@ -176,26 +176,7 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, optimiz
     }
 
     blst_z_lib.addCSourceFile(.{ .file = b.path("blst/src/server.c"), .flags = cflags.items });
-
-    if (arch == .x86_64 or arch == .aarch64) {
-        // this only works with compiled assembly file
-        // blst_z_lib.addAssemblyFile(b.path("blst/build/assembly.S"));
-        // blst_z_lib.addCSourceFile(.{ .file = b.path("blst/build/assembly.S"), .flags = cflags.items });
-
-        const assembly_obj = b.addObject(.{
-            .name = "assembly",
-            .target = target,
-            .optimize = optimize,
-        });
-
-        std.debug.print("Adding compiled assembly file {} \n", .{arch});
-        assembly_obj.addCSourceFile(.{ .file = b.path("blst/build/assembly.S") });
-        // link the compiled assembly file
-        blst_z_lib.addObject(assembly_obj);
-    } else {
-        std.debug.print("Do not add assembly file {} \n", .{arch});
-        blst_z_lib.defineCMacro("__BLST_NO_ASM__", "");
-    }
+    blst_z_lib.addCSourceFile(.{ .file = b.path("blst/build/assembly.S"), .flags = cflags.items });
 
     // fix this error on Linux: 'stdlib.h' file not found
     // since "zig cc" works fine, we just follow it
