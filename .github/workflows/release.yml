@@ -7,11 +7,19 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
-        platform: [x86_64-linux, aarch64-linux, x86_64-macos, aarch64-macos]
+        settings:
+          - os: ubuntu-latest
+            platform: x86_64-linux
+          - os: ubuntu-24.04-arm
+            platform: aarch64-linux
+          - os: macos-13
+            platform: x86_64-macos
+          - os: macos-latest
+            platform: aarch64-macos
 
+    runs-on: ${{ matrix.settings.os }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -33,29 +41,29 @@ jobs:
         run: |
           zig build -Dportable=true test
 
-      - name: Build blst-z on ${{ matrix.platform }}
+      - name: Build blst-z on ${{ matrix.settings.platform }}
         run: |
-          zig build -Dtarget=${{ matrix.platform }} -Dportable=true -Doptimize=ReleaseFast
+          zig build -Dtarget=${{ matrix.settings.platform }} -Dportable=true -Doptimize=ReleaseSafe
 
-      - name: Upload static library artifact for ${{ matrix.platform }}
+      - name: Upload static library artifact for ${{ matrix.settings.platform }}
         uses: actions/upload-artifact@v4
         with:
-          name: libblst_${{ matrix.platform }}.a
+          name: libblst_${{ matrix.settings.platform }}.a
           path: zig-out/lib/libblst.a
           compression-level: 0 # No compression
 
       - name: Set shared library extension
         id: set_extension
         run: |
-          case "${{ matrix.platform }}" in
+          case "${{ matrix.settings.platform }}" in
             x86_64-linux|aarch64-linux) echo "EXT=so" >> $GITHUB_ENV ;;
             *) echo "EXT=dylib" >> $GITHUB_ENV ;;
           esac
 
-      - name: Upload shared library artifact for ${{ matrix.platform }}
+      - name: Upload shared library artifact for ${{ matrix.settings.platform }}
         uses: actions/upload-artifact@v4
         with:
-          name: libblst_min_pk_${{ matrix.platform }}.${{ env.EXT }}
+          name: libblst_min_pk_${{ matrix.settings.platform }}.${{ env.EXT }}
           path: zig-out/lib/libblst_min_pk.${{ env.EXT }}
           compression-level: 0 # No compression
 

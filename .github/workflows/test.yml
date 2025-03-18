@@ -10,28 +10,36 @@ on:
 
 jobs:
   zig-build-test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        settings:
+          - os: ubuntu-latest
+            arch: x86_64
+          - os: ubuntu-24.04-arm
+            arch: aarch64
+          - os: macos-13
+            arch: x86_64
+          - os: macos-latest
+            arch: aarch64
+
+    runs-on: ${{ matrix.settings.os }}
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive # Ensures submodules are cloned
           fetch-depth: 0        # Fetches the entire history for all branches
+
+      - name: Print OS ${{ matrix.settings.os }}
+        run: uname -a
+      - name: Print Architecture ${{ matrix.settings.arch }}
+        run: uname -m
 
       - name: Verify Submodules
         run: |
           git submodule update --init --recursive
           ls -la blst
-
-      - name: Run blst/build.sh
-        run: |
-          cd blst
-          ./build.sh
-
-      - name: Verify built blst
-        run: |
-          ls -la blst/libblst.a
 
       - name: Install Zig
         uses: mlugg/setup-zig@v1
