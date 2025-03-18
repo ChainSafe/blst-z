@@ -10,7 +10,6 @@ on:
 
 jobs:
   zig-build-test:
-    # runs-on: ubuntu-latest
     strategy:
       matrix:
         settings:
