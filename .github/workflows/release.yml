@@ -43,7 +43,7 @@ jobs:
 
       - name: Build blst-z on ${{ matrix.settings.platform }}
         run: |
-          zig build -Dtarget=${{ matrix.settings.platform }} -Dportable=true -Doptimize=ReleaseFast
+          zig build -Dtarget=${{ matrix.settings.platform }} -Dportable=true -Doptimize=ReleaseSafe
 
       - name: Upload static library artifact for ${{ matrix.settings.platform }}
         uses: actions/upload-artifact@v4
