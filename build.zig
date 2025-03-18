@@ -179,13 +179,17 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, is_shar
     blst_z_lib.addCSourceFile(.{ .file = b.path("blst/src/server.c"), .flags = cflags.items });
     blst_z_lib.addCSourceFile(.{ .file = b.path("blst/build/assembly.S"), .flags = cflags.items });
 
+    const os = target.result.os;
     // fix this error on Linux: 'stdlib.h' file not found
-    // since "zig cc" works fine, we just follow it
-    // zig cc -E -Wp,-v -
-    //   /usr/local/include
-    //   /usr/include/x86_64-linux-gnu
-    //   /usr/include
-    blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
-    blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include/x86_64-linux-gnu" });
-    blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include" });
+    if (os.tag == .linux) {
+        // since "zig cc" works fine, we just follow it
+        // zig cc -E -Wp,-v -
+        blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
+        blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include" });
+        if (arch == .x86_64) {
+            blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include/x86_64-linux-gnu" });
+        } else if (arch == .aarch64) {
+            blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include/aarch64-linux-gnu" });
+        }
+    }
 }
