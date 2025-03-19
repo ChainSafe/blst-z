@@ -187,6 +187,8 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, is_shar
 
     const os = target.result.os;
     // fix this error on Linux: 'stdlib.h' file not found
+    // otherwise blst-bun cannot load the shared library on Linux
+    // with error "Failed to open library. This is usually caused by a missing library or an invalid library path"
     if (os.tag == .linux) {
         // since "zig cc" works fine, we just follow it
         // zig cc -E -Wp,-v -
