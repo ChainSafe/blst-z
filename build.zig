@@ -33,6 +33,9 @@ pub fn build(b: *std.Build) !void {
     // passed by "zig build -Dforce-adx=true"
     const force_adx = b.option(bool, "force-adx", "Enable ADX optimizations") orelse false;
 
+    // blst does not need libc, however we need to link it to enable threading
+    // see https://github.com/ChainSafe/blst-bun/issues/4
+    staticLib.linkLibC();
     try withBlst(b, staticLib, target, false, portable, force_adx);
 
     // the folder where blst.h is located
@@ -50,7 +53,10 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    // sharedLib.addObjectFile(b.path(blst_file_path));
+
+    // blst does not need libc, however we need to link it to enable threading
+    // see https://github.com/ChainSafe/blst-bun/issues/4
+    sharedLib.linkLibC();
     try withBlst(b, sharedLib, target, true, portable, force_adx);
     sharedLib.addIncludePath(b.path("blst/bindings"));
     b.installArtifact(sharedLib);
