@@ -185,20 +185,19 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, is_shar
     blst_z_lib.addCSourceFile(.{ .file = b.path("blst/src/server.c"), .flags = cflags.items });
     blst_z_lib.addCSourceFile(.{ .file = b.path("blst/build/assembly.S"), .flags = cflags.items });
 
-    // originally we need to include specific C headers based on the target
-    // however since we need to link libc anyway, we can just could on zig to handle it
-    // the benefit is that we can build the library on any platforms
-    // const os = target.result.os;
-    // // fix this error on Linux: 'stdlib.h' file not found
-    // if (os.tag == .linux) {
-    //     // since "zig cc" works fine, we just follow it
-    //     // zig cc -E -Wp,-v -
-    //     blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
-    //     blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include" });
-    //     if (arch == .x86_64) {
-    //         blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include/x86_64-linux-gnu" });
-    //     } else if (arch == .aarch64) {
-    //         blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include/aarch64-linux-gnu" });
-    //     }
-    // }
+    const os = target.result.os;
+    // fix this error on Linux: 'stdlib.h' file not found
+    // otherwise blst-bun cannot load the shared library on Linux
+    // with error "Failed to open library. This is usually caused by a missing library or an invalid library path"
+    if (os.tag == .linux) {
+        // since "zig cc" works fine, we just follow it
+        // zig cc -E -Wp,-v -
+        blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
+        blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include" });
+        if (arch == .x86_64) {
+            blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include/x86_64-linux-gnu" });
+        } else if (arch == .aarch64) {
+            blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include/aarch64-linux-gnu" });
+        }
+    }
 }
