@@ -64,7 +64,7 @@ export function getBinaryName(): string {
 
 	// return `${BINDINGS_NAME}_${archName}-${platformName}.${ext}`;
   // for dev
-  return `${BINDINGS_NAME}.dylib`;
+  return `${BINDINGS_NAME}.${ext}`;
 }
 
 export function getPrebuiltBinaryPath(binaryName: string): string {
