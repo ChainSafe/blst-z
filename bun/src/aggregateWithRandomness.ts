@@ -125,6 +125,37 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 	});
 }
 
+export function asyncTest(num: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const jscallback = new JSCallback(
+      (res: number): void => {
+        if (res >= 0) {
+          // setTimeout to unblock zig callback thread, not sure why "res" can only be accessed once
+          setTimeout(() => {
+            resolve(res);
+          }, 0);
+        } else {
+          setTimeout(() => {
+            // setTimeout to unblock zig callback thread, not sure why "res" can only be accessed once
+            reject(new Error("Failed to test"));
+          }, 0);
+        }
+      },
+      {
+        args: ["u32"],
+        returns: "void",
+        threadsafe: true,
+      }
+    );
+
+    const res = binding.asyncTest(num, jscallback);
+
+    if (res !== 0) {
+      throw new Error("Failed to test res = " + res);
+    }
+  });
+}
+
 // global PkAndSerializedSig data to be reused across multiple calls
 // each PkAndSerializedSig are 24 bytes
 const setsData = new Uint32Array(MAX_AGGREGATE_WITH_RANDOMNESS_PER_JOB * 6);

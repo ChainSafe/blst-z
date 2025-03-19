@@ -410,6 +410,16 @@ export fn asyncAggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, 
     return 0;
 }
 
+export fn asyncTest(in: c_uint, callback: CallbackFn) c_uint {
+    _ = std.Thread.spawn(.{}, struct {
+        fn run(int_t: c_uint, callback_t: CallbackFn) void {
+            std.debug.print("asyncTest at zig: {}\n", .{int_t});
+            callback_t(int_t);
+        }
+    }.run, .{ in, callback }) catch return c.BLST_BAD_ENCODING;
+    return 0;
+}
+
 // this returns size in u8
 export fn sizeOfScratchPk(num_pks: usize) usize {
     return c.blst_p1s_mult_pippenger_scratch_sizeof(num_pks);
