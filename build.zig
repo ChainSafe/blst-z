@@ -33,6 +33,9 @@ pub fn build(b: *std.Build) !void {
     // passed by "zig build -Dforce-adx=true"
     const force_adx = b.option(bool, "force-adx", "Enable ADX optimizations") orelse false;
 
+    // blst does not need libc, however we need to link it to enable threading
+    // see https://github.com/ChainSafe/blst-bun/issues/4
+    staticLib.linkLibC();
     try withBlst(b, staticLib, target, false, portable, force_adx);
 
     // the folder where blst.h is located
@@ -50,7 +53,10 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    // sharedLib.addObjectFile(b.path(blst_file_path));
+
+    // blst does not need libc, however we need to link it to enable threading
+    // see https://github.com/ChainSafe/blst-bun/issues/4
+    sharedLib.linkLibC();
     try withBlst(b, sharedLib, target, true, portable, force_adx);
     sharedLib.addIncludePath(b.path("blst/bindings"));
     b.installArtifact(sharedLib);
@@ -179,17 +185,20 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, is_shar
     blst_z_lib.addCSourceFile(.{ .file = b.path("blst/src/server.c"), .flags = cflags.items });
     blst_z_lib.addCSourceFile(.{ .file = b.path("blst/build/assembly.S"), .flags = cflags.items });
 
-    const os = target.result.os;
-    // fix this error on Linux: 'stdlib.h' file not found
-    if (os.tag == .linux) {
-        // since "zig cc" works fine, we just follow it
-        // zig cc -E -Wp,-v -
-        blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
-        blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include" });
-        if (arch == .x86_64) {
-            blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include/x86_64-linux-gnu" });
-        } else if (arch == .aarch64) {
-            blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include/aarch64-linux-gnu" });
-        }
-    }
+    // originally we need to include specific C headers based on the target
+    // however since we need to link libc anyway, we can just could on zig to handle it
+    // the benefit is that we can build the library on any platforms
+    // const os = target.result.os;
+    // // fix this error on Linux: 'stdlib.h' file not found
+    // if (os.tag == .linux) {
+    //     // since "zig cc" works fine, we just follow it
+    //     // zig cc -E -Wp,-v -
+    //     blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
+    //     blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include" });
+    //     if (arch == .x86_64) {
+    //         blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include/x86_64-linux-gnu" });
+    //     } else if (arch == .aarch64) {
+    //         blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include/aarch64-linux-gnu" });
+    //     }
+    // }
 }
