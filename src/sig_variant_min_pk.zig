@@ -411,12 +411,18 @@ export fn asyncAggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, 
 }
 
 export fn asyncTest(in: c_uint, callback: CallbackFn) c_uint {
+    std.debug.print("asyncTest 000 at zig: {}\n", .{in});
+
     _ = std.Thread.spawn(.{}, struct {
         fn run(int_t: c_uint, callback_t: CallbackFn) void {
-            std.debug.print("asyncTest at zig: {}\n", .{int_t});
+            std.debug.print("asyncTest 111 at zig: {}\n", .{int_t});
             callback_t(int_t);
         }
-    }.run, .{ in, callback }) catch return c.BLST_BAD_ENCODING;
+    }.run, .{ in, callback }) catch |err| {
+        std.debug.print("Thread spawn failed: {} \n", .{err});
+        return 100;
+    };
+
     return 0;
 }
 
