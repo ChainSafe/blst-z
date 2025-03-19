@@ -185,6 +185,7 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, is_shar
     blst_z_lib.addCSourceFile(.{ .file = b.path("blst/src/server.c"), .flags = cflags.items });
     blst_z_lib.addCSourceFile(.{ .file = b.path("blst/build/assembly.S"), .flags = cflags.items });
 
+    // TODO: we may not need this since we linkLibC() above
     const os = target.result.os;
     // fix this error on Linux: 'stdlib.h' file not found
     // otherwise blst-bun cannot load the shared library on Linux

@@ -37,13 +37,13 @@ jobs:
         with:
           version: "0.13.0" # Set the required Zig version
 
-      - name: Build and test blst-z on host
+      - name: Test blst-z
         run: |
           zig build -Dportable=true test
 
       - name: Build blst-z on ${{ matrix.settings.platform }}
         run: |
-          zig build -Dtarget=${{ matrix.settings.platform }} -Dportable=true -Doptimize=ReleaseSafe
+          zig build -Dportable=true -Doptimize=ReleaseSafe
 
       - name: Upload static library artifact for ${{ matrix.settings.platform }}
         uses: actions/upload-artifact@v4
