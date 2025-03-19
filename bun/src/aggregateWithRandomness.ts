@@ -125,7 +125,7 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 	});
 }
 
-export function asyncTest(num: number): Promise<number> {
+export function asyncTest2(num: number): Promise<number> {
   return new Promise((resolve, reject) => {
     const jscallback = new JSCallback(
       (res: number): void => {
@@ -148,13 +148,19 @@ export function asyncTest(num: number): Promise<number> {
       }
     );
 
-    const res = binding.asyncTest(num, jscallback);
+    const res = binding.asyncTest2(num, jscallback);
 
     if (res !== 0) {
       throw new Error("Failed to test res = " + res);
     }
   });
 }
+
+export function asyncTest(num: number): void {
+    const res = binding.asyncTest(num);
+
+    console.log("@@@ bun asyncTest res = ", res);
+};
 
 // global PkAndSerializedSig data to be reused across multiple calls
 // each PkAndSerializedSig are 24 bytes

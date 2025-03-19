@@ -130,8 +130,12 @@ const lib = dlopen(binaryPath, {
 		// TODO: may return void instead
 		returns: "u32",
 	},
-  asyncTest: {
+  asyncTest2: {
     args: ["u32", "callback"],
+    returns: "u32",
+  },
+  asyncTest: {
+    args: ["u32"],
     returns: "u32",
   },
 	aggregateSerializedPublicKeys: {

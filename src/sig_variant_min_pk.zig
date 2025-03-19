@@ -410,7 +410,7 @@ export fn asyncAggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, 
     return 0;
 }
 
-export fn asyncTest(in: c_uint, callback: CallbackFn) c_uint {
+export fn asyncTest2(in: c_uint, callback: CallbackFn) c_uint {
     std.debug.print("asyncTest 000 at zig: {}\n", .{in});
 
     _ = std.Thread.spawn(.{}, struct {
@@ -419,6 +419,22 @@ export fn asyncTest(in: c_uint, callback: CallbackFn) c_uint {
             callback_t(int_t);
         }
     }.run, .{ in, callback }) catch |err| {
+        std.debug.print("Thread spawn failed: {} \n", .{err});
+        return 100;
+    };
+
+    return 0;
+}
+
+// no callback
+export fn asyncTest(in: c_uint) c_uint {
+    std.debug.print("asyncTest 000 at zig: {}\n", .{in});
+
+    _ = std.Thread.spawn(.{}, struct {
+        fn run(int_t: c_uint) void {
+            std.debug.print("asyncTest 111 at zig: {}\n", .{int_t});
+        }
+    }.run, .{in}) catch |err| {
         std.debug.print("Thread spawn failed: {} \n", .{err});
         return 100;
     };
