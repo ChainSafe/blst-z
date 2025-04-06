@@ -130,8 +130,6 @@ pub fn build(b: *std.Build) !void {
 /// reference to https://github.com/supranational/blst/blob/v0.3.13/bindings/rust/build.rs
 /// TODO: port all missing flows from the Rust build script
 fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, is_shared_lib: bool, portable: bool, force_adx: bool) !void {
-    // thread needs this?
-    blst_z_lib.linkLibC();
     // add later, once we have cflags
     const arch = target.result.cpu.arch;
 

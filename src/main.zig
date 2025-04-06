@@ -4,18 +4,16 @@ pub fn main() !void {
     // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
     std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
 
-    std.debug.print("asyncTest 000 at zig: {}\n", .{2025});
+    // stdout is for the actual output of your application, for example if you
+    // are implementing gzip, then only the compressed bytes should be sent to
+    // stdout, not any debugging messages.
+    const stdout_file = std.io.getStdOut().writer();
+    var bw = std.io.bufferedWriter(stdout_file);
+    const stdout = bw.writer();
 
-    const thread = std.Thread.spawn(.{}, struct {
-        fn run(int_t: c_uint) void {
-            std.debug.print("asyncTest 111 at zig: {}\n", .{int_t});
-        }
-    }.run, .{2025}) catch |err| {
-        std.debug.print("Thread spawn failed: {} \n", .{err});
-        return;
-    };
+    try stdout.print("Run `zig build test` to run the tests.\n", .{});
 
-    thread.join();
+    try bw.flush(); // don't forget to flush!
 }
 
 test "simple test" {
