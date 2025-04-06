@@ -61,7 +61,7 @@ jobs:
         run: |
           ls -la zig-out/lib
 
-      # Install Bun.
+      # Unit tests blst-bun
       - name: Install Bun
         run: |
           curl -fsSL https://bun.sh/install | bash
@@ -71,14 +71,14 @@ jobs:
           bun --version
 
       # (Optional) Install dependencies if you use bun install.
-      - name: Install Dependencies
+      - name: Bun - Install Dependencies
         run: bun install
         working-directory: ./test/bun
 
-      - name: Lint Code
+      - name: Bun - Lint Code
         run: bun lint
         working-directory: ./test/bun
 
-      - name: Unit Tests
+      - name: Bun - Unit Tests
         run: bun test:unit
         working-directory: ./test/bun
