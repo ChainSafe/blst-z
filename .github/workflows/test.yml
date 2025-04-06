@@ -66,9 +66,12 @@ jobs:
       # (Optional) Install dependencies if you use bun install.
       - name: Install Dependencies
         run: bun install
+        working-directory: ./test/bun
 
       - name: Lint Code
         run: bun lint
+        working-directory: ./test/bun
 
       - name: Unit Tests
         run: bun test:unit
+        working-directory: ./test/bun
