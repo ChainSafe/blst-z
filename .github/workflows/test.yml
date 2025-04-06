@@ -53,3 +53,22 @@ jobs:
       - name: Build and Test with portable
         run: |
           zig build -Dportable=true test
+
+      # Install Bun.
+      - name: Install Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          export PATH="$HOME/.bun/bin:$PATH"
+          # Append Bun's bin folder to the GitHub Actions PATH.
+          echo "$HOME/.bun/bin" >> $GITHUB_PATH
+          bun --version
+
+      # (Optional) Install dependencies if you use bun install.
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Lint Code
+        run: bun lint
+
+      - name: Unit Tests
+        run: bun test:unit
