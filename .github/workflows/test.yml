@@ -54,6 +54,13 @@ jobs:
         run: |
           zig build -Dportable=true test
 
+      - name: Build binary
+        run: zig build
+
+      - name: Check binary
+        run: |
+          ls -la zig-out/lib
+
       # Install Bun.
       - name: Install Bun
         run: |
