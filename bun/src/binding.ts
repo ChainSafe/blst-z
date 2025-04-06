@@ -130,14 +130,6 @@ const lib = dlopen(binaryPath, {
 		// TODO: may return void instead
 		returns: "u32",
 	},
-  asyncTest2: {
-    args: ["u32", "callback"],
-    returns: "u32",
-  },
-  asyncTest: {
-    args: ["u32"],
-    returns: "u32",
-  },
 	aggregateSerializedPublicKeys: {
 		args: ["ptr", "ptr", "u32", "u32", "bool"],
 		returns: "u32",
@@ -154,11 +146,30 @@ const lib = dlopen(binaryPath, {
 		args: ["u32"],
 		returns: "u32",
 	},
+  init: {
+    args: [],
+    returns: "u32",
+  },
+  deinit: {
+    args: [],
+    returns: "void",
+  },
 });
 
 export const binding = lib.symbols;
 
+/**
+ * Initialize the Zig binding
+ */
+const res = binding.init();
+if (res !== 0) {
+  throw new Error("Failed to initialize Zig binding");
+}
+
+// console.log("@@@@ Zig binding initialized");
+
 export function closeBinding(): void {
+  binding.deinit();
 	lib.close();
 }
 
