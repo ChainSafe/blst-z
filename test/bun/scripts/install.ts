@@ -1,5 +1,5 @@
-import { existsSync } from "fs";
-import { getBinaryName, getPrebuiltBinaryPath } from "../utils";
+import {existsSync} from "node:fs";
+import {getBinaryName, getPrebuiltBinaryPath} from "../utils/index.js";
 
 // CLI runner and entrance for this file when called by npm/yarn
 install().then(
@@ -7,12 +7,12 @@ install().then(
 	(e) => {
 		console.error(e);
 		process.exit(1);
-	},
+	}
 );
 
 async function install(): Promise<void> {
 	const binaryName = getBinaryName();
-	let binaryPath: string | undefined = getPrebuiltBinaryPath(binaryName);
+	const binaryPath: string | undefined = getPrebuiltBinaryPath(binaryName);
 
 	// Check if bindings already bundled, downloaded or built
 	if (existsSync(binaryPath)) {

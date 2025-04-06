@@ -146,14 +146,14 @@ const lib = dlopen(binaryPath, {
 		args: ["u32"],
 		returns: "u32",
 	},
-  init: {
-    args: [],
-    returns: "u32",
-  },
-  deinit: {
-    args: [],
-    returns: "void",
-  },
+	init: {
+		args: [],
+		returns: "u32",
+	},
+	deinit: {
+		args: [],
+		returns: "void",
+	},
 });
 
 export const binding = lib.symbols;
@@ -163,13 +163,13 @@ export const binding = lib.symbols;
  */
 const res = binding.init();
 if (res !== 0) {
-  throw new Error("Failed to initialize Zig binding");
+	throw new Error("Failed to initialize Zig binding");
 }
 
 // console.log("@@@@ Zig binding initialized");
 
 export function closeBinding(): void {
-  binding.deinit();
+	binding.deinit();
 	lib.close();
 }
 
