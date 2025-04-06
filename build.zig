@@ -33,6 +33,9 @@ pub fn build(b: *std.Build) !void {
     // passed by "zig build -Dforce-adx=true"
     const force_adx = b.option(bool, "force-adx", "Enable ADX optimizations") orelse false;
 
+    // blst does not need libc, however we need to link it to enable threading
+    // see https://github.com/ChainSafe/blst-bun/issues/4
+    staticLib.linkLibC();
     try withBlst(b, staticLib, target, false, portable, force_adx);
 
     // the folder where blst.h is located
@@ -50,7 +53,10 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    // sharedLib.addObjectFile(b.path(blst_file_path));
+
+    // blst does not need libc, however we need to link it to enable threading
+    // see https://github.com/ChainSafe/blst-bun/issues/4
+    sharedLib.linkLibC();
     try withBlst(b, sharedLib, target, true, portable, force_adx);
     sharedLib.addIncludePath(b.path("blst/bindings"));
     b.installArtifact(sharedLib);
@@ -181,8 +187,11 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, is_shar
     blst_z_lib.addCSourceFile(.{ .file = b.path("blst/src/server.c"), .flags = cflags.items });
     blst_z_lib.addCSourceFile(.{ .file = b.path("blst/build/assembly.S"), .flags = cflags.items });
 
+    // TODO: we may not need this since we linkLibC() above
     const os = target.result.os;
     // fix this error on Linux: 'stdlib.h' file not found
+    // otherwise blst-bun cannot load the shared library on Linux
+    // with error "Failed to open library. This is usually caused by a missing library or an invalid library path"
     if (os.tag == .linux) {
         // since "zig cc" works fine, we just follow it
         // zig cc -E -Wp,-v -
