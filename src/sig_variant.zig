@@ -2063,6 +2063,9 @@ pub fn createSigVariant(
             } else {
                 try std.testing.expect(false);
             }
+
+            // make sure the aggregated public key and signature are valid
+            try agg_sig.verify(true, msg[0..], dst, null, &agg_pk, true);
         }
 
         fn getRandomKey(rng: *Xoshiro256) SecretKey {
