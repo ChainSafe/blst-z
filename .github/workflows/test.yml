@@ -53,3 +53,32 @@ jobs:
       - name: Build and Test with portable
         run: |
           zig build -Dportable=true test
+
+      - name: Build binary
+        run: zig build
+
+      - name: Check binary
+        run: |
+          ls -la zig-out/lib
+
+      # Unit tests blst-bun
+      - name: Install Bun
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          export PATH="$HOME/.bun/bin:$PATH"
+          # Append Bun's bin folder to the GitHub Actions PATH.
+          echo "$HOME/.bun/bin" >> $GITHUB_PATH
+          bun --version
+
+      # (Optional) Install dependencies if you use bun install.
+      - name: Bun - Install Dependencies
+        run: bun install
+        working-directory: ./test/bun
+
+      - name: Bun - Lint Code
+        run: bun lint
+        working-directory: ./test/bun
+
+      - name: Bun - Unit Tests
+        run: bun test:unit
+        working-directory: ./test/bun
