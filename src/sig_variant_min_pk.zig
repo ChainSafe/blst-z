@@ -394,8 +394,6 @@ export fn sizeOfPairing() c_uint {
     return @intCast(Pairing.sizeOf());
 }
 
-// TODO: aggregateWithRandomnessC: need to implement extern struct
-
 export fn aggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_scratch_u8: [*c]u8, pk_scratch_len: c_uint, sig_scratch_u8: [*c]u8, sig_scratch_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType) c_uint {
     return SigVariant.aggregateWithRandomnessC(sets, sets_len, pk_scratch_u8, pk_scratch_len, sig_scratch_u8, sig_scratch_len, pk_out, sig_out, null);
 }
@@ -404,11 +402,13 @@ export fn asyncAggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, 
     return SigVariant.asyncAggregateWithRandomness(sets, sets_len, pk_scratch_u8, pk_scratch_len, sig_scratch_u8, sig_scratch_len, pk_out, sig_out, callback);
 }
 
+/// a Bun application should call this before using any of the exported functions
 export fn init() c_uint {
-    initializeThreadPool() catch return c.BLST_BAD_ENCODING;
+    initializeThreadPool(null) catch return c.BLST_BAD_ENCODING;
     return c.BLST_SUCCESS;
 }
 
+/// a Bun application should call this after using any of the exported functions
 export fn deinit() void {
     deinitializeThreadPool();
 }

@@ -2040,7 +2040,7 @@ pub fn createSigVariant(
 
             try agg_sig.verify(true, msg[0..], dst, null, &agg_pk, true);
 
-            try initializeThreadPool();
+            try initializeThreadPool(allocator);
             defer deinitializeThreadPool();
             var mutex = std.Thread.Mutex{};
             Context.mutex = &mutex;

@@ -3,13 +3,14 @@ const Allocator = std.mem.Allocator;
 
 var thread_pool: ?*std.Thread.Pool = null;
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-// TODO: should it be function param?
-const allocator = gpa.allocator();
 
-pub fn initializeThreadPool() !void {
+/// a zig application may want to call this with a provided allocator
+/// a bun init() call should call this with null, ie, use the default allocator
+pub fn initializeThreadPool(inAllocator: ?Allocator) !void {
     if (thread_pool != null) {
         return;
     }
+    const allocator = inAllocator orelse gpa.allocator();
     var pool = try allocator.create(std.Thread.Pool);
     try pool.init(.{ .allocator = allocator });
     thread_pool = pool;
@@ -17,6 +18,7 @@ pub fn initializeThreadPool() !void {
 
 pub fn deinitializeThreadPool() void {
     if (thread_pool) |pool| {
+        const allocator = pool.allocator;
         pool.deinit();
         allocator.destroy(pool);
     }
@@ -31,8 +33,17 @@ pub fn spawnTask(comptime func: anytype, args: anytype) !void {
     }
 }
 
-test "thread pool" {
-    try initializeThreadPool();
+test "thread pool with allocator" {
+    const allocator = std.testing.allocator;
+    try performTest(allocator);
+}
+
+test "thread pool with no allocator" {
+    try performTest(null);
+}
+
+fn performTest(allocator: ?Allocator) !void {
+    try initializeThreadPool(allocator);
     defer deinitializeThreadPool();
     var m = std.Thread.Mutex{};
     var c = std.Thread.Condition{};
