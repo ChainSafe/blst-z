@@ -23,6 +23,8 @@ pub fn createMemoryPool(comptime scratch_in_batch: usize, comptime pk_scratch_si
         // for Bun, it's 128
         pk_scratch_arr: U8ArrayArray,
         sig_scratch_arr: U8ArrayArray,
+        pk_scratch_mutex: std.Thread.Mutex,
+        sig_scratch_mutex: std.Thread.Mutex,
         allocator: Allocator,
 
         pub fn init(in_allocator: ?Allocator) !@This() {
@@ -31,6 +33,8 @@ pub fn createMemoryPool(comptime scratch_in_batch: usize, comptime pk_scratch_si
                 .pk_scratch_arr = try U8ArrayArray.initCapacity(allocator, 0),
                 .sig_scratch_arr = try U8ArrayArray.initCapacity(allocator, 0),
                 .allocator = allocator,
+                .pk_scratch_mutex = std.Thread.Mutex{},
+                .sig_scratch_mutex = std.Thread.Mutex{},
             };
         }
 
@@ -54,6 +58,9 @@ pub fn createMemoryPool(comptime scratch_in_batch: usize, comptime pk_scratch_si
                 return try self.allocator.alloc(u8, pk_scratch_size);
             }
 
+            self.pk_scratch_mutex.lock();
+            defer self.pk_scratch_mutex.unlock();
+
             // reuse last
             const last_scratch = self.pk_scratch_arr.pop();
             if (last_scratch.len != pk_scratch_size) {
@@ -69,6 +76,9 @@ pub fn createMemoryPool(comptime scratch_in_batch: usize, comptime pk_scratch_si
                 // allocate new
                 return try self.allocator.alloc(u8, sig_scratch_size);
             }
+
+            self.sig_scratch_mutex.lock();
+            defer self.sig_scratch_mutex.unlock();
 
             // reuse last
             const last_scratch = self.sig_scratch_arr.pop();
@@ -86,6 +96,8 @@ pub fn createMemoryPool(comptime scratch_in_batch: usize, comptime pk_scratch_si
                 return error.InvalidScratchSize;
             }
 
+            self.pk_scratch_mutex.lock();
+            defer self.pk_scratch_mutex.unlock();
             // return the scratch to the pool
             try self.pk_scratch_arr.append(scratch);
         }
@@ -97,6 +109,8 @@ pub fn createMemoryPool(comptime scratch_in_batch: usize, comptime pk_scratch_si
                 return error.InvalidScratchSize;
             }
 
+            self.sig_scratch_mutex.lock();
+            defer self.sig_scratch_mutex.unlock();
             // return the scratch to the pool
             try self.sig_scratch_arr.append(scratch);
         }
@@ -143,4 +157,48 @@ test "memory pool - signature scratch" {
     // no need to allocate again
     try std.testing.expect(pool.sig_scratch_arr.items.len == 0);
     defer allocator.free(sig_scratch_0);
+}
+
+test "memory pool - multi thread" {
+    const scratch_in_batch = 128;
+    const MemoryPool = createMemoryPool(scratch_in_batch, c.blst_p1s_mult_pippenger_scratch_sizeof, c.blst_p2s_mult_pippenger_scratch_sizeof);
+    const allocator = std.testing.allocator;
+    var memory_pool = try MemoryPool.init(allocator);
+    const task_count = 64;
+
+    var thread_pool = try allocator.create(std.Thread.Pool);
+    // only max 8 jobs in thread pool but task_count is 64
+    try thread_pool.init(.{ .allocator = allocator, .n_jobs = 8 });
+    defer {
+        thread_pool.deinit();
+        allocator.destroy(thread_pool);
+        memory_pool.deinit();
+    }
+
+    var wg = std.Thread.WaitGroup{};
+    var done_count: usize = 0;
+    var mutex = std.Thread.Mutex{};
+
+    for (0..task_count) |_| {
+        thread_pool.spawnWg(&wg, struct {
+            pub fn run(pool: *MemoryPool, done: *usize, m: *std.Thread.Mutex) void {
+                const pk_scratch = pool.getPublicKeyScratch() catch return;
+                const sig_scratch = pool.getSignatureScratch() catch return;
+                defer {
+                    pool.returnPublicKeyScratch(pk_scratch) catch {};
+                    pool.returnSignatureScratch(sig_scratch) catch {};
+                }
+                std.time.sleep(1 * std.time.ns_per_ms);
+                m.lock();
+                defer m.unlock();
+                done.* += 1;
+            }
+        }.run, .{ &memory_pool, &done_count, &mutex });
+    }
+
+    thread_pool.waitAndWork(&wg);
+    try std.testing.expect(done_count == task_count);
+    // on MacOS it prints 9, give some leeway for Linux
+    try std.testing.expect(memory_pool.pk_scratch_arr.items.len < task_count / 2);
+    try std.testing.expect(memory_pool.sig_scratch_arr.items.len < task_count / 2);
 }
