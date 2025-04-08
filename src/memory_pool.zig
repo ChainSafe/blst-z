@@ -4,8 +4,6 @@ const c = @cImport({
     @cInclude("blst.h");
 });
 
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-
 // for min_pk, it's  c.blst_p1s_mult_pippenger_scratch_sizeof function
 const PkScratchSizeOfFn = *const fn (npoints: usize) callconv(.C) usize;
 // for min_pk, it's c.blst_p2s_mult_pippenger_scratch_sizeof function
@@ -27,9 +25,9 @@ pub fn createMemoryPool(comptime scratch_in_batch: usize, comptime pk_scratch_si
         sig_scratch_mutex: std.Thread.Mutex,
         allocator: Allocator,
 
-        pub fn init(in_allocator: ?Allocator) !@This() {
-            const allocator = in_allocator orelse gpa.allocator();
-            return @This(){
+        // inspired by thread pool implementation, consumer need to do the allocator.create() before this calls
+        pub fn init(self: *@This(), allocator: Allocator) !void {
+            self.* = .{
                 .pk_scratch_arr = try U8ArrayArray.initCapacity(allocator, 0),
                 .sig_scratch_arr = try U8ArrayArray.initCapacity(allocator, 0),
                 .allocator = allocator,
@@ -38,6 +36,7 @@ pub fn createMemoryPool(comptime scratch_in_batch: usize, comptime pk_scratch_si
             };
         }
 
+        // consumer need to do the allocator.destroy() after this call
         pub fn deinit(self: *@This()) void {
             // free all the scratch buffers
             for (self.pk_scratch_arr.items) |pk_scratch| {
@@ -123,8 +122,12 @@ test "memory pool - public key scratch" {
     const scratch_in_batch = 128;
     const MemoryPool = createMemoryPool(scratch_in_batch, c.blst_p1s_mult_pippenger_scratch_sizeof, c.blst_p2s_mult_pippenger_scratch_sizeof);
     const allocator = std.testing.allocator;
-    var pool = try MemoryPool.init(allocator);
-    defer pool.deinit();
+    var pool = try allocator.create(MemoryPool);
+    try pool.init(allocator);
+    defer {
+        pool.deinit();
+        allocator.destroy(pool);
+    }
     try std.testing.expect(pool.pk_scratch_arr.items.len == 0);
     // allocate new
     var pk_scratch_0 = try pool.getPublicKeyScratch();
@@ -143,8 +146,13 @@ test "memory pool - signature scratch" {
     const scratch_in_batch = 128;
     const MemoryPool = createMemoryPool(scratch_in_batch, c.blst_p1s_mult_pippenger_scratch_sizeof, c.blst_p2s_mult_pippenger_scratch_sizeof);
     const allocator = std.testing.allocator;
-    var pool = try MemoryPool.init(allocator);
-    defer pool.deinit();
+    var pool = try allocator.create(MemoryPool);
+    try pool.init(allocator);
+    defer {
+        pool.deinit();
+        allocator.destroy(pool);
+    }
+
     try std.testing.expect(pool.sig_scratch_arr.items.len == 0);
     // allocate new
     var sig_scratch_0 = try pool.getSignatureScratch();
@@ -163,7 +171,8 @@ test "memory pool - multi thread" {
     const scratch_in_batch = 128;
     const MemoryPool = createMemoryPool(scratch_in_batch, c.blst_p1s_mult_pippenger_scratch_sizeof, c.blst_p2s_mult_pippenger_scratch_sizeof);
     const allocator = std.testing.allocator;
-    var memory_pool = try MemoryPool.init(allocator);
+    var memory_pool = try allocator.create(MemoryPool);
+    try memory_pool.init(allocator);
     const task_count = 64;
 
     var thread_pool = try allocator.create(std.Thread.Pool);
@@ -173,6 +182,7 @@ test "memory pool - multi thread" {
         thread_pool.deinit();
         allocator.destroy(thread_pool);
         memory_pool.deinit();
+        allocator.destroy(memory_pool);
     }
 
     var wg = std.Thread.WaitGroup{};
@@ -193,7 +203,7 @@ test "memory pool - multi thread" {
                 defer m.unlock();
                 done.* += 1;
             }
-        }.run, .{ &memory_pool, &done_count, &mutex });
+        }.run, .{ memory_pool, &done_count, &mutex });
     }
 
     thread_pool.waitAndWork(&wg);
