@@ -9,7 +9,7 @@ const PkScratchSizeOfFn = *const fn (npoints: usize) callconv(.C) usize;
 // for min_pk, it's c.blst_p2s_mult_pippenger_scratch_sizeof function
 const SigScratchSizeOfFn = *const fn (npoints: usize) callconv(.C) usize;
 
-const U8ArrayArray = std.ArrayList([]u8);
+const U64SliceArray = std.ArrayList([]u64);
 
 /// for some apis, for example, aggregateWithRandomness, we have to allocate pk_scratch and sig_scratch buffer
 /// since these are not constant, we need to allocate them dynamically
@@ -19,17 +19,23 @@ pub fn createMemoryPool(comptime scratch_in_batch: usize, comptime pk_scratch_si
     const MemoryPool = struct {
         // aggregateWithRandomness api, application decides number of signatures/publickeys to aggregate in batch
         // for Bun, it's 128
-        pk_scratch_arr: U8ArrayArray,
-        sig_scratch_arr: U8ArrayArray,
+        pk_scratch_size_u64: usize,
+        sig_scratch_size_u64: usize,
+        pk_scratch_arr: U64SliceArray,
+        sig_scratch_arr: U64SliceArray,
         pk_scratch_mutex: std.Thread.Mutex,
         sig_scratch_mutex: std.Thread.Mutex,
         allocator: Allocator,
 
         // inspired by thread pool implementation, consumer need to do the allocator.create() before this calls
         pub fn init(self: *@This(), allocator: Allocator) !void {
+            const pk_scratch_size_u64 = pk_scratch_sizeof_fn(scratch_in_batch) / 8;
+            const sig_scratch_size_u64 = sig_scratch_sizeof_fn(scratch_in_batch) / 8;
             self.* = .{
-                .pk_scratch_arr = try U8ArrayArray.initCapacity(allocator, 0),
-                .sig_scratch_arr = try U8ArrayArray.initCapacity(allocator, 0),
+                .pk_scratch_size_u64 = pk_scratch_size_u64,
+                .sig_scratch_size_u64 = sig_scratch_size_u64,
+                .pk_scratch_arr = try U64SliceArray.initCapacity(allocator, 0),
+                .sig_scratch_arr = try U64SliceArray.initCapacity(allocator, 0),
                 .allocator = allocator,
                 .pk_scratch_mutex = std.Thread.Mutex{},
                 .sig_scratch_mutex = std.Thread.Mutex{},
@@ -50,11 +56,10 @@ pub fn createMemoryPool(comptime scratch_in_batch: usize, comptime pk_scratch_si
             self.sig_scratch_arr.deinit();
         }
 
-        pub fn getPublicKeyScratch(self: *@This()) ![]u8 {
-            const pk_scratch_size = pk_scratch_sizeof_fn(scratch_in_batch);
+        pub fn getPublicKeyScratch(self: *@This()) ![]u64 {
             if (self.pk_scratch_arr.items.len == 0) {
                 // allocate new
-                return try self.allocator.alloc(u8, pk_scratch_size);
+                return try self.allocator.alloc(u64, self.pk_scratch_size_u64);
             }
 
             self.pk_scratch_mutex.lock();
@@ -62,18 +67,17 @@ pub fn createMemoryPool(comptime scratch_in_batch: usize, comptime pk_scratch_si
 
             // reuse last
             const last_scratch = self.pk_scratch_arr.pop();
-            if (last_scratch.len != pk_scratch_size) {
+            if (last_scratch.len != self.pk_scratch_size_u64) {
                 // this should not happen
                 return error.InvalidScratchSize;
             }
             return last_scratch;
         }
 
-        pub fn getSignatureScratch(self: *@This()) ![]u8 {
-            const sig_scratch_size = sig_scratch_sizeof_fn(scratch_in_batch);
+        pub fn getSignatureScratch(self: *@This()) ![]u64 {
             if (self.sig_scratch_arr.items.len == 0) {
                 // allocate new
-                return try self.allocator.alloc(u8, sig_scratch_size);
+                return try self.allocator.alloc(u64, self.sig_scratch_size_u64);
             }
 
             self.sig_scratch_mutex.lock();
@@ -81,16 +85,15 @@ pub fn createMemoryPool(comptime scratch_in_batch: usize, comptime pk_scratch_si
 
             // reuse last
             const last_scratch = self.sig_scratch_arr.pop();
-            if (last_scratch.len != sig_scratch_size) {
+            if (last_scratch.len != self.sig_scratch_size_u64) {
                 // this should not happen
                 return error.InvalidScratchSize;
             }
             return last_scratch;
         }
 
-        pub fn returnPublicKeyScratch(self: *@This(), scratch: []u8) !void {
-            const pk_scratch_size = pk_scratch_sizeof_fn(scratch_in_batch);
-            if (scratch.len != pk_scratch_size) {
+        pub fn returnPublicKeyScratch(self: *@This(), scratch: []u64) !void {
+            if (scratch.len != self.pk_scratch_size_u64) {
                 // this should not happen
                 return error.InvalidScratchSize;
             }
@@ -101,9 +104,8 @@ pub fn createMemoryPool(comptime scratch_in_batch: usize, comptime pk_scratch_si
             try self.pk_scratch_arr.append(scratch);
         }
 
-        pub fn returnSignatureScratch(self: *@This(), scratch: []u8) !void {
-            const sig_scratch_size = sig_scratch_sizeof_fn(scratch_in_batch);
-            if (scratch.len != sig_scratch_size) {
+        pub fn returnSignatureScratch(self: *@This(), scratch: []u64) !void {
+            if (scratch.len != self.sig_scratch_size_u64) {
                 // this should not happen
                 return error.InvalidScratchSize;
             }
