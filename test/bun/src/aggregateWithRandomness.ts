@@ -38,12 +38,7 @@ export function aggregateWithRandomness(sets: Array<PkAndSerializedSig>): PkAndS
 	const pkOut = PublicKey.defaultPublicKey();
 	const sigOut = Signature.defaultSignature();
 
-	const res = binding.aggregateWithRandomness(
-		refs,
-		sets.length,
-		pkOut.blst_point,
-		sigOut.blst_point
-	);
+	const res = binding.aggregateWithRandomness(refs, sets.length, pkOut.blst_point, sigOut.blst_point);
 
 	if (res !== 0) {
 		throw new Error("Failed to aggregate with randomness res = " + res);
