@@ -7,6 +7,7 @@ const PairingError = @import("./pairing.zig").PairingError;
 const spawnTask = @import("./thread_pool.zig").spawnTask;
 const initializeThreadPool = @import("./thread_pool.zig").initializeThreadPool;
 const deinitializeThreadPool = @import("./thread_pool.zig").deinitializeThreadPool;
+const createMemoryPool = @import("./memory_pool.zig").createMemoryPool;
 
 const c = @cImport({
     @cInclude("blst.h");
@@ -25,8 +26,7 @@ const Context = struct {
     fn callback(verification_res: c_uint) callconv(.C) void {
         if (Context.mutex) |_mutex| {
             _mutex.lock();
-            var _verify_res = verification_res;
-            Context.verify_result = &_verify_res;
+            Context.verify_result = verification_res;
             defer _mutex.unlock();
             if (Context.cond) |_cond| {
                 _cond.signal();
@@ -36,7 +36,7 @@ const Context = struct {
 
     var mutex: ?*std.Thread.Mutex = null;
     var cond: ?*std.Thread.Condition = null;
-    var verify_result: ?*c_uint = null;
+    var verify_result: ?c_uint = null;
 };
 
 /// generic implementation for both min_pk and min_sig
@@ -1257,6 +1257,8 @@ pub fn createSigVariant(
 
     const CallbackFn = *const fn (result: c_uint) callconv(.C) void;
 
+    const MemoryPool = createMemoryPool(MAX_SIGNATURE_SETS, pk_scratch_size_of_fn, sig_scratch_size_of_fn);
+
     return struct {
         pub fn createSecretKey() type {
             return SecretKey;
@@ -1311,6 +1313,10 @@ pub fn createSigVariant(
             return CallbackFn;
         }
 
+        pub fn getMemoryPoolType() type {
+            return MemoryPool;
+        }
+
         pub fn pubkeyFromAggregate(agg_pk: *const AggregatePublicKey) PublicKey {
             var pk_aff = PublicKey.default();
             pk_to_aff_fn(&pk_aff.point, &agg_pk.point);
@@ -1318,7 +1324,7 @@ pub fn createSigVariant(
         }
 
         /// pk_scratch and sig_scratch are in []u8 to make it friendly to FFI
-        pub fn aggregateWithRandomness(sets: []*const PkAndSerializedSig, pk_scratch_u8: []u8, sig_scratch_u8: []u8, pk_out: *PublicKey, sig_out: *Signature) !void {
+        pub fn aggregateWithRandomness(sets: []*const PkAndSerializedSig, pool: *MemoryPool, pk_out: *PublicKey, sig_out: *Signature) !void {
             if (sets.len == 0 or sets.len > MAX_SIGNATURE_SETS) {
                 return error.InvalidLen;
             }
@@ -1333,24 +1339,24 @@ pub fn createSigVariant(
             }
 
             // no callback provided because this function is synchronous
-            const res = aggregateWithRandomnessC(&sets_c[0], sets.len, &pk_scratch_u8[0], pk_scratch_u8.len, &sig_scratch_u8[0], sig_scratch_u8.len, &pk_out.point, &sig_out.point, null);
+            const res = aggregateWithRandomnessC(&sets_c[0], sets.len, pool, &pk_out.point, &sig_out.point, null);
             if (toBlstError(res)) |err| {
                 return err;
             }
         }
 
         /// the same to aggregateWithRandomness with a callback provided
-        pub fn asyncAggregateWithRandomness(sets: [*c]*const PkAndSerializedSigC, sets_len: usize, pk_scratch_u8: [*c]u8, pk_scratch_len: usize, sig_scratch_u8: [*c]u8, sig_scratch_len: usize, pk_out: *pk_aff_type, sig_out: *sig_aff_type, callback: CallbackFn) c_uint {
+        pub fn asyncAggregateWithRandomness(sets: [*c]*const PkAndSerializedSigC, sets_len: usize, pool: *MemoryPool, pk_out: *pk_aff_type, sig_out: *sig_aff_type, callback: CallbackFn) c_uint {
             spawnTask(struct {
-                fn run(sets_t: [*c]*const PkAndSerializedSigC, sets_len_t: usize, pk_scratch_u8_t: [*c]u8, pk_scratch_len_t: usize, sig_scratch_u8_t: [*c]u8, sig_scratch_len_t: usize, pk_out_t: *pk_aff_type, sig_out_t: *sig_aff_type, callback_t: CallbackFn) void {
-                    _ = aggregateWithRandomnessC(sets_t, sets_len_t, pk_scratch_u8_t, pk_scratch_len_t, sig_scratch_u8_t, sig_scratch_len_t, pk_out_t, sig_out_t, callback_t);
+                fn run(sets_t: [*c]*const PkAndSerializedSigC, sets_len_t: usize, memory_pool: *MemoryPool, pk_out_t: *pk_aff_type, sig_out_t: *sig_aff_type, callback_t: CallbackFn) void {
+                    _ = aggregateWithRandomnessC(sets_t, sets_len_t, memory_pool, pk_out_t, sig_out_t, callback_t);
                 }
-            }.run, .{ sets, sets_len, pk_scratch_u8, pk_scratch_len, sig_scratch_u8, sig_scratch_len, pk_out, sig_out, callback }) catch return c.BLST_BAD_ENCODING;
+            }.run, .{ sets, sets_len, pool, pk_out, sig_out, callback }) catch return c.BLST_BAD_ENCODING;
 
             return c.BLST_SUCCESS;
         }
 
-        pub fn aggregateWithRandomnessC(sets: [*c]*const PkAndSerializedSigC, sets_len: usize, pk_scratch_u8: [*c]u8, pk_scratch_len: usize, sig_scratch_u8: [*c]u8, sig_scratch_len: usize, pk_out: *pk_aff_type, sig_out: *sig_aff_type, callbackFn: ?CallbackFn) c_uint {
+        pub fn aggregateWithRandomnessC(sets: [*c]*const PkAndSerializedSigC, sets_len: usize, pool: *MemoryPool, pk_out: *pk_aff_type, sig_out: *sig_aff_type, callbackFn: ?CallbackFn) c_uint {
             if (sets_len == 0 or sets_len > MAX_SIGNATURE_SETS) {
                 if (callbackFn) |callback| {
                     callback(c.BLST_BAD_ENCODING);
@@ -1358,18 +1364,24 @@ pub fn createSigVariant(
                 return c.BLST_BAD_ENCODING;
             }
 
-            const sig_scratch = util.asU64Slice(sig_scratch_u8[0..pk_scratch_len]) catch {
+            const sig_scratch = pool.getSignatureScratch() catch {
                 if (callbackFn) |callback| {
                     callback(c.BLST_VERIFY_FAIL);
                 }
                 return c.BLST_VERIFY_FAIL;
             };
-            const pk_scratch = util.asU64Slice(pk_scratch_u8[0..sig_scratch_len]) catch {
+
+            const pk_scratch = pool.getPublicKeyScratch() catch {
                 if (callbackFn) |callback| {
                     callback(c.BLST_VERIFY_FAIL);
                 }
                 return c.BLST_VERIFY_FAIL;
             };
+
+            defer {
+                pool.returnPublicKeyScratch(pk_scratch) catch {};
+                pool.returnSignatureScratch(sig_scratch) catch {};
+            }
 
             var pks_refs: [MAX_SIGNATURE_SETS]*pk_aff_type = undefined;
             var sigs = [_]sig_aff_type{default_sig_fn()} ** MAX_SIGNATURE_SETS;
@@ -2028,27 +2040,30 @@ pub fn createSigVariant(
 
             // scratch, allocate once and reuse
             var allocator = std.testing.allocator;
-            const pk_scratch = try allocator.alloc(u64, pk_scratch_size_of_fn(num_pks) / 8);
-            defer allocator.free(pk_scratch);
-            const sig_scratch = try allocator.alloc(u64, sig_scratch_size_of_fn(num_pks) / 8);
-            defer allocator.free(sig_scratch);
+            const memory_pool = try allocator.create(MemoryPool);
+            try memory_pool.init(allocator);
 
-            const pk_scratch_u8 = util.asU8Slice(pk_scratch);
-            const sig_scratch_u8 = util.asU8Slice(sig_scratch);
+            try aggregateWithRandomness(set[0..], memory_pool, &agg_pk, &agg_sig);
 
-            try aggregateWithRandomness(set[0..], pk_scratch_u8, sig_scratch_u8, &agg_pk, &agg_sig);
+            // make sure the thread returns pk_scratch and sig_scratch to the memory pool
+            try std.testing.expect(memory_pool.pk_scratch_arr.items.len == 1);
+            try std.testing.expect(memory_pool.sig_scratch_arr.items.len == 1);
 
             try agg_sig.verify(true, msg[0..], dst, null, &agg_pk, true);
 
             try initializeThreadPool(allocator);
-            defer deinitializeThreadPool();
+            defer {
+                deinitializeThreadPool();
+                memory_pool.deinit();
+                allocator.destroy(memory_pool);
+            }
             var mutex = std.Thread.Mutex{};
             Context.mutex = &mutex;
             var cond = std.Thread.Condition{};
             Context.cond = &cond;
             Context.verify_result = null;
 
-            const call_res = asyncAggregateWithRandomness(&set_c[0], num_pks, &pk_scratch_u8[0], pk_scratch_u8.len, &sig_scratch_u8[0], sig_scratch_u8.len, &agg_pk.point, &agg_sig.point, Context.callback);
+            const call_res = asyncAggregateWithRandomness(&set_c[0], num_pks, memory_pool, &agg_pk.point, &agg_sig.point, Context.callback);
             try std.testing.expectEqual(call_res, 0);
             mutex.lock();
             defer mutex.unlock();
@@ -2058,11 +2073,11 @@ pub fn createSigVariant(
                 cond.wait(&mutex);
             }
 
-            if (Context.verify_result) |verify_result| {
-                try std.testing.expectEqual(0, verify_result.*);
-            } else {
-                try std.testing.expect(false);
-            }
+            try std.testing.expectEqual(0, Context.verify_result);
+
+            // make sure the thread returns pk_scratch and sig_scratch to the memory pool
+            try std.testing.expect(memory_pool.pk_scratch_arr.items.len == 1);
+            try std.testing.expect(memory_pool.sig_scratch_arr.items.len == 1);
 
             // make sure the aggregated public key and signature are valid
             try agg_sig.verify(true, msg[0..], dst, null, &agg_pk, true);

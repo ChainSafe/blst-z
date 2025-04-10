@@ -18,9 +18,6 @@ export interface PkAndSig {
 // each 2 tems are 8 bytes, store the reference of each PkAndSerializedSig
 const pkAndSerializedSigsRefs = new Uint32Array(MAX_AGGREGATE_WITH_RANDOMNESS_PER_JOB * 2);
 
-const scratchPk = new Uint8Array(binding.sizeOfScratchPk(MAX_AGGREGATE_WITH_RANDOMNESS_PER_JOB));
-const scratchSig = new Uint8Array(binding.sizeOfScratchSig(MAX_AGGREGATE_WITH_RANDOMNESS_PER_JOB));
-
 /**
  * Aggregate multiple public keys and multiple serialized signatures into a single blinded public key and blinded signature.
  *
@@ -44,10 +41,6 @@ export function aggregateWithRandomness(sets: Array<PkAndSerializedSig>): PkAndS
 	const res = binding.aggregateWithRandomness(
 		refs,
 		sets.length,
-		scratchPk,
-		scratchPk.length,
-		scratchSig,
-		scratchSig.length,
 		pkOut.blst_point,
 		sigOut.blst_point
 	);
@@ -110,10 +103,6 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 		const res = binding.asyncAggregateWithRandomness(
 			pkAndSerializedSigsRefs,
 			sets.length,
-			scratchPk,
-			scratchPk.length,
-			scratchSig,
-			scratchSig.length,
 			pkOut.blst_point,
 			sigOut.blst_point,
 			jscallback

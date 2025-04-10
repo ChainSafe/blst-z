@@ -138,14 +138,6 @@ const lib = dlopen(binaryPath, {
 		args: ["ptr", "ptr", "u32", "u32", "bool"],
 		returns: "u32",
 	},
-	sizeOfScratchPk: {
-		args: ["u32"],
-		returns: "u32",
-	},
-	sizeOfScratchSig: {
-		args: ["u32"],
-		returns: "u32",
-	},
 	init: {
 		args: [],
 		returns: "u32",
