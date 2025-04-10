@@ -88,6 +88,7 @@ pub fn default_blst_p2_affine() c.blst_p2_affine {
     };
 }
 
+// TODO: remove this if not consumed
 pub fn asU64Slice(bytes: []u8) ![]u64 {
     if ((@intFromPtr(bytes.ptr) % @alignOf(u64)) != 0) {
         return error.AlignmentError;

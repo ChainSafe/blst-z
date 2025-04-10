@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const testing = std.testing;
 const Xoshiro256 = std.rand.Xoshiro256;
 const Pairing = @import("./pairing.zig").Pairing;
@@ -93,6 +94,7 @@ const SecretKeyType = SigVariant.getSecretKeyType();
 const SignatureSetType = SigVariant.getSignatureSetType();
 const PkAndSerializedSigType = SigVariant.getPkAndSerializedSigType();
 const CallBackFn = SigVariant.getCallBackFn();
+const MemoryPool = SigVariant.getMemoryPoolType();
 
 /// PublicKey functions
 export fn defaultPublicKey() PublicKeyType {
@@ -394,32 +396,60 @@ export fn sizeOfPairing() c_uint {
     return @intCast(Pairing.sizeOf());
 }
 
-export fn aggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_scratch_u8: [*c]u8, pk_scratch_len: c_uint, sig_scratch_u8: [*c]u8, sig_scratch_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType) c_uint {
-    return SigVariant.aggregateWithRandomnessC(sets, sets_len, pk_scratch_u8, pk_scratch_len, sig_scratch_u8, sig_scratch_len, pk_out, sig_out, null);
+threadlocal var memory_pool: ?*MemoryPool = null;
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+
+/// this is supposed to be called from the main thread so we dont need mutex here
+fn getMemoryPool(in_allocator: ?Allocator) !*MemoryPool {
+    if (memory_pool) |pool| {
+        return pool;
+    }
+    const allocator = in_allocator orelse gpa.allocator();
+    var mem_pool = try allocator.create(MemoryPool);
+    try mem_pool.init(allocator);
+    memory_pool = mem_pool;
+    return mem_pool;
 }
 
-export fn asyncAggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_scratch_u8: [*c]u8, pk_scratch_len: c_uint, sig_scratch_u8: [*c]u8, sig_scratch_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType, callback: CallBackFn) c_uint {
-    return SigVariant.asyncAggregateWithRandomness(sets, sets_len, pk_scratch_u8, pk_scratch_len, sig_scratch_u8, sig_scratch_len, pk_out, sig_out, callback);
+export fn aggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType) c_uint {
+    return doAggregateWithRandomness(null, sets, sets_len, pk_out, sig_out);
+}
+
+/// a zig application should pass the allocator to this function
+/// for Bun binding, allocator is null
+pub fn doAggregateWithRandomness(allocator: ?Allocator, sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType) c_uint {
+    const pool = getMemoryPool(allocator) catch return c.BLST_BAD_ENCODING;
+    const res = SigVariant.aggregateWithRandomnessC(sets, sets_len, pool, pk_out, sig_out, null);
+    return res;
+}
+
+export fn asyncAggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType, callback: CallBackFn) c_uint {
+    return doAsyncAggregateWithRandomness(null, sets, sets_len, pk_out, sig_out, callback);
+}
+
+/// a zig application should pass the allocator to this function
+/// for Bun binding, allocator is null
+pub fn doAsyncAggregateWithRandomness(allocator: ?Allocator, sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType, callback: CallBackFn) c_uint {
+    const pool = getMemoryPool(allocator) catch return c.BLST_BAD_ENCODING;
+    return SigVariant.asyncAggregateWithRandomness(sets, sets_len, pool, pk_out, sig_out, callback);
 }
 
 /// a Bun application should call this before using any of the exported functions
 export fn init() c_uint {
     initializeThreadPool(null) catch return c.BLST_BAD_ENCODING;
+    // this is optional to do, we may lazy init it
+    _ = getMemoryPool(null) catch return c.BLST_BAD_ENCODING;
     return c.BLST_SUCCESS;
 }
 
 /// a Bun application should call this after using any of the exported functions
 export fn deinit() void {
     deinitializeThreadPool();
-}
-
-// this returns size in u8
-export fn sizeOfScratchPk(num_pks: usize) usize {
-    return c.blst_p1s_mult_pippenger_scratch_sizeof(num_pks);
-}
-
-export fn sizeOfScratchSig(num_sigs: usize) usize {
-    return c.blst_p2s_mult_pippenger_scratch_sizeof(num_sigs);
+    if (memory_pool) |pool| {
+        const allocator = pool.allocator;
+        pool.deinit();
+        allocator.destroy(pool);
+    }
 }
 
 test "test_sign_n_verify" {

@@ -122,12 +122,11 @@ const lib = dlopen(binaryPath, {
 		returns: "u32",
 	},
 	aggregateWithRandomness: {
-		args: ["ptr", "u32", "ptr", "u32", "ptr", "u32", "ptr", "ptr"],
+		args: ["ptr", "u32", "ptr", "ptr"],
 		returns: "u32",
 	},
 	asyncAggregateWithRandomness: {
-		args: ["ptr", "u32", "ptr", "u32", "ptr", "u32", "ptr", "ptr", "callback"],
-		// TODO: may return void instead
+		args: ["ptr", "u32", "ptr", "ptr", "callback"],
 		returns: "u32",
 	},
 	aggregateSerializedPublicKeys: {
@@ -136,14 +135,6 @@ const lib = dlopen(binaryPath, {
 	},
 	aggregateSerializedSignatures: {
 		args: ["ptr", "ptr", "u32", "u32", "bool"],
-		returns: "u32",
-	},
-	sizeOfScratchPk: {
-		args: ["u32"],
-		returns: "u32",
-	},
-	sizeOfScratchSig: {
-		args: ["u32"],
 		returns: "u32",
 	},
 	init: {
