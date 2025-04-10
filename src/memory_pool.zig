@@ -4,10 +4,7 @@ const c = @cImport({
     @cInclude("blst.h");
 });
 
-// for min_pk, it's  c.blst_p1s_mult_pippenger_scratch_sizeof function
-const PkScratchSizeOfFn = *const fn (npoints: usize) callconv(.C) usize;
-// for min_pk, it's c.blst_p2s_mult_pippenger_scratch_sizeof function
-const SigScratchSizeOfFn = *const fn (npoints: usize) callconv(.C) usize;
+const ScratchSizeOfFn = *const fn (npoints: usize) callconv(.C) usize;
 
 const U64SliceArray = std.ArrayList([]u64);
 
@@ -15,7 +12,9 @@ const U64SliceArray = std.ArrayList([]u64);
 /// since these are not constant, we need to allocate them dynamically
 /// due to Zig not having a gc, it's reasonable to have a memory pool so that we can reuse the memory if needed
 /// this implementation assumes an application only go with either min_pk or min_sig
-pub fn createMemoryPool(comptime scratch_in_batch: usize, comptime pk_scratch_sizeof_fn: PkScratchSizeOfFn, comptime sig_scratch_sizeof_fn: SigScratchSizeOfFn) type {
+/// pk_scratch_sizeof_fn: it's c.blst_p1s_mult_pippenger_scratch_sizeof function for min_pk
+/// sig_scratch_sizeof_fn: it's c.blst_p2s_mult_pippenger_scratch_sizeof function for min_sig
+pub fn createMemoryPool(comptime scratch_in_batch: usize, comptime pk_scratch_sizeof_fn: ScratchSizeOfFn, comptime sig_scratch_sizeof_fn: ScratchSizeOfFn) type {
     const MemoryPool = struct {
         // aggregateWithRandomness api, application decides number of signatures/publickeys to aggregate in batch
         // for Bun, it's 128
