@@ -411,16 +411,26 @@ fn getMemoryPool(in_allocator: ?Allocator) !*MemoryPool {
     return mem_pool;
 }
 
-// TODO: implement equivalent api for zig application with allocator param
 export fn aggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType) c_uint {
-    const pool = getMemoryPool(null) catch return c.BLST_BAD_ENCODING;
+    return doAggregateWithRandomness(null, sets, sets_len, pk_out, sig_out);
+}
+
+/// a zig application should pass the allocator to this function
+/// for Bun binding, allocator is null
+pub fn doAggregateWithRandomness(allocator: ?Allocator, sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType) c_uint {
+    const pool = getMemoryPool(allocator) catch return c.BLST_BAD_ENCODING;
     const res = SigVariant.aggregateWithRandomnessC(sets, sets_len, pool, pk_out, sig_out, null);
     return res;
 }
 
-// TODO: implement equivalent api for zig application with allocator param
 export fn asyncAggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType, callback: CallBackFn) c_uint {
-    const pool = getMemoryPool(null) catch return c.BLST_BAD_ENCODING;
+    return doAsyncAggregateWithRandomness(null, sets, sets_len, pk_out, sig_out, callback);
+}
+
+/// a zig application should pass the allocator to this function
+/// for Bun binding, allocator is null
+pub fn doAsyncAggregateWithRandomness(allocator: ?Allocator, sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType, callback: CallBackFn) c_uint {
+    const pool = getMemoryPool(allocator) catch return c.BLST_BAD_ENCODING;
     return SigVariant.asyncAggregateWithRandomness(sets, sets_len, pool, pk_out, sig_out, callback);
 }
 
