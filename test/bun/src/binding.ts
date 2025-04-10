@@ -122,12 +122,11 @@ const lib = dlopen(binaryPath, {
 		returns: "u32",
 	},
 	aggregateWithRandomness: {
-		args: ["ptr", "u32", "ptr", "u32", "ptr", "u32", "ptr", "ptr"],
+		args: ["ptr", "u32", "ptr", "ptr"],
 		returns: "u32",
 	},
 	asyncAggregateWithRandomness: {
-		args: ["ptr", "u32", "ptr", "u32", "ptr", "u32", "ptr", "ptr", "callback"],
-		// TODO: may return void instead
+		args: ["ptr", "u32", "ptr", "ptr", "callback"],
 		returns: "u32",
 	},
 	aggregateSerializedPublicKeys: {
