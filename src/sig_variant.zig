@@ -1257,7 +1257,7 @@ pub fn createSigVariant(
 
     const CallbackFn = *const fn (result: c_uint) callconv(.C) void;
 
-    const MemoryPool = createMemoryPool(MAX_SIGNATURE_SETS, pk_scratch_size_of_fn, sig_scratch_size_of_fn);
+    const MemoryPool = createMemoryPool(MAX_SIGNATURE_SETS, pk_scratch_size_of_fn, sig_scratch_size_of_fn, Pairing.sizeOf);
 
     return struct {
         pub fn createSecretKey() type {
