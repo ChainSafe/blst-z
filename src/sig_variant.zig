@@ -158,8 +158,8 @@ pub fn createSigVariant(
             }
         }
 
-        pub fn merge(self: *@This(), other: *const @This()) void {
-            self.p.merge(&other.p);
+        pub fn merge(self: *@This(), other: *const @This()) !void {
+            try self.p.merge(&other.p);
         }
 
         pub fn finalVerify(self: *@This(), gtsig: ?*const c.blst_fp12) bool {
@@ -677,16 +677,23 @@ pub fn createSigVariant(
             const AtomicError = std.atomic.Value(c_uint);
             var atomic_counter = AtomicCounter.init(0);
             // 0 = BLST_SUCCESS
-            var atomic_valid = AtomicError.init(0);
+            var atomic_valid = AtomicError.init(c.BLST_SUCCESS);
             var wg = std.Thread.WaitGroup{};
 
             const cpu_count = @max(1, std.Thread.getCpuCount() catch 1);
             const n_workers = @min(cpu_count, n_elems);
             const Signature = @This();
 
+            var mutex = std.Thread.Mutex{};
+            var acc = Pairing.new(pool, hash_or_encode, &dst[0], dst.len) catch {
+                return BLST_ERROR.FAILED_PAIRING;
+            };
+
+            defer acc.deinit() catch {};
+
             for (0..n_workers) |_| {
                 spawnTaskWg(&wg, struct {
-                    fn run(_msgs: [][]const u8, _dst: []const u8, _pks: []const *PublicKey, _pks_validate: bool, _sigs: []const *Signature, _sigs_groupcheck: bool, _rands: [][]const u8, _rand_bits: usize, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError) void {
+                    fn run(_msgs: [][]const u8, _dst: []const u8, _pks: []const *PublicKey, _pks_validate: bool, _sigs: []const *Signature, _sigs_groupcheck: bool, _rands: [][]const u8, _rand_bits: usize, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _mutex: *std.Thread.Mutex, _acc: *Pairing) void {
                         var pairing = Pairing.new(_pool, hash_or_encode, &_dst[0], _dst.len) catch {
                             // .release will publish the value to other threads
                             _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
@@ -716,18 +723,25 @@ pub fn createSigVariant(
 
                         if (local_count > 0 and _atomic_valid.load(.monotonic) == 0) {
                             pairing.commit();
-                            if (!pairing.finalVerify(null)) {
+                            _mutex.lock();
+                            defer _mutex.unlock();
+                            _acc.merge(&pairing) catch {
                                 // .release will publish the value to other threads
-                                _atomic_valid.store(c.BLST_VERIFY_FAIL, .release);
-                            }
+                                _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
+                            };
                         }
                     }
-                }.run, .{ msgs, dst, pks, pks_validate, sigs, sigs_groupcheck, rands, rand_bits, pool, &atomic_counter, &atomic_valid });
+                }.run, .{ msgs, dst, pks, pks_validate, sigs, sigs_groupcheck, rands, rand_bits, pool, &atomic_counter, &atomic_valid, &mutex, &acc });
             }
 
             waitAndWork(&wg);
 
-            if (toBlstError(atomic_valid.load(.monotonic))) |err| {
+            const valid = atomic_valid.load(.monotonic);
+            if (valid == c.BLST_SUCCESS and !acc.finalVerify(null)) {
+                return BLST_ERROR.VERIFY_FAIL;
+            }
+
+            if (toBlstError(valid)) |err| {
                 return err;
             }
         }
@@ -744,15 +758,21 @@ pub fn createSigVariant(
             const AtomicError = std.atomic.Value(c_uint);
             var atomic_counter = AtomicCounter.init(0);
             // 0 = BLST_SUCCESS
-            var atomic_valid = AtomicError.init(0);
+            var atomic_valid = AtomicError.init(c.BLST_SUCCESS);
             var wg = std.Thread.WaitGroup{};
 
             const cpu_count = @max(1, std.Thread.getCpuCount() catch 1);
             const n_workers = @min(cpu_count, sets_len);
+            var mutex = std.Thread.Mutex{};
+            var acc = Pairing.new(pool, hash_or_encode, dst, dst_len) catch {
+                return BLST_FAILED_PAIRING;
+            };
+
+            defer acc.deinit() catch {};
 
             for (0..n_workers) |_| {
                 spawnTaskWg(&wg, struct {
-                    fn run(_sets: [*c]*const SignatureSet, _sets_len: usize, _msg_len: usize, _dst: [*c]const u8, _dst_len: usize, _pks_validate: bool, _sigs_groupcheck: bool, _rands: [*c][*c]const u8, _rand_bits: usize, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError) void {
+                    fn run(_sets: [*c]*const SignatureSet, _sets_len: usize, _msg_len: usize, _dst: [*c]const u8, _dst_len: usize, _pks_validate: bool, _sigs_groupcheck: bool, _rands: [*c][*c]const u8, _rand_bits: usize, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _mutex: *std.Thread.Mutex, _acc: *Pairing) void {
                         var pairing = Pairing.new(_pool, hash_or_encode, _dst, _dst_len) catch {
                             // .release will publish the value to other threads
                             _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
@@ -784,18 +804,25 @@ pub fn createSigVariant(
 
                         if (local_count > 0 and _atomic_valid.load(.monotonic) == 0) {
                             pairing.commit();
-                            if (!pairing.finalVerify(null)) {
+                            _mutex.lock();
+                            defer _mutex.unlock();
+                            _acc.merge(&pairing) catch {
                                 // .release will publish the value to other threads
-                                _atomic_valid.store(c.BLST_VERIFY_FAIL, .release);
-                            }
+                                _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
+                            };
                         }
                     }
-                }.run, .{ sets, sets_len, msg_len, dst, dst_len, pks_validate, sigs_groupcheck, rands, rand_bits, pool, &atomic_counter, &atomic_valid });
+                }.run, .{ sets, sets_len, msg_len, dst, dst_len, pks_validate, sigs_groupcheck, rands, rand_bits, pool, &atomic_counter, &atomic_valid, &mutex, &acc });
             }
 
             waitAndWork(&wg);
 
-            return atomic_valid.load(.monotonic);
+            const valid = atomic_valid.load(.monotonic);
+            if (valid == c.BLST_SUCCESS and !acc.finalVerify(null)) {
+                return c.BLST_VERIFY_FAIL;
+            }
+
+            return valid;
         }
 
         pub fn fromAggregate(comptime AggregateSignature: type, agg_sig: *const AggregateSignature) @This() {
