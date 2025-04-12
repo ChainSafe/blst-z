@@ -140,8 +140,18 @@ pub fn createSigVariant(
             self.p.commit();
         }
 
-        pub fn finalVerify(self: *@This(), ggtsig: ?*const c.blst_fp12) bool {
-            return self.p.finalVerify(ggtsig);
+        pub fn aggregated(gtsig: *c.blst_fp12, sig: *const sig_aff_type) void {
+            if (pk_comp_size == 48) {
+                // min_pk
+                P.aggregatedG1(gtsig, sig);
+            } else {
+                // min_sig
+                P.aggregatedG2(gtsig, sig);
+            }
+        }
+
+        pub fn finalVerify(self: *@This(), gtsig: ?*const c.blst_fp12) bool {
+            return self.p.finalVerify(gtsig);
         }
 
         // add more methods here if needed
