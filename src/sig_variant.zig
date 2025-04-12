@@ -737,6 +737,7 @@ pub fn createSigVariant(
             waitAndWork(&wg);
 
             const valid = atomic_valid.load(.monotonic);
+            // do finalVerify() once in the main thread
             if (valid == c.BLST_SUCCESS and !acc.finalVerify(null)) {
                 return BLST_ERROR.VERIFY_FAIL;
             }
@@ -818,6 +819,7 @@ pub fn createSigVariant(
             waitAndWork(&wg);
 
             const valid = atomic_valid.load(.monotonic);
+            // do finalVerify() once in the main thread
             if (valid == c.BLST_SUCCESS and !acc.finalVerify(null)) {
                 return c.BLST_VERIFY_FAIL;
             }
