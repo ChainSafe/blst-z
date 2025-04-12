@@ -727,29 +727,74 @@ pub fn createSigVariant(
 
         /// C-ABI version of verifyMultipleAggregateSignatures() with
         /// - extra msg_len parameter, all messages should have the same length
-        pub fn verifyMultipleAggregateSignaturesC(sets: [*c]*const SignatureSet, sets_len: usize, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks_validate: bool, sigs_groupcheck: bool, rands: [*c][*c]const u8, rands_len: usize, rand_bits: usize, pairing_buffer: [*c]u8, pairing_buffer_len: usize) c_uint {
+        pub fn verifyMultipleAggregateSignaturesC(sets: [*c]*const SignatureSet, sets_len: usize, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks_validate: bool, sigs_groupcheck: bool, rands: [*c][*c]const u8, rands_len: usize, rand_bits: usize, pool: *MemoryPool) c_uint {
             if (sets_len == 0 or rands_len != sets_len) {
                 return c.BLST_VERIFY_FAIL;
             }
 
-            if (pairing_buffer_len < Pairing.sizeOf()) {
-                return c.BLST_VERIFY_FAIL;
+            const AtomicCounter = std.atomic.Value(usize);
+            // donot use AtomicBoolean because we want error code to return
+            const AtomicError = std.atomic.Value(c_uint);
+            var atomic_counter = AtomicCounter.init(0);
+            // 0 = BLST_SUCCESS
+            var atomic_valid = AtomicError.init(0);
+            var wg = std.Thread.WaitGroup{};
+
+            const cpu_count = @max(1, std.Thread.getCpuCount() catch 1);
+            const n_workers = @min(cpu_count, sets_len);
+
+            for (0..n_workers) |_| {
+                spawnTaskWg(&wg, struct {
+                    fn run(_sets: [*c]*const SignatureSet, _sets_len: usize, _msg_len: usize, _dst: [*c]const u8, _dst_len: usize, _pks_validate: bool, _sigs_groupcheck: bool, _rands: [*c][*c]const u8, _rand_bits: usize, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError) void {
+                        const pairing_buffer = _pool.getPairingBuffer() catch {
+                            // .release will publish the value to other threads
+                            _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
+                            return;
+                        };
+                        defer {
+                            _pool.returnPairingBuffer(pairing_buffer) catch {
+                                // .release will publish the value to other threads
+                                _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
+                            };
+                        }
+                        var pairing = Pairing.new(&pairing_buffer[0], pairing_buffer.len, hash_or_encode, _dst, _dst_len) catch {
+                            // .release will publish the value to other threads
+                            _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
+                            return;
+                        };
+
+                        // the most relaxed atomic ordering
+                        var local_count: usize = 0;
+                        while (_atomic_valid.load(.monotonic) == 0) {
+                            // this uses @atomicRmw internally and returns the previous value
+                            // acquired then release which publish value to other thread
+                            const counter = _atomic_counter.fetchAdd(1, AtomicOrder.acq_rel);
+                            if (counter >= _sets_len) {
+                                break;
+                            }
+                            const set = _sets[counter];
+                            pairing.mulAndAggregate(set.pk, _pks_validate, set.sig, _sigs_groupcheck, _rands[counter], _rand_bits, set.msg, _msg_len, null) catch {
+                                // .release will publish the value to other threads
+                                _atomic_valid.store(c.BLST_VERIFY_FAIL, .release);
+                                return;
+                            };
+                            local_count += 1;
+                        }
+
+                        if (local_count > 0 and _atomic_valid.load(.monotonic) == 0) {
+                            pairing.commit();
+                            if (!pairing.finalVerify(null)) {
+                                // .release will publish the value to other threads
+                                _atomic_valid.store(c.BLST_VERIFY_FAIL, .release);
+                            }
+                        }
+                    }
+                }.run, .{ sets, sets_len, msg_len, dst, dst_len, pks_validate, sigs_groupcheck, rands, rand_bits, pool, &atomic_counter, &atomic_valid });
             }
 
-            var pairing = Pairing.new(pairing_buffer, pairing_buffer_len, hash_or_encode, dst, dst_len) catch return c.BLST_VERIFY_FAIL;
+            waitAndWork(&wg);
 
-            for (0..sets_len) |i| {
-                const set = sets[i];
-                pairing.mulAndAggregate(set.pk, pks_validate, set.sig, sigs_groupcheck, rands[i], rand_bits, set.msg, msg_len, null) catch return c.BLST_VERIFY_FAIL;
-            }
-
-            pairing.commit();
-
-            if (!pairing.finalVerify(null)) {
-                return c.BLST_VERIFY_FAIL;
-            }
-
-            return c.BLST_SUCCESS;
+            return atomic_valid.load(.monotonic);
         }
 
         pub fn fromAggregate(comptime AggregateSignature: type, agg_sig: *const AggregateSignature) @This() {
@@ -1793,7 +1838,7 @@ pub fn createSigVariant(
             }
 
             // only expect this to pass if all messages are the same length
-            const res = Signature.verifyMultipleAggregateSignaturesC(&sets[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, &pairing_buffer[0], pairing_buffer.len);
+            const res = Signature.verifyMultipleAggregateSignaturesC(&sets[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, memory_pool);
             try std.testing.expect(is_diff_msg_len == (res != c.BLST_SUCCESS));
 
             // negative tests (use reverse msgs, pks, and sigs)
@@ -1810,7 +1855,7 @@ pub fn createSigVariant(
                 for (0..num_sigs) |i| {
                     sets_msgs_rev[i] = &.{ .msg = &msgs_rev[i][0], .pk = &pks[i].point, .sig = &sigs[i].point };
                 }
-                verify_c_res = Signature.verifyMultipleAggregateSignaturesC(&sets_msgs_rev[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, &pairing_buffer[0], pairing_buffer.len);
+                verify_c_res = Signature.verifyMultipleAggregateSignaturesC(&sets_msgs_rev[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, memory_pool);
                 try std.testing.expect(verify_c_res != c.BLST_SUCCESS);
             }
 
@@ -1826,7 +1871,7 @@ pub fn createSigVariant(
                 for (0..num_sigs) |i| {
                     sets_pks_rev[i] = &.{ .msg = &msgs[i][0], .pk = &pks_rev[i].point, .sig = &sigs[i].point };
                 }
-                verify_c_res = Signature.verifyMultipleAggregateSignaturesC(&sets_pks_rev[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, &pairing_buffer[0], pairing_buffer.len);
+                verify_c_res = Signature.verifyMultipleAggregateSignaturesC(&sets_pks_rev[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, memory_pool);
                 try std.testing.expect(verify_c_res != c.BLST_SUCCESS);
             }
 
@@ -1842,7 +1887,7 @@ pub fn createSigVariant(
                 for (0..num_sigs) |i| {
                     sets_sigs_rev[i] = &.{ .msg = &msgs[i][0], .pk = &pks[i].point, .sig = &sig_rev_refs[i].point };
                 }
-                verify_c_res = Signature.verifyMultipleAggregateSignaturesC(&sets_sigs_rev[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, &pairing_buffer[0], pairing_buffer.len);
+                verify_c_res = Signature.verifyMultipleAggregateSignaturesC(&sets_sigs_rev[0], num_sigs, msg_lens[0], &dst[0], dst.len, false, false, &rands_c[0], rands_c.len, 64, memory_pool);
                 try std.testing.expect(verify_c_res != c.BLST_SUCCESS);
             }
         }

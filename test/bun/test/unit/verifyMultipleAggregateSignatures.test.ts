@@ -24,13 +24,13 @@ describe("Verify Multiple Aggregate Signatures", () => {
 		// TODO: benchmark
 		// it("benchmark verifyMultipleAggregateSignatures()", () => {
 		//   let now = Date.now();
-		//   const sets = getTestSets(3);
+		//   const sets = getTestSets(128);
 		//   for (let i = 0; i < 1_000; i++) {
 		//     verifyMultipleAggregateSignatures(sets);
 		//   }
 		//   now = Date.now() - now;
 		//   console.log("verifyMultipleAggregateSignatures", now / 1000);
-		// })
+		// });
 	});
 });
 

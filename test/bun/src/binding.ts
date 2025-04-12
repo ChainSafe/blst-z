@@ -106,7 +106,7 @@ const lib = dlopen(binaryPath, {
 		returns: "u8",
 	},
 	verifyMultipleAggregateSignatures: {
-		args: ["ptr", "u32", "u32", "bool", "bool", "ptr", "u32"],
+		args: ["ptr", "u32", "u32", "bool", "bool"],
 		returns: "u32",
 	},
 	sizeOfPairing: {
