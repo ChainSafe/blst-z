@@ -150,6 +150,10 @@ pub fn createSigVariant(
             }
         }
 
+        pub fn merge(self: *@This(), other: *const @This()) void {
+            self.p.merge(&other.p);
+        }
+
         pub fn finalVerify(self: *@This(), gtsig: ?*const c.blst_fp12) bool {
             return self.p.finalVerify(gtsig);
         }
