@@ -44,9 +44,7 @@ export function verifyMultipleAggregateSignatures(
 		sets.length,
 		msgLength,
 		pksValidate ?? false,
-		sigsGroupcheck ?? false,
-		pairing,
-		pairing.length
+		sigsGroupcheck ?? false
 	);
 	return res === 0;
 }
