@@ -227,6 +227,12 @@ fn initRandRefs() void {
 /// - pairing_buffer: reuse at consumer side
 /// - random bytes: do stack allocation and reuse
 export fn verifyMultipleAggregateSignatures(sets: [*c]*const SignatureSetType, sets_len: usize, msg_len: usize, pks_validate: bool, sigs_groupcheck: bool) c_uint {
+    return doVerifyMultipleAggregateSignatures(null, sets, sets_len, msg_len, pks_validate, sigs_groupcheck);
+}
+
+/// a zig application should pass the allocator to this function
+/// for Bun binding, allocator is null
+pub fn doVerifyMultipleAggregateSignatures(allocator: ?Allocator, sets: [*c]*const SignatureSetType, sets_len: usize, msg_len: usize, pks_validate: bool, sigs_groupcheck: bool) c_uint {
     if (rand_refs_initialized == false) {
         initRandRefs();
     }
@@ -236,8 +242,7 @@ export fn verifyMultipleAggregateSignatures(sets: [*c]*const SignatureSetType, s
         return c.BLST_BAD_ENCODING;
     }
     randBytes(rands[0..(sets_len * 8)]);
-    // TODO: doVerify?
-    const pool = getMemoryPool(null) catch return c.BLST_BAD_ENCODING;
+    const pool = getMemoryPool(allocator) catch return c.BLST_BAD_ENCODING;
     return Signature.verifyMultipleAggregateSignaturesC(sets, sets_len, msg_len, &DST[0], DST.len, pks_validate, sigs_groupcheck, &rand_refs[0], sets_len, RAND_BITS, pool);
 }
 
