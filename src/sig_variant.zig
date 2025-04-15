@@ -1,4 +1,5 @@
 const std = @import("std");
+const Mutex = std.Thread.Mutex;
 const AtomicOrder = std.builtin.AtomicOrder;
 const Allocator = std.mem.Allocator;
 const testing = std.testing;
@@ -38,7 +39,7 @@ const Context = struct {
         }
     }
 
-    var mutex: ?*std.Thread.Mutex = null;
+    var mutex: ?*Mutex = null;
     var cond: ?*std.Thread.Condition = null;
     var verify_result: ?c_uint = null;
 };
@@ -110,10 +111,16 @@ pub fn createSigVariant(
         p: P,
         pool: *MemoryPool,
         buffer: []u8,
+        mutex: Mutex,
         pub fn new(pool: *MemoryPool, hoe: bool, dst: [*c]const u8, dst_len: usize) PairingError!@This() {
             const buffer = try pool.getPairingBuffer();
             const p = try P.new(&buffer[0], buffer.len, hoe, &dst[0], dst_len);
-            return .{ .p = p, .pool = pool, .buffer = buffer };
+            return .{
+                .p = p,
+                .pool = pool,
+                .buffer = buffer,
+                .mutex = Mutex{},
+            };
         }
 
         pub fn deinit(self: *@This()) !void {
@@ -159,6 +166,8 @@ pub fn createSigVariant(
         }
 
         pub fn merge(self: *@This(), other: *const @This()) !void {
+            self.mutex.lock();
+            defer self.mutex.unlock();
             try self.p.merge(&other.p);
         }
 
@@ -586,7 +595,6 @@ pub fn createSigVariant(
             const cpu_count = @max(1, std.Thread.getCpuCount() catch 1);
             const n_workers = @min(cpu_count, n_elems);
 
-            var mutex = std.Thread.Mutex{};
             var acc = Pairing.new(pool, hash_or_encode, &dst[0], dst.len) catch {
                 return BLST_ERROR.FAILED_PAIRING;
             };
@@ -595,7 +603,7 @@ pub fn createSigVariant(
 
             for (0..n_workers) |_| {
                 spawnTaskWg(&wg, struct {
-                    fn run(_msgs: [][]const u8, _dst: []const u8, _pks: []const *PublicKey, _pks_validate: bool, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _mutex: *std.Thread.Mutex, _acc: *Pairing) void {
+                    fn run(_msgs: [][]const u8, _dst: []const u8, _pks: []const *PublicKey, _pks_validate: bool, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _acc: *Pairing) void {
                         var pairing = Pairing.new(_pool, hash_or_encode, &_dst[0], _dst.len) catch {
                             // .release will publish the value to other threads
                             _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
@@ -625,15 +633,13 @@ pub fn createSigVariant(
 
                         if (local_count > 0 and _atomic_valid.load(.monotonic) == c.BLST_SUCCESS) {
                             pairing.commit();
-                            _mutex.lock();
-                            defer _mutex.unlock();
                             _acc.merge(&pairing) catch {
                                 // .release will publish the value to other threads
                                 _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
                             };
                         }
                     }
-                }.run, .{ msgs, dst, pks, pks_validate, pool, &atomic_counter, &atomic_valid, &mutex, &acc });
+                }.run, .{ msgs, dst, pks, pks_validate, pool, &atomic_counter, &atomic_valid, &acc });
             }
 
             waitAndWork(&wg);
@@ -749,7 +755,6 @@ pub fn createSigVariant(
             const n_workers = @min(cpu_count, n_elems);
             const Signature = @This();
 
-            var mutex = std.Thread.Mutex{};
             var acc = Pairing.new(pool, hash_or_encode, &dst[0], dst.len) catch {
                 return BLST_ERROR.FAILED_PAIRING;
             };
@@ -758,7 +763,7 @@ pub fn createSigVariant(
 
             for (0..n_workers) |_| {
                 spawnTaskWg(&wg, struct {
-                    fn run(_msgs: [][]const u8, _dst: []const u8, _pks: []const *PublicKey, _pks_validate: bool, _sigs: []const *Signature, _sigs_groupcheck: bool, _rands: [][]const u8, _rand_bits: usize, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _mutex: *std.Thread.Mutex, _acc: *Pairing) void {
+                    fn run(_msgs: [][]const u8, _dst: []const u8, _pks: []const *PublicKey, _pks_validate: bool, _sigs: []const *Signature, _sigs_groupcheck: bool, _rands: [][]const u8, _rand_bits: usize, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _acc: *Pairing) void {
                         var pairing = Pairing.new(_pool, hash_or_encode, &_dst[0], _dst.len) catch {
                             // .release will publish the value to other threads
                             _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
@@ -788,15 +793,13 @@ pub fn createSigVariant(
 
                         if (local_count > 0 and _atomic_valid.load(.monotonic) == c.BLST_SUCCESS) {
                             pairing.commit();
-                            _mutex.lock();
-                            defer _mutex.unlock();
                             _acc.merge(&pairing) catch {
                                 // .release will publish the value to other threads
                                 _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
                             };
                         }
                     }
-                }.run, .{ msgs, dst, pks, pks_validate, sigs, sigs_groupcheck, rands, rand_bits, pool, &atomic_counter, &atomic_valid, &mutex, &acc });
+                }.run, .{ msgs, dst, pks, pks_validate, sigs, sigs_groupcheck, rands, rand_bits, pool, &atomic_counter, &atomic_valid, &acc });
             }
 
             waitAndWork(&wg);
@@ -829,7 +832,6 @@ pub fn createSigVariant(
 
             const cpu_count = @max(1, std.Thread.getCpuCount() catch 1);
             const n_workers = @min(cpu_count, sets_len);
-            var mutex = std.Thread.Mutex{};
             var acc = Pairing.new(pool, hash_or_encode, dst, dst_len) catch {
                 return BLST_FAILED_PAIRING;
             };
@@ -838,7 +840,7 @@ pub fn createSigVariant(
 
             for (0..n_workers) |_| {
                 spawnTaskWg(&wg, struct {
-                    fn run(_sets: [*c]*const SignatureSet, _sets_len: usize, _msg_len: usize, _dst: [*c]const u8, _dst_len: usize, _pks_validate: bool, _sigs_groupcheck: bool, _rands: [*c][*c]const u8, _rand_bits: usize, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _mutex: *std.Thread.Mutex, _acc: *Pairing) void {
+                    fn run(_sets: [*c]*const SignatureSet, _sets_len: usize, _msg_len: usize, _dst: [*c]const u8, _dst_len: usize, _pks_validate: bool, _sigs_groupcheck: bool, _rands: [*c][*c]const u8, _rand_bits: usize, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _acc: *Pairing) void {
                         var pairing = Pairing.new(_pool, hash_or_encode, _dst, _dst_len) catch {
                             // .release will publish the value to other threads
                             _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
@@ -870,15 +872,13 @@ pub fn createSigVariant(
 
                         if (local_count > 0 and _atomic_valid.load(.monotonic) == c.BLST_SUCCESS) {
                             pairing.commit();
-                            _mutex.lock();
-                            defer _mutex.unlock();
                             _acc.merge(&pairing) catch {
                                 // .release will publish the value to other threads
                                 _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
                             };
                         }
                     }
-                }.run, .{ sets, sets_len, msg_len, dst, dst_len, pks_validate, sigs_groupcheck, rands, rand_bits, pool, &atomic_counter, &atomic_valid, &mutex, &acc });
+                }.run, .{ sets, sets_len, msg_len, dst, dst_len, pks_validate, sigs_groupcheck, rands, rand_bits, pool, &atomic_counter, &atomic_valid, &acc });
             }
 
             waitAndWork(&wg);
@@ -2265,7 +2265,7 @@ pub fn createSigVariant(
                 memory_pool.deinit();
                 allocator.destroy(memory_pool);
             }
-            var mutex = std.Thread.Mutex{};
+            var mutex = Mutex{};
             Context.mutex = &mutex;
             var cond = std.Thread.Condition{};
             Context.cond = &cond;
