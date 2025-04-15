@@ -643,6 +643,7 @@ pub fn createSigVariant(
             }
 
             waitAndWork(&wg);
+            acc.commit();
 
             // all threads finished, load atomic_valid once
             const valid = atomic_valid.load(.monotonic);
@@ -732,6 +733,7 @@ pub fn createSigVariant(
             }
 
             waitAndWork(&wg);
+            acc.commit();
 
             // all threads finished, load atomic_valid once
             var valid = atomic_valid.load(.monotonic);
@@ -863,6 +865,7 @@ pub fn createSigVariant(
             }
 
             waitAndWork(&wg);
+            acc.commit();
 
             const valid = atomic_valid.load(.monotonic);
             // do finalVerify() once in the main thread
@@ -942,6 +945,7 @@ pub fn createSigVariant(
             }
 
             waitAndWork(&wg);
+            acc.commit();
 
             const valid = atomic_valid.load(.monotonic);
             // do finalVerify() once in the main thread
