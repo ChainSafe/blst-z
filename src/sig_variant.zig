@@ -673,24 +673,84 @@ pub fn createSigVariant(
                 return c.BLST_VERIFY_FAIL;
             }
 
-            var pairing = Pairing.new(pool, hash_or_encode, dst, dst_len) catch return c.BLST_VERIFY_FAIL;
-            defer pairing.deinit() catch {};
+            const AtomicCounter = std.atomic.Value(usize);
+            // donot use AtomicBoolean because we want error code to return
+            const AtomicError = std.atomic.Value(c_uint);
+            var atomic_counter = AtomicCounter.init(0);
+            // 0 = BLST_SUCCESS
+            var atomic_valid = AtomicError.init(c.BLST_SUCCESS);
+            var wg = std.Thread.WaitGroup{};
 
-            var msg = msgs[0];
-            pairing.aggregate(pks[0], pks_validate, sig, sig_groupcheck, msg, msg_len, null) catch return c.BLST_VERIFY_FAIL;
+            const cpu_count = @max(1, std.Thread.getCpuCount() catch 1);
+            const n_workers = @min(cpu_count, msgs_len);
 
-            for (1..msgs_len) |i| {
-                msg = msgs[i];
-                pairing.aggregate(pks[i], pks_validate, null, false, msg, msg_len, null) catch return c.BLST_VERIFY_FAIL;
+            var acc = Pairing.new(pool, hash_or_encode, dst, dst_len) catch {
+                return BLST_FAILED_PAIRING;
+            };
+
+            defer acc.deinit() catch {};
+
+            for (0..n_workers) |_| {
+                spawnTaskWg(&wg, struct {
+                    fn run(_msgs: [*c][*c]const u8, _msgs_len: usize, _msg_len: usize, _dst: [*c]const u8, _dst_len: usize, _pks: [*c]const *pk_aff_type, _pks_validate: bool, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _acc: *Pairing) void {
+                        var pairing = Pairing.new(_pool, hash_or_encode, _dst, _dst_len) catch {
+                            // .release will publish the value to other threads
+                            _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
+                            return;
+                        };
+                        defer pairing.deinit() catch {
+                            // .release will publish the value to other threads
+                            _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
+                        };
+
+                        // the most relaxed atomic ordering
+                        var local_count: usize = 0;
+                        while (_atomic_valid.load(.monotonic) == c.BLST_SUCCESS) {
+                            // this uses @atomicRmw internally and returns the previous value
+                            // acquired then release which publish value to other thread
+                            const counter = _atomic_counter.fetchAdd(1, AtomicOrder.acq_rel);
+                            if (counter >= _msgs_len) {
+                                break;
+                            }
+                            pairing.aggregate(_pks[counter], _pks_validate, null, false, _msgs[counter], _msg_len, null) catch {
+                                // .release will publish the value to other threads
+                                _atomic_valid.store(c.BLST_VERIFY_FAIL, AtomicOrder.release);
+                                return;
+                            };
+                            local_count += 1;
+                        }
+
+                        if (local_count > 0 and _atomic_valid.load(.monotonic) == c.BLST_SUCCESS) {
+                            pairing.commit();
+                            _acc.merge(&pairing) catch {
+                                // .release will publish the value to other threads
+                                _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
+                            };
+                        }
+                    }
+                }.run, .{ msgs, msgs_len, msg_len, dst, dst_len, pks, pks_validate, pool, &atomic_counter, &atomic_valid, &acc });
             }
 
-            pairing.commit();
+            waitAndWork(&wg);
 
-            if (!pairing.finalVerify(null)) {
+            // all threads finished, load atomic_valid once
+            var valid = atomic_valid.load(.monotonic);
+
+            if (sig_groupcheck and valid == c.BLST_SUCCESS) {
+                valid = validateSignature(sig, false);
+            }
+
+            var gtsig = util.default_blst_fp12();
+            if (valid == c.BLST_SUCCESS) {
+                Pairing.aggregated(&gtsig, sig);
+            }
+
+            // do finalVerify() once in the main thread
+            if (valid == c.BLST_SUCCESS and !acc.finalVerify(&gtsig)) {
                 return c.BLST_VERIFY_FAIL;
             }
 
-            return c.BLST_SUCCESS;
+            return valid;
         }
 
         /// same to fast_aggregate_verify in Rust with extra `pool` parameter
