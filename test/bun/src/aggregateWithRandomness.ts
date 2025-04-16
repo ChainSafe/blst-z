@@ -67,23 +67,29 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 		throw new Error("At least one PkAndSerializedSig is required");
 	}
 
+	// 1s timeout
+	const TIMEOUT_MS = 1_000;
+	const pkOut = PublicKey.defaultPublicKey();
+	const sigOut = Signature.defaultSignature();
+
 	return new Promise((resolve, reject) => {
-		const pkOut = PublicKey.defaultPublicKey();
-		const sigOut = Signature.defaultSignature();
+		const timeout = setTimeout((_, reject) => {
+			jscallback.close();
+			reject(`Timeout after ${timeout}ms`);
+		}, TIMEOUT_MS);
 
 		const jscallback = new JSCallback(
 			(res: number): void => {
-				if (res === 0) {
+				clearTimeout(timeout);
+				jscallback.close();
+				setTimeout(() => {
 					// setTimeout to unblock zig callback thread, not sure why "res" can only be accessed once
-					setTimeout(() => {
+					if (res === 0) {
 						resolve({pk: pkOut, sig: sigOut});
-					}, 0);
-				} else {
-					setTimeout(() => {
-						// setTimeout to unblock zig callback thread, not sure why "res" can only be accessed once
+					} else {
 						reject(new Error("Failed to aggregate with randomness"));
-					}, 0);
-				}
+					}
+				});
 			},
 			{
 				args: ["u32"],
@@ -92,11 +98,12 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 			}
 		);
 
-		const refs = pkAndSerializedSigsRefs.subarray(0, sets.length * 2);
+		// cannot reuse pkAndSerializedSigsRefs() due to async nature
+		const refs = new Uint32Array(sets.length * 2);
 		writePkAndSerializedSigsReference(sets, refs);
 
 		const res = binding.asyncAggregateWithRandomness(
-			pkAndSerializedSigsRefs,
+			refs,
 			sets.length,
 			pkOut.blst_point,
 			sigOut.blst_point,
