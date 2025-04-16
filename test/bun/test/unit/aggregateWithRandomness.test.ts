@@ -92,6 +92,14 @@ describe("Aggregate With Randomness", () => {
 			const {pk, sig} = aggregateWithRandomness(sets);
 			expect(verify(msg, pk, sig)).toBeTrue();
 		});
+		it("fuzzy test - aggregateWithRandomness", () => {
+			const now = Date.now();
+			for (let i = 0; i < 1000; i++) {
+				const {pk, sig} = aggregateWithRandomness(sets);
+				expect(verify(msg, pk, sig)).toBeTrue();
+			}
+			console.log("aggregateWithRandomness", (Date.now() - now) / 1000);
+		});
 		it("should not validate for different message", async () => {
 			const {pk, sig} = aggregateWithRandomness(sets);
 			expect(verify(randomSet.msg, pk, sig)).toBeFalse();
@@ -189,6 +197,18 @@ describe("Aggregate With Randomness", () => {
 		it("should produce verifiable set", async () => {
 			const {pk, sig} = await asyncAggregateWithRandomness(sets);
 			expect(verify(msg, pk, sig)).toBeTrue();
+		});
+		it.only("fuzzy test - asyncAggregateWithRandomness", async () => {
+      let count = 0;
+      while (true) {
+        const now = Date.now();
+        for (let i = 0; i < 1000; i++) {
+          const {pk, sig} = await asyncAggregateWithRandomness(sets);
+          expect(verify(msg, pk, sig)).toBeTrue();
+        }
+        console.log("asyncAggregateWithRandomness", (Date.now() - now) / 1000, count);
+        count++;
+      }
 		});
 		it("should not validate for different message", async () => {
 			const {pk, sig} = await asyncAggregateWithRandomness(sets);
