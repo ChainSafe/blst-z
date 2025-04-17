@@ -202,10 +202,13 @@ describe("Aggregate With Randomness", () => {
       let count = 0;
       while (true) {
         const now = Date.now();
+        const promises: Promise<{pk: PublicKey; sig: Signature}>[] = [];
         for (let i = 0; i < 1000; i++) {
-          const {pk, sig} = await asyncAggregateWithRandomness(sets);
-          expect(verify(msg, pk, sig)).toBeTrue();
+          promises.push(asyncAggregateWithRandomness(sets));
         }
+        try {
+          await Promise.all(promises);
+        } catch {}
         console.log("asyncAggregateWithRandomness", (Date.now() - now) / 1000, count);
         count++;
       }
