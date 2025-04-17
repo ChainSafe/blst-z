@@ -116,12 +116,12 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 			sets.length,
 			pkOut.blst_point,
 			sigOut.blst_point,
-      // it's noted in bun:ffi doc that using JSCallback.prototype.ptr is faster than JSCallback object
-			jscallback.ptr,
+			// it's noted in bun:ffi doc that using JSCallback.prototype.ptr is faster than JSCallback object
+			jscallback.ptr
 		);
 
 		if (res !== 0) {
-      clearTimeout(timeout);
+			clearTimeout(timeout);
 			if (jscallback) {
 				jscallback.close();
 				jscallback = null;
