@@ -73,23 +73,32 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 	const sigOut = Signature.defaultSignature();
 
 	return new Promise((resolve, reject) => {
+		let jscallback: JSCallback | null = null;
 		const timeout = setTimeout((_, reject) => {
-			jscallback.close();
+			if (jscallback) {
+				jscallback.close();
+				jscallback = null;
+			}
 			reject(`Timeout after ${timeout}ms`);
 		}, TIMEOUT_MS);
 
-		const jscallback = new JSCallback(
+		// it's important to always close the callback
+		jscallback = new JSCallback(
 			(res: number): void => {
 				clearTimeout(timeout);
-				jscallback.close();
+				const _res = res;
+				if (jscallback) {
+					jscallback.close();
+					jscallback = null;
+				}
+				// setTimeout to unblock zig callback thread, not sure why "res" can only be accessed once
 				setTimeout(() => {
-					// setTimeout to unblock zig callback thread, not sure why "res" can only be accessed once
-					if (res === 0) {
+					if (_res === 0) {
 						resolve({pk: pkOut, sig: sigOut});
 					} else {
 						reject(new Error("Failed to aggregate with randomness"));
 					}
-				});
+				}, 0);
 			},
 			{
 				args: ["u32"],
@@ -111,6 +120,10 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 		);
 
 		if (res !== 0) {
+			if (jscallback) {
+				jscallback.close();
+				jscallback = null;
+			}
 			throw new Error("Failed to aggregate with randomness res = " + res);
 		}
 	});
