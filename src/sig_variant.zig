@@ -1621,16 +1621,16 @@ pub fn createSigVariant(
 
             const sig_scratch = pool.getSignatureScratch() catch {
                 if (callbackFn) |callback| {
-                    callback(c.BLST_VERIFY_FAIL);
+                    callback(util.MEMORY_POOL_ERROR);
                 }
-                return c.BLST_VERIFY_FAIL;
+                return util.MEMORY_POOL_ERROR;
             };
 
             const pk_scratch = pool.getPublicKeyScratch() catch {
                 if (callbackFn) |callback| {
-                    callback(c.BLST_VERIFY_FAIL);
+                    callback(util.MEMORY_POOL_ERROR);
                 }
-                return c.BLST_VERIFY_FAIL;
+                return util.MEMORY_POOL_ERROR;
             };
 
             defer {

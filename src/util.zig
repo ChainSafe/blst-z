@@ -15,6 +15,7 @@ pub const BLST_ERROR = error{
 
 // BLST_ERROR max as 7
 pub const BLST_FAILED_PAIRING: c_uint = 10;
+pub const MEMORY_POOL_ERROR: c_uint = 11;
 
 pub fn toBlstError(err: c_uint) ?BLST_ERROR {
     switch (err) {
