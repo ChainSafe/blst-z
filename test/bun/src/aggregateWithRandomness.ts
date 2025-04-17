@@ -89,7 +89,7 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 					} else {
 						reject(new Error("Failed to aggregate with randomness"));
 					}
-				});
+				}, 0);
 			},
 			{
 				args: ["u32"],
