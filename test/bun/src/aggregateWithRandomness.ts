@@ -74,7 +74,7 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 
 	return new Promise((resolve, reject) => {
 		let jscallback: JSCallback | null = null;
-		const timeout = setTimeout((_, reject) => {
+		const timeout = setTimeout(() => {
 			if (jscallback) {
 				jscallback.close();
 				jscallback = null;
@@ -116,15 +116,17 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 			sets.length,
 			pkOut.blst_point,
 			sigOut.blst_point,
-			jscallback
+			// it's noted in bun:ffi doc that using JSCallback.prototype.ptr is faster than JSCallback object
+			jscallback.ptr
 		);
 
 		if (res !== 0) {
+			clearTimeout(timeout);
 			if (jscallback) {
 				jscallback.close();
 				jscallback = null;
 			}
-			throw new Error("Failed to aggregate with randomness res = " + res);
+			reject(`Failed to aggregate with randomness res = ${res}`);
 		}
 	});
 }
