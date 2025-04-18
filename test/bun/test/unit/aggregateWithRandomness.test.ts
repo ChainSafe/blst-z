@@ -92,6 +92,18 @@ describe("Aggregate With Randomness", () => {
 			const {pk, sig} = aggregateWithRandomness(sets);
 			expect(verify(msg, pk, sig)).toBeTrue();
 		});
+    it.only("fuzzy test - aggregateWithRandomness", async () => {
+			let count = 0;
+			while (true) {
+				const now = Date.now();
+				for (let i = 0; i < 1000; i++) {
+					const {pk, sig} = aggregateWithRandomness(sets);
+			    expect(verify(msg, pk, sig)).toBeTrue();
+				}
+				console.log("aggregateWithRandomness", (Date.now() - now) / 1000, count);
+				count++;
+			}
+		});
 		it("fuzzy test - aggregateWithRandomness", () => {
 			const now = Date.now();
 			for (let i = 0; i < 1000; i++) {
@@ -198,20 +210,20 @@ describe("Aggregate With Randomness", () => {
 			const {pk, sig} = await asyncAggregateWithRandomness(sets);
 			expect(verify(msg, pk, sig)).toBeTrue();
 		});
-		it.only("fuzzy test - asyncAggregateWithRandomness", async () => {
-      let count = 0;
-      while (true) {
-        const now = Date.now();
-        const promises: Promise<{pk: PublicKey; sig: Signature}>[] = [];
-        for (let i = 0; i < 1000; i++) {
-          promises.push(asyncAggregateWithRandomness(sets));
-        }
-        try {
-          await Promise.all(promises);
-        } catch {}
-        console.log("asyncAggregateWithRandomness", (Date.now() - now) / 1000, count);
-        count++;
-      }
+		it("fuzzy test - asyncAggregateWithRandomness", async () => {
+			let count = 0;
+			while (true) {
+				const now = Date.now();
+				const promises: Promise<{pk: PublicKey; sig: Signature}>[] = [];
+				for (let i = 0; i < 1000; i++) {
+					promises.push(asyncAggregateWithRandomness(sets));
+				}
+				try {
+					await Promise.all(promises);
+				} catch {}
+				console.log("asyncAggregateWithRandomness", (Date.now() - now) / 1000, count);
+				count++;
+			}
 		});
 		it("should not validate for different message", async () => {
 			const {pk, sig} = await asyncAggregateWithRandomness(sets);

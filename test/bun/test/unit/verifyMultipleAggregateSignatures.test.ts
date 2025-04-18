@@ -32,20 +32,20 @@ describe("Verify Multiple Aggregate Signatures", () => {
 		//   console.log("verifyMultipleAggregateSignatures", now / 1000);
 		// });
 
-		it.only("benchmark verifyMultipleAggregateSignatures()", () => {
-      const sets = getTestSets(128);
+		it.only("fuzzy test - verifyMultipleAggregateSignatures()", () => {
+			const sets = getTestSets(128);
 
-      let count = 0;
-      while (true) {
-        let now = Date.now();
-        for (let i = 0; i < 1_000; i++) {
-          const result = verifyMultipleAggregateSignatures(sets);
-          expect(result).toBeTrue();
-        }
-        now = Date.now() - now;
-        console.log("verifyMultipleAggregateSignatures", now / 1000, count);
-        count++;
-      }
+			let count = 0;
+			while (true) {
+				let now = Date.now();
+				for (let i = 0; i < 1_000; i++) {
+					const result = verifyMultipleAggregateSignatures(sets);
+					expect(result).toBeTrue();
+				}
+				now = Date.now() - now;
+				console.log("verifyMultipleAggregateSignatures", now / 1000, count);
+				count++;
+			}
 		});
 	});
 });
