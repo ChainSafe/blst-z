@@ -4,6 +4,7 @@ import {aggregateVerify, fastAggregateVerify, verify} from "../../src/verify.js"
 import {sullyUint8Array} from "../utils/helpers.js";
 import {getTestSet} from "../utils/testSets.js";
 import type {TestSet} from "../utils/types.js";
+import { aggregateSignatures } from "../../src/aggregate.js";
 
 describe("Verify", () => {
 	let testSet: TestSet;
@@ -43,6 +44,26 @@ describe("Aggregate Verify", () => {
 		it("should return true for valid sets", () => {
 			expect(aggregateVerify([testSet.msg], [testSet.pk], testSet.sig)).toBeTrue();
 		});
+    it.only("fuzzy test - aggregateVerify()", () => {
+      const testSets: TestSet[] = [];
+      for (let i = 0; i < 128; i++) {
+        testSets.push(getTestSet());
+      }
+      const msgs = testSets.map((set) => set.msg);
+      const pks = testSets.map((set) => set.pk);
+      const sigs = testSets.map((set) => set.sig);
+      const aggSig = aggregateSignatures(sigs);
+
+      let count = 0;
+      while (true) {
+        const now = Date.now();
+        for (let i = 0; i < 1000; i ++) {
+          expect(aggregateVerify(msgs, pks, aggSig)).toBeTrue();
+        }
+        console.log("aggregateVerify() took", Date.now() - now, "ms", count);
+        count++;
+      }
+    });
 	});
 });
 
