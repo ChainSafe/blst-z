@@ -541,8 +541,8 @@ pub fn createSigVariant(
             return sig;
         }
 
-        pub fn sigValidateC(out: *sig_aff_type, sig_in: [*c]const u8, sig_len: usize, sig_infcheck: bool) c_uint {
-            const res = signatureFromBytes(out, sig_in, sig_len);
+        pub fn sigValidateC(out: *sig_aff_type, sig_in: []const u8, sig_infcheck: bool) c_uint {
+            const res = signatureFromBytes(out, sig_in);
             if (res != c.BLST_SUCCESS) {
                 return res;
             }
@@ -1013,16 +1013,21 @@ pub fn createSigVariant(
 
             var sig = @This().default();
 
-            const res = deserializeSignature(&sig.point, &sig_in[0], sig_in.len);
+            const res = deserializeSignature(&sig.point, sig_in);
 
             return toBlstError(res) orelse sig;
         }
 
-        pub fn deserializeSignature(out: *sig_aff_type, sig_in: [*c]const u8, len: usize) c_uint {
-            if ((len == sig_ser_size and (sig_in.* & 0x80) == 0) or
-                (len == sig_comp_size and (sig_in.* & 0x80) != 0))
+        pub fn deserializeSignature(out: *sig_aff_type, sig_in: []const u8) c_uint {
+            const len = sig_in.len;
+            if (len == 0) {
+                return c.BLST_BAD_ENCODING;
+            }
+
+            if ((len == sig_ser_size and (sig_in[0] & 0x80) == 0) or
+                (len == sig_comp_size and (sig_in[0] & 0x80) != 0))
             {
-                return sig_deser_fn(out, sig_in);
+                return sig_deser_fn(out, &sig_in[0]);
             }
 
             return c.BLST_BAD_ENCODING;
@@ -1032,8 +1037,8 @@ pub fn createSigVariant(
             return @This().deserialize(sig_in);
         }
 
-        pub fn signatureFromBytes(out: *sig_aff_type, sig_in: [*c]const u8, len: usize) c_uint {
-            return deserializeSignature(out, sig_in, len);
+        pub fn signatureFromBytes(out: *sig_aff_type, sig_in: []const u8) c_uint {
+            return deserializeSignature(out, sig_in);
         }
 
         pub fn toBytes(self: *const @This()) [sig_comp_size]u8 {
@@ -1169,13 +1174,14 @@ pub fn createSigVariant(
 
         /// C-ABI version of aggregateSerialized
         /// all signatures should have the same len
-        pub fn aggregateSerializedC(out: *sig_type, sigs: [*c][*c]const u8, sigs_len: usize, sig_len: usize, sigs_groupcheck: bool) c_uint {
+        pub fn aggregateSerializedC(out: *sig_type, sigs: [][*c]const u8, sig_len: usize, sigs_groupcheck: bool) c_uint {
+            const sigs_len = sigs.len;
             if (sigs_len == 0) {
                 return c.BLST_AGGR_TYPE_MISMATCH;
             }
 
             var sig = Signature.default().point;
-            var res = Signature.signatureFromBytes(&sig, sigs[0], sig_len);
+            var res = Signature.signatureFromBytes(&sig, sigs[0][0..sig_len]);
             if (res != c.BLST_SUCCESS) {
                 return res;
             }
@@ -1191,7 +1197,7 @@ pub fn createSigVariant(
 
             for (1..sigs_len) |i| {
                 var point = Signature.default().point;
-                res = Signature.signatureFromBytes(&point, sigs[i], sig_len);
+                res = Signature.signatureFromBytes(&point, sigs[i][0..sig_len]);
                 if (res != c.BLST_SUCCESS) {
                     return res;
                 }
@@ -1652,7 +1658,7 @@ pub fn createSigVariant(
                 var set = sets[i];
                 pks_refs[i] = set.pk;
                 sigs_refs[i] = &sigs[i];
-                const res = Signature.sigValidateC(sigs_refs[i], &set.sig[0], set.sig_len, true);
+                const res = Signature.sigValidateC(sigs_refs[i], set.sig[0..set.sig_len], true);
                 if (res != c.BLST_SUCCESS) {
                     if (callbackFn) |callback| {
                         callback(res);
