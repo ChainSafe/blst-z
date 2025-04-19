@@ -441,7 +441,7 @@ export fn aggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, sets_
 /// for Bun binding, allocator is null
 pub fn doAggregateWithRandomness(allocator: ?Allocator, sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType) c_uint {
     const pool = getMemoryPool(allocator) catch return util.MEMORY_POOL_ERROR;
-    const res = SigVariant.aggregateWithRandomnessC(sets, sets_len, pool, pk_out, sig_out, null);
+    const res = SigVariant.aggregateWithRandomnessC(sets[0..sets_len], pool, pk_out, sig_out, null);
     return res;
 }
 
@@ -453,7 +453,7 @@ export fn asyncAggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, 
 /// for Bun binding, allocator is null
 pub fn doAsyncAggregateWithRandomness(allocator: ?Allocator, sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType, callback: CallBackFn) c_uint {
     const pool = getMemoryPool(allocator) catch return util.MEMORY_POOL_ERROR;
-    return SigVariant.asyncAggregateWithRandomness(sets, sets_len, pool, pk_out, sig_out, callback);
+    return SigVariant.asyncAggregateWithRandomness(sets[0..sets_len], pool, pk_out, sig_out, callback);
 }
 
 /// a Bun application should call this before using any of the exported functions

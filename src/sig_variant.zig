@@ -1594,24 +1594,25 @@ pub fn createSigVariant(
             }
 
             // no callback provided because this function is synchronous
-            const res = aggregateWithRandomnessC(&sets_c[0], sets.len, pool, &pk_out.point, &sig_out.point, null);
+            const res = aggregateWithRandomnessC(sets_c[0..sets.len], pool, &pk_out.point, &sig_out.point, null);
             if (toBlstError(res)) |err| {
                 return err;
             }
         }
 
         /// the same to aggregateWithRandomness with a callback provided
-        pub fn asyncAggregateWithRandomness(sets: [*c]*const PkAndSerializedSigC, sets_len: usize, pool: *MemoryPool, pk_out: *pk_aff_type, sig_out: *sig_aff_type, callback: CallbackFn) c_uint {
+        pub fn asyncAggregateWithRandomness(sets: []*const PkAndSerializedSigC, pool: *MemoryPool, pk_out: *pk_aff_type, sig_out: *sig_aff_type, callback: CallbackFn) c_uint {
             spawnTask(struct {
-                fn run(sets_t: [*c]*const PkAndSerializedSigC, sets_len_t: usize, memory_pool: *MemoryPool, pk_out_t: *pk_aff_type, sig_out_t: *sig_aff_type, callback_t: CallbackFn) void {
-                    _ = aggregateWithRandomnessC(sets_t, sets_len_t, memory_pool, pk_out_t, sig_out_t, callback_t);
+                fn run(sets_t: []*const PkAndSerializedSigC, memory_pool: *MemoryPool, pk_out_t: *pk_aff_type, sig_out_t: *sig_aff_type, callback_t: CallbackFn) void {
+                    _ = aggregateWithRandomnessC(sets_t, memory_pool, pk_out_t, sig_out_t, callback_t);
                 }
-            }.run, .{ sets, sets_len, pool, pk_out, sig_out, callback }) catch return util.THREAD_POOL_ERROR;
+            }.run, .{ sets, pool, pk_out, sig_out, callback }) catch return util.THREAD_POOL_ERROR;
 
             return c.BLST_SUCCESS;
         }
 
-        pub fn aggregateWithRandomnessC(sets: [*c]*const PkAndSerializedSigC, sets_len: usize, pool: *MemoryPool, pk_out: *pk_aff_type, sig_out: *sig_aff_type, callbackFn: ?CallbackFn) c_uint {
+        pub fn aggregateWithRandomnessC(sets: []*const PkAndSerializedSigC, pool: *MemoryPool, pk_out: *pk_aff_type, sig_out: *sig_aff_type, callbackFn: ?CallbackFn) c_uint {
+            const sets_len = sets.len;
             if (sets_len == 0 or sets_len > MAX_SIGNATURE_SETS) {
                 if (callbackFn) |callback| {
                     callback(c.BLST_BAD_ENCODING);
@@ -2335,7 +2336,7 @@ pub fn createSigVariant(
             Context.cond = &cond;
             Context.verify_result = null;
 
-            const call_res = asyncAggregateWithRandomness(&set_c[0], num_pks, memory_pool, &agg_pk.point, &agg_sig.point, Context.callback);
+            const call_res = asyncAggregateWithRandomness(set_c[0..num_pks], memory_pool, &agg_pk.point, &agg_sig.point, Context.callback);
             try std.testing.expectEqual(call_res, 0);
             mutex.lock();
             defer mutex.unlock();
