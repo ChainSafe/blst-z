@@ -365,11 +365,12 @@ pub fn createSigVariant(
             // this is unsafe code but we scanned through testTypeAlignment unit test
             const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
             var agg_pk = @This().default();
-            const res = aggregatePublicKeys(&agg_pk.point, &pk_aff_points[0], pks.len, pks_validate);
+            const res = aggregatePublicKeys(&agg_pk.point, pk_aff_points, pks_validate);
             return toBlstError(res) orelse agg_pk;
         }
 
-        pub fn aggregatePublicKeys(out: *pk_type, pks: [*c]*const pk_aff_type, len: usize, pks_validate: bool) c_uint {
+        pub fn aggregatePublicKeys(out: *pk_type, pks: []*const pk_aff_type, pks_validate: bool) c_uint {
+            const len = pks.len;
             if (len == 0) {
                 return c.BLST_AGGR_TYPE_MISMATCH;
             }
@@ -759,16 +760,16 @@ pub fn createSigVariant(
         pub fn fastAggregateVerify(self: *const @This(), sig_groupcheck: bool, msg: []const u8, dst: []const u8, pks: []*const PublicKey, pool: *MemoryPool) BLST_ERROR!void {
             // this is unsafe code but we scanned through testTypeAlignment unit test
             const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
-            const res = fastAggregateVerifyC(&self.point, sig_groupcheck, &msg[0], msg.len, &dst[0], dst.len, &pk_aff_points[0], pk_aff_points.len, pool);
+            const res = fastAggregateVerifyC(&self.point, sig_groupcheck, &msg[0], msg.len, &dst[0], dst.len, pk_aff_points, pool);
             const err_res = toBlstError(res);
             if (err_res) |err| {
                 return err;
             }
         }
 
-        pub fn fastAggregateVerifyC(sig: *const sig_aff_type, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks: [*c]*const pk_aff_type, pks_len: usize, pool: *MemoryPool) c_uint {
+        pub fn fastAggregateVerifyC(sig: *const sig_aff_type, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks: []*const pk_aff_type, pool: *MemoryPool) c_uint {
             var agg_pk = default_agg_pubkey_fn();
-            const res = AggregatePublicKey.aggregatePublicKeys(&agg_pk, pks, pks_len, false);
+            const res = AggregatePublicKey.aggregatePublicKeys(&agg_pk, pks, false);
             if (res != c.BLST_SUCCESS) {
                 return res;
             }

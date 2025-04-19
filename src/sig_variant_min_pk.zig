@@ -156,7 +156,7 @@ export fn aggregateToPublicKey(out: *PublicKeyType, agg_pk: *const AggregatePubl
 
 export fn aggregatePublicKeys(out: *PublicKeyType, pks: [*c]*const PublicKeyType, len: usize, pks_validate: bool) c_uint {
     var aggregate_pk = defaultAggregatePublicKey();
-    const res = AggregatePublicKey.aggregatePublicKeys(&aggregate_pk, pks, len, pks_validate);
+    const res = AggregatePublicKey.aggregatePublicKeys(&aggregate_pk, pks[0..len], pks_validate);
     aggregateToPublicKey(out, &aggregate_pk);
     return res;
 }
@@ -213,7 +213,7 @@ export fn fastAggregateVerify(sig: *const SignatureType, sig_groupcheck: bool, m
 
 pub fn doFastAggregateVerify(allocator: ?Allocator, sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, pks: [*c]*const PublicKeyType, pks_len: usize) c_uint {
     const pool = getMemoryPool(allocator) catch return util.MEMORY_POOL_ERROR;
-    return Signature.fastAggregateVerifyC(sig, sig_groupcheck, msg, msg_len, &DST[0], DST.len, pks, pks_len, pool);
+    return Signature.fastAggregateVerifyC(sig, sig_groupcheck, msg, msg_len, &DST[0], DST.len, pks[0..pks_len], pool);
 }
 
 export fn fastAggregateVerifyPreAggregated(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, pk: *PublicKeyType) c_uint {
