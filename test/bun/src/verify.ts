@@ -93,6 +93,10 @@ export function fastAggregateVerify(
 	sig: Signature,
 	sigsGroupcheck?: boolean | undefined | null
 ): boolean {
+  if (msg.length === 0) {
+    throw new Error("Message cannot be empty");
+  }
+
 	const pksReferences = writePublicKeysReference(pks);
 	const res = binding.fastAggregateVerify(
 		sig.blst_point,
