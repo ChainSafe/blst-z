@@ -126,11 +126,11 @@ export fn uncompressPublicKey(out: *PublicKeyType, pk_comp: [*c]const u8, len: u
 }
 
 export fn deserializePublicKey(out: *PublicKeyType, pk_in: [*c]const u8, len: usize) c_uint {
-    return PublicKey.deserializePublicKey(out, pk_in, len);
+    return PublicKey.deserializePublicKey(out, pk_in[0..len]);
 }
 
 export fn publicKeyFromBytes(point: *PublicKeyType, pk_in: [*c]const u8, len: usize) c_uint {
-    return PublicKey.publicKeyFromBytes(point, pk_in, len);
+    return PublicKey.publicKeyFromBytes(point, pk_in[0..len]);
 }
 
 export fn toPublicKeyBytes(out: *u8, point: *PublicKeyType) void {

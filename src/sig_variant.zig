@@ -224,7 +224,7 @@ pub fn createSigVariant(
 
         pub fn publicKeyBytesValidate(key: []const u8) c_uint {
             var point = default().point;
-            const res = publicKeyFromBytes(&point, &key[0], key.len);
+            const res = publicKeyFromBytes(&point, key);
             if (res != c.BLST_SUCCESS) {
                 return res;
             }
@@ -279,15 +279,15 @@ pub fn createSigVariant(
 
         pub fn deserialize(pk_in: []const u8) BLST_ERROR!@This() {
             var pk = default();
-            const res = deserializePublicKey(&pk.point, &pk_in[0], pk_in.len);
+            const res = deserializePublicKey(&pk.point, pk_in);
             return toBlstError(res) orelse pk;
         }
 
-        pub fn deserializePublicKey(out: *pk_aff_type, pk_in: [*c]const u8, len: usize) c_uint {
-            if ((len == pk_ser_size and (pk_in.* & 0x80) == 0) or
-                (len == pk_comp_size and (pk_in.* & 0x80) != 0))
+        pub fn deserializePublicKey(out: *pk_aff_type, pk_in: []const u8) c_uint {
+            if ((pk_in.len == pk_ser_size and (pk_in[0] & 0x80) == 0) or
+                (pk_in.len == pk_comp_size and (pk_in[0] & 0x80) != 0))
             {
-                return pk_deser_fn(out, pk_in);
+                return pk_deser_fn(out, &pk_in[0]);
             }
 
             return c.BLST_BAD_ENCODING;
@@ -297,8 +297,8 @@ pub fn createSigVariant(
             return @This().deserialize(pk_in);
         }
 
-        pub fn publicKeyFromBytes(point: *pk_aff_type, pk_in: [*c]const u8, len: usize) c_uint {
-            return deserializePublicKey(point, pk_in, len);
+        pub fn publicKeyFromBytes(point: *pk_aff_type, pk_in: []const u8) c_uint {
+            return deserializePublicKey(point, pk_in);
         }
 
         pub fn toBytes(self: *const @This()) [pk_comp_size]u8 {
@@ -423,7 +423,7 @@ pub fn createSigVariant(
             }
 
             var pk = default_pubkey_fn();
-            var res = PublicKey.publicKeyFromBytes(&pk, pks[0], pk_len);
+            var res = PublicKey.publicKeyFromBytes(&pk, pks[0][0..pk_len]);
             if (res != c.BLST_SUCCESS) {
                 return res;
             }
@@ -439,7 +439,7 @@ pub fn createSigVariant(
 
             for (1..pks_len) |i| {
                 var point = default_pubkey_fn();
-                res = PublicKey.publicKeyFromBytes(&point, pks[i], pk_len);
+                res = PublicKey.publicKeyFromBytes(&point, pks[i][0..pk_len]);
                 if (res != c.BLST_SUCCESS) {
                     return res;
                 }
