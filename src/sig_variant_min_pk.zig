@@ -288,12 +288,13 @@ pub fn doVerifyMultipleAggregateSignatures(allocator: ?Allocator, sets: [*c]*con
     }
     rand_refs_initialized = true;
 
-    if (sets_len > MAX_SIGNATURE_SETS) {
+    if (sets_len == 0 or sets_len > MAX_SIGNATURE_SETS) {
         return c.BLST_BAD_ENCODING;
     }
+
     randBytes(rands[0..(sets_len * 8)]);
     const pool = getMemoryPool(allocator) catch return util.MEMORY_POOL_ERROR;
-    return Signature.verifyMultipleAggregateSignaturesC(sets, sets_len, msg_len, &DST[0], DST.len, pks_validate, sigs_groupcheck, &rand_refs[0], sets_len, RAND_BITS, pool);
+    return Signature.verifyMultipleAggregateSignaturesC(sets[0..sets_len], msg_len, DST, pks_validate, sigs_groupcheck, rand_refs[0..sets_len], RAND_BITS, pool);
 }
 
 export fn signatureFromAggregate(out: *SignatureType, agg_sig: *const AggregateSignatureType) void {
