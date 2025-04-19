@@ -811,10 +811,14 @@ pub fn createSigVariant(
         }
 
         /// C-ABI version of fastAggregateVerifyPreAggregated()
-        pub fn fastAggregateVerifyPreAggregatedC(sig: *const sig_aff_type, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: []const u8, pk: *pk_aff_type, pool: *MemoryPool) c_uint {
-            var msgs = [_][*c]const u8{msg};
+        pub fn fastAggregateVerifyPreAggregatedC(sig: *const sig_aff_type, sig_groupcheck: bool, msg: []const u8, dst: []const u8, pk: *pk_aff_type, pool: *MemoryPool) c_uint {
+            if (msg.len == 0 or dst.len == 0) {
+                return c.BLST_BAD_ENCODING;
+            }
+
+            var msgs = [_][*c]const u8{&msg[0]};
             var pks = [_]*pk_aff_type{pk};
-            return aggregateVerifyC(sig, sig_groupcheck, msgs[0..], msg_len, dst, pks[0..], false, pool);
+            return aggregateVerifyC(sig, sig_groupcheck, msgs[0..], msg.len, dst, pks[0..], false, pool);
         }
 
         /// https://ethresear.ch/t/fast-verification-of-multiple-bls-signatures/5407
@@ -1973,7 +1977,7 @@ pub fn createSigVariant(
                 // Test current aggregate signature with aggregated pks
                 try sigs[i].fastAggregateVerifyPreAggregated(false, msgs[i], dst, &pks[i], memory_pool);
 
-                const res = Signature.fastAggregateVerifyPreAggregatedC(&sigs[i].point, false, &msgs[i][0], msgs[i].len, dst, &pks[i].point, memory_pool);
+                const res = Signature.fastAggregateVerifyPreAggregatedC(&sigs[i].point, false, msgs[i], dst, &pks[i].point, memory_pool);
                 try std.testing.expect(res == c.BLST_SUCCESS);
 
                 // negative test

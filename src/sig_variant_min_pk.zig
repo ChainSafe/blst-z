@@ -252,8 +252,12 @@ export fn fastAggregateVerifyPreAggregated(sig: *const SignatureType, sig_groupc
 }
 
 pub fn doFastAggregateVerifyPreAggregated(allocator: ?Allocator, sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, pk: *PublicKeyType) c_uint {
+    if (msg_len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
+
     const pool = getMemoryPool(allocator) catch return util.MEMORY_POOL_ERROR;
-    return Signature.fastAggregateVerifyPreAggregatedC(sig, sig_groupcheck, msg, msg_len, DST, pk, pool);
+    return Signature.fastAggregateVerifyPreAggregatedC(sig, sig_groupcheck, msg[0..msg_len], DST, pk, pool);
 }
 
 const RAND_BYTES = 8;
