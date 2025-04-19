@@ -106,7 +106,7 @@ export fn validatePublicKey(pk: *const PublicKeyType) c_uint {
 }
 
 export fn publicKeyBytesValidate(key: [*c]const u8, len: usize) c_uint {
-    return PublicKey.publicKeyBytesValidate(key, len);
+    return PublicKey.publicKeyBytesValidate(key[0..len]);
 }
 
 export fn publicKeyFromAggregate(out: *PublicKeyType, agg_pk: *const AggregatePublicKeyType) void {

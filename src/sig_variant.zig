@@ -216,15 +216,15 @@ pub fn createSigVariant(
         }
 
         pub fn keyValidate(key: []const u8) BLST_ERROR!void {
-            const res = publicKeyBytesValidate(&key[0], key.len);
+            const res = publicKeyBytesValidate(key);
             if (toBlstError(res)) |err| {
                 return err;
             }
         }
 
-        pub fn publicKeyBytesValidate(key: [*c]const u8, len: usize) c_uint {
+        pub fn publicKeyBytesValidate(key: []const u8) c_uint {
             var point = default().point;
-            const res = publicKeyFromBytes(&point, key, len);
+            const res = publicKeyFromBytes(&point, &key[0], key.len);
             if (res != c.BLST_SUCCESS) {
                 return res;
             }
