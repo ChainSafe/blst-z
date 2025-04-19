@@ -112,9 +112,9 @@ pub fn createSigVariant(
         pool: *MemoryPool,
         buffer: []u8,
         mutex: Mutex,
-        pub fn new(pool: *MemoryPool, hoe: bool, dst: [*c]const u8, dst_len: usize) PairingError!@This() {
+        pub fn new(pool: *MemoryPool, hoe: bool, dst: []const u8) PairingError!@This() {
             const buffer = try pool.getPairingBuffer();
-            const p = try P.new(&buffer[0], buffer.len, hoe, &dst[0], dst_len);
+            const p = try P.new(&buffer[0], buffer.len, hoe, &dst[0], dst.len);
             return .{
                 .p = p,
                 .pool = pool,
@@ -595,7 +595,7 @@ pub fn createSigVariant(
             const cpu_count = @max(1, std.Thread.getCpuCount() catch 1);
             const n_workers = @min(cpu_count, n_elems);
 
-            var acc = Pairing.new(pool, hash_or_encode, &dst[0], dst.len) catch {
+            var acc = Pairing.new(pool, hash_or_encode, dst) catch {
                 return BLST_ERROR.FAILED_PAIRING;
             };
 
@@ -604,7 +604,7 @@ pub fn createSigVariant(
             for (0..n_workers) |_| {
                 spawnTaskWg(&wg, struct {
                     fn run(_msgs: [][]const u8, _dst: []const u8, _pks: []const *PublicKey, _pks_validate: bool, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _acc: *Pairing) void {
-                        var pairing = Pairing.new(_pool, hash_or_encode, &_dst[0], _dst.len) catch {
+                        var pairing = Pairing.new(_pool, hash_or_encode, _dst) catch {
                             // .release will publish the value to other threads
                             _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
                             return;
@@ -685,7 +685,7 @@ pub fn createSigVariant(
             const cpu_count = @max(1, std.Thread.getCpuCount() catch 1);
             const n_workers = @min(cpu_count, msgs_len);
 
-            var acc = Pairing.new(pool, hash_or_encode, dst, dst_len) catch {
+            var acc = Pairing.new(pool, hash_or_encode, dst[0..dst_len]) catch {
                 return BLST_FAILED_PAIRING;
             };
 
@@ -694,7 +694,7 @@ pub fn createSigVariant(
             for (0..n_workers) |_| {
                 spawnTaskWg(&wg, struct {
                     fn run(_msgs: [*c][*c]const u8, _msgs_len: usize, _msg_len: usize, _dst: [*c]const u8, _dst_len: usize, _pks: [*c]const *pk_aff_type, _pks_validate: bool, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _acc: *Pairing) void {
-                        var pairing = Pairing.new(_pool, hash_or_encode, _dst, _dst_len) catch {
+                        var pairing = Pairing.new(_pool, hash_or_encode, _dst[0.._dst_len]) catch {
                             // .release will publish the value to other threads
                             _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
                             return;
@@ -817,7 +817,7 @@ pub fn createSigVariant(
             const n_workers = @min(cpu_count, n_elems);
             const Signature = @This();
 
-            var acc = Pairing.new(pool, hash_or_encode, &dst[0], dst.len) catch {
+            var acc = Pairing.new(pool, hash_or_encode, dst) catch {
                 return BLST_ERROR.FAILED_PAIRING;
             };
 
@@ -826,7 +826,7 @@ pub fn createSigVariant(
             for (0..n_workers) |_| {
                 spawnTaskWg(&wg, struct {
                     fn run(_msgs: [][]const u8, _dst: []const u8, _pks: []const *PublicKey, _pks_validate: bool, _sigs: []const *Signature, _sigs_groupcheck: bool, _rands: [][]const u8, _rand_bits: usize, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _acc: *Pairing) void {
-                        var pairing = Pairing.new(_pool, hash_or_encode, &_dst[0], _dst.len) catch {
+                        var pairing = Pairing.new(_pool, hash_or_encode, _dst) catch {
                             // .release will publish the value to other threads
                             _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
                             return;
@@ -895,7 +895,7 @@ pub fn createSigVariant(
 
             const cpu_count = @max(1, std.Thread.getCpuCount() catch 1);
             const n_workers = @min(cpu_count, sets_len);
-            var acc = Pairing.new(pool, hash_or_encode, dst, dst_len) catch {
+            var acc = Pairing.new(pool, hash_or_encode, dst[0..dst_len]) catch {
                 return BLST_FAILED_PAIRING;
             };
 
@@ -904,7 +904,7 @@ pub fn createSigVariant(
             for (0..n_workers) |_| {
                 spawnTaskWg(&wg, struct {
                     fn run(_sets: [*c]*const SignatureSet, _sets_len: usize, _msg_len: usize, _dst: [*c]const u8, _dst_len: usize, _pks_validate: bool, _sigs_groupcheck: bool, _rands: [*c][*c]const u8, _rand_bits: usize, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _acc: *Pairing) void {
-                        var pairing = Pairing.new(_pool, hash_or_encode, _dst, _dst_len) catch {
+                        var pairing = Pairing.new(_pool, hash_or_encode, _dst[0.._dst_len]) catch {
                             // .release will publish the value to other threads
                             _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
                             return;
