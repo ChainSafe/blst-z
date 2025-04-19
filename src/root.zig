@@ -4,6 +4,7 @@ pub const min_pk_sig_variant = @import("./sig_variant_min_pk.zig");
 pub const min_sig_sig_variant = @import("./sig_variant_min_sig.zig");
 pub const createMemoryPool = @import("./memory_pool.zig").createMemoryPool;
 pub const initializeThreadPool = @import("./thread_pool.zig").initializeThreadPool;
+pub const PubkeyIndexMap = @import("./pubkey_index_map.zig").PubkeyIndexMap;
 
 pub const min_pk = struct {
     pub const PublicKey = min_pk_sig_variant.PublicKey;
