@@ -684,7 +684,9 @@ pub fn createSigVariant(
 
         /// C-ABI version of aggregateVerify()
         /// - extra msg_len parameter, all messages should have the same length
-        pub fn aggregateVerifyC(sig: *const sig_aff_type, sig_groupcheck: bool, msgs: [*c][*c]const u8, msgs_len: usize, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks: [*c]const *pk_aff_type, pks_len: usize, pks_validate: bool, pool: *MemoryPool) c_uint {
+        pub fn aggregateVerifyC(sig: *const sig_aff_type, sig_groupcheck: bool, msgs: [][*c]const u8, msg_len: usize, dst: []const u8, pks: []const *pk_aff_type, pks_validate: bool, pool: *MemoryPool) c_uint {
+            const msgs_len = msgs.len;
+            const pks_len = pks.len;
             if (msgs_len == 0 or msgs_len != pks_len) {
                 return c.BLST_VERIFY_FAIL;
             }
@@ -700,7 +702,7 @@ pub fn createSigVariant(
             const cpu_count = @max(1, std.Thread.getCpuCount() catch 1);
             const n_workers = @min(cpu_count, msgs_len);
 
-            var acc = Pairing.new(pool, hash_or_encode, dst[0..dst_len]) catch {
+            var acc = Pairing.new(pool, hash_or_encode, dst) catch {
                 return BLST_FAILED_PAIRING;
             };
 
@@ -708,8 +710,9 @@ pub fn createSigVariant(
 
             for (0..n_workers) |_| {
                 spawnTaskWg(&wg, struct {
-                    fn run(_msgs: [*c][*c]const u8, _msgs_len: usize, _msg_len: usize, _dst: [*c]const u8, _dst_len: usize, _pks: [*c]const *pk_aff_type, _pks_validate: bool, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _acc: *Pairing) void {
-                        var pairing = Pairing.new(_pool, hash_or_encode, _dst[0.._dst_len]) catch {
+                    fn run(_msgs: [][*c]const u8, _msg_len: usize, _dst: []const u8, _pks: []const *pk_aff_type, _pks_validate: bool, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _acc: *Pairing) void {
+                        const _msgs_len = _msgs.len;
+                        var pairing = Pairing.new(_pool, hash_or_encode, _dst) catch {
                             // .release will publish the value to other threads
                             _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
                             return;
@@ -744,7 +747,7 @@ pub fn createSigVariant(
                             };
                         }
                     }
-                }.run, .{ msgs, msgs_len, msg_len, dst, dst_len, pks, pks_validate, pool, &atomic_counter, &atomic_valid, &acc });
+                }.run, .{ msgs, msg_len, dst, pks, pks_validate, pool, &atomic_counter, &atomic_valid, &acc });
             }
 
             waitAndWork(&wg);
@@ -774,14 +777,14 @@ pub fn createSigVariant(
         pub fn fastAggregateVerify(self: *const @This(), sig_groupcheck: bool, msg: []const u8, dst: []const u8, pks: []*const PublicKey, pool: *MemoryPool) BLST_ERROR!void {
             // this is unsafe code but we scanned through testTypeAlignment unit test
             const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
-            const res = fastAggregateVerifyC(&self.point, sig_groupcheck, &msg[0], msg.len, &dst[0], dst.len, pk_aff_points, pool);
+            const res = fastAggregateVerifyC(&self.point, sig_groupcheck, &msg[0], msg.len, dst, pk_aff_points, pool);
             const err_res = toBlstError(res);
             if (err_res) |err| {
                 return err;
             }
         }
 
-        pub fn fastAggregateVerifyC(sig: *const sig_aff_type, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, pks: []*const pk_aff_type, pool: *MemoryPool) c_uint {
+        pub fn fastAggregateVerifyC(sig: *const sig_aff_type, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: []const u8, pks: []*const pk_aff_type, pool: *MemoryPool) c_uint {
             var agg_pk = default_agg_pubkey_fn();
             const res = AggregatePublicKey.aggregatePublicKeys(&agg_pk, pks, false);
             if (res != c.BLST_SUCCESS) {
@@ -792,7 +795,7 @@ pub fn createSigVariant(
 
             var msgs_arr = [_][*c]const u8{msg};
             var pks_arr = [_]*pk_aff_type{&pk};
-            return aggregateVerifyC(sig, sig_groupcheck, &msgs_arr, 1, msg_len, dst, dst_len, &pks_arr, 1, false, pool);
+            return aggregateVerifyC(sig, sig_groupcheck, msgs_arr[0..], msg_len, dst, pks_arr[0..], false, pool);
         }
 
         /// same to fast_aggregate_verify_pre_aggregated in Rust with extra `pool` parameter
@@ -804,10 +807,10 @@ pub fn createSigVariant(
         }
 
         /// C-ABI version of fastAggregateVerifyPreAggregated()
-        pub fn fastAggregateVerifyPreAggregatedC(sig: *const sig_aff_type, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, pk: *pk_aff_type, pool: *MemoryPool) c_uint {
+        pub fn fastAggregateVerifyPreAggregatedC(sig: *const sig_aff_type, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: []const u8, pk: *pk_aff_type, pool: *MemoryPool) c_uint {
             var msgs = [_][*c]const u8{msg};
             var pks = [_]*pk_aff_type{pk};
-            return aggregateVerifyC(sig, sig_groupcheck, &msgs, 1, msg_len, dst, dst_len, &pks, pks.len, false, pool);
+            return aggregateVerifyC(sig, sig_groupcheck, msgs[0..], msg_len, dst, pks[0..], false, pool);
         }
 
         /// https://ethresear.ch/t/fast-verification-of-multiple-bls-signatures/5407
@@ -1859,7 +1862,7 @@ pub fn createSigVariant(
                 for (pks_ptr[0..], 0..num_msgs) |pk, i| {
                     pks_refs[i] = &pk.point;
                 }
-                const res = Signature.aggregateVerifyC(&agg_sig.point, false, &msgs_refs[0], msgs_refs.len, same_msg_len, &dst[0], dst.len, &pks_refs[0], pks_refs.len, false, memory_pool);
+                const res = Signature.aggregateVerifyC(&agg_sig.point, false, msgs_refs[0..], same_msg_len, dst, pks_refs[0..], false, memory_pool);
                 try std.testing.expect(res == c.BLST_SUCCESS);
             }
 
@@ -1966,7 +1969,7 @@ pub fn createSigVariant(
                 // Test current aggregate signature with aggregated pks
                 try sigs[i].fastAggregateVerifyPreAggregated(false, msgs[i], dst, &pks[i], memory_pool);
 
-                const res = Signature.fastAggregateVerifyPreAggregatedC(&sigs[i].point, false, &msgs[i][0], msgs[i].len, &dst[0], dst.len, &pks[i].point, memory_pool);
+                const res = Signature.fastAggregateVerifyPreAggregatedC(&sigs[i].point, false, &msgs[i][0], msgs[i].len, dst, &pks[i].point, memory_pool);
                 try std.testing.expect(res == c.BLST_SUCCESS);
 
                 // negative test

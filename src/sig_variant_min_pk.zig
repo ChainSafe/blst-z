@@ -226,8 +226,12 @@ export fn aggregateVerify(sig: *const SignatureType, sig_groupcheck: bool, msgs:
 }
 
 pub fn doAggregateVerify(allocator: ?Allocator, sig: *const SignatureType, sig_groupcheck: bool, msgs: [*c][*c]const u8, msgs_len: usize, msg_len: usize, pks: [*c]const *PublicKeyType, pks_len: usize, pks_validate: bool) c_uint {
+    if (msgs_len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
+
     const pool = getMemoryPool(allocator) catch return util.MEMORY_POOL_ERROR;
-    return Signature.aggregateVerifyC(sig, sig_groupcheck, msgs, msgs_len, msg_len, &DST[0], DST.len, pks, pks_len, pks_validate, pool);
+    return Signature.aggregateVerifyC(sig, sig_groupcheck, msgs[0..msgs_len], msg_len, DST, pks[0..pks_len], pks_validate, pool);
 }
 
 export fn fastAggregateVerify(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, pks: [*c]*const PublicKeyType, pks_len: usize) c_uint {
@@ -239,7 +243,7 @@ pub fn doFastAggregateVerify(allocator: ?Allocator, sig: *const SignatureType, s
         return c.BLST_BAD_ENCODING;
     }
     const pool = getMemoryPool(allocator) catch return util.MEMORY_POOL_ERROR;
-    return Signature.fastAggregateVerifyC(sig, sig_groupcheck, msg, msg_len, &DST[0], DST.len, pks[0..pks_len], pool);
+    return Signature.fastAggregateVerifyC(sig, sig_groupcheck, msg, msg_len, DST, pks[0..pks_len], pool);
 }
 
 export fn fastAggregateVerifyPreAggregated(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, pk: *PublicKeyType) c_uint {
@@ -248,7 +252,7 @@ export fn fastAggregateVerifyPreAggregated(sig: *const SignatureType, sig_groupc
 
 pub fn doFastAggregateVerifyPreAggregated(allocator: ?Allocator, sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, pk: *PublicKeyType) c_uint {
     const pool = getMemoryPool(allocator) catch return util.MEMORY_POOL_ERROR;
-    return Signature.fastAggregateVerifyPreAggregatedC(sig, sig_groupcheck, msg, msg_len, &DST[0], DST.len, pk, pool);
+    return Signature.fastAggregateVerifyPreAggregatedC(sig, sig_groupcheck, msg, msg_len, DST, pk, pool);
 }
 
 const RAND_BYTES = 8;
