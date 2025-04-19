@@ -131,13 +131,13 @@ pub fn createSigVariant(
             return P.sizeOf();
         }
 
-        pub fn aggregate(self: *@This(), pk: *const pk_aff_type, pk_validate: bool, sig: ?*const sig_aff_type, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, aug: ?[]u8) BLST_ERROR!void {
+        pub fn aggregate(self: *@This(), pk: *const pk_aff_type, pk_validate: bool, sig: ?*const sig_aff_type, sig_groupcheck: bool, msg: []const u8, aug: ?[]u8) BLST_ERROR!void {
             if (pk_comp_size == 48) {
                 // min_pk
-                return self.p.aggregateG1(pk, pk_validate, sig, sig_groupcheck, msg, msg_len, aug);
+                return self.p.aggregateG1(pk, pk_validate, sig, sig_groupcheck, &msg[0], msg.len, aug);
             } else {
                 // min_sig
-                return self.p.aggregateG2(pk, pk_validate, sig, sig_groupcheck, msg, msg_len, aug);
+                return self.p.aggregateG2(pk, pk_validate, sig, sig_groupcheck, &msg[0], msg.len, aug);
             }
         }
 
@@ -623,7 +623,7 @@ pub fn createSigVariant(
                             if (counter >= _msgs.len) {
                                 break;
                             }
-                            pairing.aggregate(&_pks[counter].point, _pks_validate, null, false, &_msgs[counter][0], _msgs[counter].len, null) catch {
+                            pairing.aggregate(&_pks[counter].point, _pks_validate, null, false, _msgs[counter], null) catch {
                                 // .release will publish the value to other threads
                                 _atomic_valid.store(c.BLST_VERIFY_FAIL, .release);
                                 return;
@@ -713,7 +713,7 @@ pub fn createSigVariant(
                             if (counter >= _msgs_len) {
                                 break;
                             }
-                            pairing.aggregate(_pks[counter], _pks_validate, null, false, _msgs[counter], _msg_len, null) catch {
+                            pairing.aggregate(_pks[counter], _pks_validate, null, false, _msgs[counter][0.._msg_len], null) catch {
                                 // .release will publish the value to other threads
                                 _atomic_valid.store(c.BLST_VERIFY_FAIL, AtomicOrder.release);
                                 return;
