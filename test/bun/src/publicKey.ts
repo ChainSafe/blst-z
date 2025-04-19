@@ -32,6 +32,10 @@ export class PublicKey {
 	 * If `pk_validate` is `true`, the public key will be infinity and group checked.
 	 */
 	static fromBytes(bytes: Uint8Array, pkValidate?: boolean | undefined | null): PublicKey {
+    if (bytes.length !== PUBLIC_KEY_LENGTH_COMPRESSED && bytes.length !== PUBLIC_KEY_LENGTH_UNCOMPRESSED) {
+      throw new Error("Invalid encoding");
+    }
+
 		const buffer = new Uint8Array(PUBLIC_KEY_LENGTH_UNCOMPRESSED);
 		let res = binding.deserializePublicKey(buffer, bytes, bytes.length);
 		if (res !== BLST_SUCCESS) {
