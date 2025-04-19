@@ -17,6 +17,10 @@ export function verify(
 	pkValidate?: boolean | undefined | null,
 	sigGroupcheck?: boolean | undefined | null
 ): boolean {
+  if (msg.length === 0) {
+    throw new Error("Message cannot be empty");
+  }
+
 	const res = binding.verifySignature(
 		sig.blst_point,
 		sigGroupcheck ?? false,
