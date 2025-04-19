@@ -141,13 +141,13 @@ pub fn createSigVariant(
             }
         }
 
-        pub fn mulAndAggregate(self: *@This(), pk: *const pk_aff_type, pk_validate: bool, sig: *const sig_aff_type, sig_groupcheck: bool, scalar: [*c]const u8, nbits: usize, msg: [*c]const u8, msg_len: usize, aug: ?[]u8) BLST_ERROR!void {
+        pub fn mulAndAggregate(self: *@This(), pk: *const pk_aff_type, pk_validate: bool, sig: *const sig_aff_type, sig_groupcheck: bool, scalar: [*c]const u8, nbits: usize, msg: []const u8, aug: ?[]u8) BLST_ERROR!void {
             if (pk_comp_size == 48) {
                 // min_pk
-                return self.p.mulAndAggregateG1(pk, pk_validate, sig, sig_groupcheck, scalar, nbits, msg, msg_len, aug);
+                return self.p.mulAndAggregateG1(pk, pk_validate, sig, sig_groupcheck, scalar, nbits, &msg[0], msg.len, aug);
             } else {
                 // min_sig
-                return self.p.mulAndAggregateG2(pk, pk_validate, sig, sig_groupcheck, scalar, nbits, msg, msg_len, aug);
+                return self.p.mulAndAggregateG2(pk, pk_validate, sig, sig_groupcheck, scalar, nbits, &msg[0], msg.len, aug);
             }
         }
 
@@ -845,7 +845,7 @@ pub fn createSigVariant(
                             if (counter >= _msgs.len) {
                                 break;
                             }
-                            pairing.mulAndAggregate(&_pks[counter].point, _pks_validate, &_sigs[counter].point, _sigs_groupcheck, &_rands[counter][0], _rand_bits, &_msgs[counter][0], _msgs[counter].len, null) catch {
+                            pairing.mulAndAggregate(&_pks[counter].point, _pks_validate, &_sigs[counter].point, _sigs_groupcheck, &_rands[counter][0], _rand_bits, _msgs[counter], null) catch {
                                 // .release will publish the value to other threads
                                 _atomic_valid.store(c.BLST_VERIFY_FAIL, .release);
                                 return;
@@ -925,7 +925,7 @@ pub fn createSigVariant(
                                 break;
                             }
                             const set = _sets[counter];
-                            pairing.mulAndAggregate(set.pk, _pks_validate, set.sig, _sigs_groupcheck, _rands[counter], _rand_bits, set.msg, _msg_len, null) catch {
+                            pairing.mulAndAggregate(set.pk, _pks_validate, set.sig, _sigs_groupcheck, _rands[counter], _rand_bits, set.msg[0.._msg_len], null) catch {
                                 // .release will publish the value to other threads
                                 _atomic_valid.store(c.BLST_VERIFY_FAIL, .release);
                                 return;
