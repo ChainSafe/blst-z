@@ -265,13 +265,13 @@ pub fn createSigVariant(
 
         pub fn uncompress(pk_comp: []const u8) BLST_ERROR!@This() {
             var pk = @This().default();
-            const res = uncompressPublicKey(&pk.point, &pk_comp[0], pk_comp.len);
+            const res = uncompressPublicKey(&pk.point, pk_comp);
             return toBlstError(res) orelse pk;
         }
 
-        pub fn uncompressPublicKey(out: *pk_aff_type, pk_comp: [*c]const u8, len: usize) c_uint {
-            if (len == pk_comp_size and (pk_comp.* & 0x80) != 0) {
-                return pk_uncomp_fn(out, pk_comp);
+        pub fn uncompressPublicKey(out: *pk_aff_type, pk_comp: []const u8) c_uint {
+            if (pk_comp.len == pk_comp_size and (pk_comp[0] & 0x80) != 0) {
+                return pk_uncomp_fn(out, &pk_comp[0]);
             }
 
             return c.BLST_BAD_ENCODING;

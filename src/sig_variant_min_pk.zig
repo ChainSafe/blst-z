@@ -122,7 +122,7 @@ export fn serializePublicKey(out: *u8, point: *const PublicKeyType) void {
 }
 
 export fn uncompressPublicKey(out: *PublicKeyType, pk_comp: [*c]const u8, len: usize) c_uint {
-    return PublicKey.uncompressPublicKey(out, pk_comp, len);
+    return PublicKey.uncompressPublicKey(out, pk_comp[0..len]);
 }
 
 export fn deserializePublicKey(out: *PublicKeyType, pk_in: [*c]const u8, len: usize) c_uint {
