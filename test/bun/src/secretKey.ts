@@ -98,9 +98,9 @@ export class SecretKey {
 
 	/** Return the signature */
 	sign(msg: Uint8Array): Signature {
-    if (msg.length === 0) {
-      throw new Error("Message cannot be empty");
-    }
+		if (msg.length === 0) {
+			throw new Error("Message cannot be empty");
+		}
 
 		return Signature.sign(msg, this.blst_point);
 	}
