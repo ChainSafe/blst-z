@@ -418,7 +418,8 @@ pub fn createSigVariant(
             return agg_pk;
         }
 
-        pub fn aggregateSerializedPublicKeys(out: *pk_type, pks: [*c][*c]const u8, pks_len: usize, pk_len: usize, pks_validate: bool) c_uint {
+        pub fn aggregateSerializedPublicKeys(out: *pk_type, pks: [][*c]const u8, pk_len: usize, pks_validate: bool) c_uint {
+            const pks_len = pks.len;
             if (pks_len <= 0) {
                 return c.BLST_AGGR_TYPE_MISMATCH;
             }

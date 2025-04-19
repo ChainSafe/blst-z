@@ -163,7 +163,7 @@ export fn aggregatePublicKeys(out: *PublicKeyType, pks: [*c]*const PublicKeyType
 
 export fn aggregateSerializedPublicKeys(out: *PublicKeyType, pks: [*c][*c]const u8, pks_len: usize, pk_len: usize, pks_validate: bool) c_uint {
     var aggregate_pk = defaultAggregatePublicKey();
-    const res = AggregatePublicKey.aggregateSerializedPublicKeys(&aggregate_pk, pks, pks_len, pk_len, pks_validate);
+    const res = AggregatePublicKey.aggregateSerializedPublicKeys(&aggregate_pk, pks[0..pks_len], pk_len, pks_validate);
     aggregateToPublicKey(out, &aggregate_pk);
     return res;
 }
