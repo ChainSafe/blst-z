@@ -239,11 +239,12 @@ export fn fastAggregateVerify(sig: *const SignatureType, sig_groupcheck: bool, m
 }
 
 pub fn doFastAggregateVerify(allocator: ?Allocator, sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, pks: [*c]*const PublicKeyType, pks_len: usize) c_uint {
-    if (pks_len == 0) {
+    if (pks_len == 0 or msg_len == 0) {
         return c.BLST_BAD_ENCODING;
     }
+
     const pool = getMemoryPool(allocator) catch return util.MEMORY_POOL_ERROR;
-    return Signature.fastAggregateVerifyC(sig, sig_groupcheck, msg, msg_len, DST, pks[0..pks_len], pool);
+    return Signature.fastAggregateVerifyC(sig, sig_groupcheck, msg[0..msg_len], DST, pks[0..pks_len], pool);
 }
 
 export fn fastAggregateVerifyPreAggregated(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, pk: *PublicKeyType) c_uint {

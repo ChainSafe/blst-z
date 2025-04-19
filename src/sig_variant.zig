@@ -777,14 +777,18 @@ pub fn createSigVariant(
         pub fn fastAggregateVerify(self: *const @This(), sig_groupcheck: bool, msg: []const u8, dst: []const u8, pks: []*const PublicKey, pool: *MemoryPool) BLST_ERROR!void {
             // this is unsafe code but we scanned through testTypeAlignment unit test
             const pk_aff_points: []*const pk_aff_type = @ptrCast(pks);
-            const res = fastAggregateVerifyC(&self.point, sig_groupcheck, &msg[0], msg.len, dst, pk_aff_points, pool);
+            const res = fastAggregateVerifyC(&self.point, sig_groupcheck, msg, dst, pk_aff_points, pool);
             const err_res = toBlstError(res);
             if (err_res) |err| {
                 return err;
             }
         }
 
-        pub fn fastAggregateVerifyC(sig: *const sig_aff_type, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: []const u8, pks: []*const pk_aff_type, pool: *MemoryPool) c_uint {
+        pub fn fastAggregateVerifyC(sig: *const sig_aff_type, sig_groupcheck: bool, msg: []const u8, dst: []const u8, pks: []*const pk_aff_type, pool: *MemoryPool) c_uint {
+            if (msg.len == 0 or dst.len == 0) {
+                return c.BLST_BAD_ENCODING;
+            }
+
             var agg_pk = default_agg_pubkey_fn();
             const res = AggregatePublicKey.aggregatePublicKeys(&agg_pk, pks, false);
             if (res != c.BLST_SUCCESS) {
@@ -793,9 +797,9 @@ pub fn createSigVariant(
             var pk = default_pubkey_fn();
             PublicKey.publicKeyFromAggregate(&pk, &agg_pk);
 
-            var msgs_arr = [_][*c]const u8{msg};
+            var msgs_arr = [_][*c]const u8{&msg[0]};
             var pks_arr = [_]*pk_aff_type{&pk};
-            return aggregateVerifyC(sig, sig_groupcheck, msgs_arr[0..], msg_len, dst, pks_arr[0..], false, pool);
+            return aggregateVerifyC(sig, sig_groupcheck, msgs_arr[0..], msg.len, dst, pks_arr[0..], false, pool);
         }
 
         /// same to fast_aggregate_verify_pre_aggregated in Rust with extra `pool` parameter
