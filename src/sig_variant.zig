@@ -132,6 +132,10 @@ pub fn createSigVariant(
         }
 
         pub fn aggregate(self: *@This(), pk: *const pk_aff_type, pk_validate: bool, sig: ?*const sig_aff_type, sig_groupcheck: bool, msg: []const u8, aug: ?[]u8) BLST_ERROR!void {
+            if (msg.len == 0) {
+                return BLST_ERROR.BAD_ENCODING;
+            }
+
             if (pk_comp_size == 48) {
                 // min_pk
                 return self.p.aggregateG1(pk, pk_validate, sig, sig_groupcheck, &msg[0], msg.len, aug);
@@ -142,6 +146,10 @@ pub fn createSigVariant(
         }
 
         pub fn mulAndAggregate(self: *@This(), pk: *const pk_aff_type, pk_validate: bool, sig: *const sig_aff_type, sig_groupcheck: bool, scalar: [*c]const u8, nbits: usize, msg: []const u8, aug: ?[]u8) BLST_ERROR!void {
+            if (msg.len == 0) {
+                return BLST_ERROR.BAD_ENCODING;
+            }
+
             if (pk_comp_size == 48) {
                 // min_pk
                 return self.p.mulAndAggregateG1(pk, pk_validate, sig, sig_groupcheck, scalar, nbits, &msg[0], msg.len, aug);
@@ -551,9 +559,7 @@ pub fn createSigVariant(
 
         // same to non-std verify in Rust
         pub fn verify(self: *const @This(), sig_groupcheck: bool, msg: []const u8, dst: []const u8, aug: ?[]const u8, pk: *const PublicKey, pk_validate: bool) BLST_ERROR!void {
-            const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
-            const aug_len = if (aug != null) aug.?.len else 0;
-            const res = verifySignature(&self.point, sig_groupcheck, &msg[0], msg.len, &dst[0], dst.len, aug_ptr, aug_len, &pk.point, pk_validate);
+            const res = verifySignature(&self.point, sig_groupcheck, msg, dst, aug, &pk.point, pk_validate);
             if (toBlstError(res)) |err| {
                 return err;
             }
@@ -561,7 +567,7 @@ pub fn createSigVariant(
 
         /// C-ABI version of verify()
         /// - no aug parameter
-        pub fn verifySignature(sig: *const sig_aff_type, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, aug_ptr: [*c]const u8, aug_len: usize, pk: *const pk_aff_type, pk_validate: bool) c_uint {
+        pub fn verifySignature(sig: *const sig_aff_type, sig_groupcheck: bool, msg: []const u8, dst: []const u8, aug: ?[]const u8, pk: *const pk_aff_type, pk_validate: bool) c_uint {
             if (sig_groupcheck) {
                 const res = validateSignature(sig, false);
                 if (res != c.BLST_SUCCESS) {
@@ -576,7 +582,14 @@ pub fn createSigVariant(
                 }
             }
 
-            return verify_fn(pk, sig, true, msg, msg_len, dst, dst_len, aug_ptr, aug_len);
+            if (msg.len == 0 or dst.len == 0) {
+                return c.BLST_BAD_ENCODING;
+            }
+
+            const aug_ptr = if (aug != null and aug.?.len > 0) &aug.?[0] else null;
+            const aug_len = if (aug != null) aug.?.len else 0;
+
+            return verify_fn(pk, sig, true, &msg[0], msg.len, &dst[0], dst.len, aug_ptr, aug_len);
         }
 
         /// same to non-std aggregate_verify in Rust, with extra `pool` parameter

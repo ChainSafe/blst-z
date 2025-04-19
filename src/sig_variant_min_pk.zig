@@ -215,8 +215,10 @@ export fn sigValidate(out: *SignatureType, sig: [*c]const u8, sig_len: usize, si
 }
 
 export fn verifySignature(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, pk: *const PublicKeyType, pk_validate: bool) c_uint {
-    // aug_ptr is null, aug_len is 0
-    return Signature.verifySignature(sig, sig_groupcheck, msg, msg_len, &DST[0], DST.len, null, 0, pk, pk_validate);
+    if (msg_len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
+    return Signature.verifySignature(sig, sig_groupcheck, msg[0..msg_len], DST, null, pk, pk_validate);
 }
 
 export fn aggregateVerify(sig: *const SignatureType, sig_groupcheck: bool, msgs: [*c][*c]const u8, msgs_len: usize, msg_len: usize, pks: [*c]const *PublicKeyType, pks_len: usize, pks_validate: bool) c_uint {
