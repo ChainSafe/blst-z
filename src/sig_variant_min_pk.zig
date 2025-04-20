@@ -487,7 +487,7 @@ export fn destroyPubkeyIndexMap(nbr_ptr: u64) void {
     instance_ptr.deinit();
 }
 
-// TODO: use correct returned value
+// TODO: use correct returned error code
 export fn pubkeyIndexMapSet(nbr_ptr: u64, key: [*c]const u8, key_length: c_uint, value: c_uint) c_uint {
     if (key_length != PUBKEY_INDEX_MAP_KEY_SIZE) {
         return c.BLST_BAD_ENCODING;
@@ -621,4 +621,56 @@ test "verify_multipleaggregatesignatures" {
     defer deinitializeThreadPool();
     res = verifyMultipleAggregateSignatures(&sets[0], 1, msg0.len, false, false);
     try std.testing.expect(res == 0);
+}
+
+test "PubkeyIndexMap C-ABI functions" {
+    const map = createPubkeyIndexMap();
+    defer destroyPubkeyIndexMap(map);
+
+    var key: [PUBKEY_INDEX_MAP_KEY_SIZE]u8 = [_]u8{5} ** PUBKEY_INDEX_MAP_KEY_SIZE;
+    const value = 42;
+    _ = pubkeyIndexMapSet(map, &key[0], key.len, value);
+    var result = pubkeyIndexMapGet(map, &key[0], key.len);
+    try std.testing.expect(result == value);
+
+    // change key
+    key[1] = 1;
+    result = pubkeyIndexMapGet(map, &key[0], key.len);
+    try std.testing.expect(result == 0xffffffff);
+
+    // new instance with same value
+    const key2: [PUBKEY_INDEX_MAP_KEY_SIZE]u8 = [_]u8{5} ** PUBKEY_INDEX_MAP_KEY_SIZE;
+    result = pubkeyIndexMapGet(map, &key2[0], key2.len);
+    try std.testing.expect(result == value);
+
+    // has
+    try std.testing.expect(pubkeyIndexMapHas(map, &key2[0], key2.len));
+
+    // size
+    try std.testing.expectEqual(1, pubkeyIndexMapSize(map));
+    const new_key = ([_]u8{255} ** PUBKEY_INDEX_MAP_KEY_SIZE)[0..];
+    _ = pubkeyIndexMapSet(map, &new_key[0], new_key.len, 100);
+    try std.testing.expectEqual(2, pubkeyIndexMapSize(map));
+
+    // delete
+    const missing_key = ([_]u8{254} ** PUBKEY_INDEX_MAP_KEY_SIZE)[0..];
+    var del_res = pubkeyIndexMapDelete(map, &missing_key[0], missing_key.len);
+    try std.testing.expect(!del_res);
+    del_res = pubkeyIndexMapDelete(map, &new_key[0], new_key.len);
+    try std.testing.expect(del_res);
+    try std.testing.expectEqual(1, pubkeyIndexMapSize(map));
+
+    // clone
+    const cloned_map = pubkeyIndexMapClone(map);
+    defer destroyPubkeyIndexMap(cloned_map);
+    try std.testing.expectEqual(1, pubkeyIndexMapSize(cloned_map));
+    result = pubkeyIndexMapGet(cloned_map, &key2[0], key2.len);
+    try std.testing.expect(result == value);
+
+    // clear
+    pubkeyIndexMapClear(map);
+    try std.testing.expectEqual(0, pubkeyIndexMapSize(map));
+
+    // cloned instance is not affected
+    try std.testing.expectEqual(1, pubkeyIndexMapSize(cloned_map));
 }
