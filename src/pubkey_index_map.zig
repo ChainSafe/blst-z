@@ -1,8 +1,9 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
+const key_size = 48;
 pub const Val = usize; // or whatever you're using
-pub const Key = [48]u8; // assuming fixed-length key for example
+pub const Key = [key_size]u8; // assuming fixed-length key for example
 const AutoHashMap = std.AutoHashMap(Key, Val);
 
 /// a generic implementation for both zig application and Bun ffi
@@ -27,13 +28,38 @@ pub const PubkeyIndexMap = struct {
         try self.map.put(fixed_key, value);
     }
 
-    pub fn get(self: *PubkeyIndexMap, key: []const u8) ?Val {
+    pub fn get(self: *const PubkeyIndexMap, key: []const u8) ?Val {
         var fixed_key: Key = undefined;
         @memcpy(&fixed_key, key);
         return self.map.get(fixed_key);
     }
 
-    // implement has, delete, size, clear, etc...
+    pub fn has(self: *const PubkeyIndexMap, key: []const u8) bool {
+        var fixed_key: Key = undefined;
+        @memcpy(&fixed_key, key);
+        return self.map.getKey(fixed_key) != null;
+    }
+
+    pub fn delete(self: *PubkeyIndexMap, key: []const u8) bool {
+        var fixed_key: Key = undefined;
+        @memcpy(&fixed_key, key);
+        return self.map.remove(fixed_key);
+    }
+
+    pub fn size(self: *const PubkeyIndexMap) u32 {
+        return self.map.count();
+    }
+
+    pub fn clear(self: *PubkeyIndexMap) void {
+        self.map.clearAndFree();
+    }
+
+    pub fn clone(self: *const PubkeyIndexMap) !*PubkeyIndexMap {
+        const allocator = self.map.allocator;
+        const instance = try allocator.create(PubkeyIndexMap);
+        instance.* = .{ .map = try self.map.clone() };
+        return instance;
+    }
 };
 
 test "PubkeyIndexMap" {
@@ -41,7 +67,7 @@ test "PubkeyIndexMap" {
     const instance = try PubkeyIndexMap.init(allocator);
     defer instance.deinit();
 
-    var key: [48]u8 = [_]u8{5} ** 48;
+    var key: [key_size]u8 = [_]u8{5} ** key_size;
     const value = 42;
     try instance.set(key[0..], value);
     var result = instance.get(key[0..]);
@@ -69,7 +95,7 @@ test "PubkeyIndexMap" {
     try std.testing.expect(result == null);
 
     // new instance with same value
-    const key2: [48]u8 = [_]u8{5} ** 48;
+    const key2: [key_size]u8 = [_]u8{5} ** key_size;
     result = instance.get(key2[0..]);
     if (result) |v| {
         try std.testing.expectEqual(v, value);
@@ -79,9 +105,43 @@ test "PubkeyIndexMap" {
 
     // C pointer
     key_ptr = key2[0..].ptr;
+    result = instance.get(key_ptr[0..key.len]);
     if (result) |v| {
         try std.testing.expectEqual(v, value);
     } else {
         try std.testing.expect(false);
     }
+
+    // has
+    try std.testing.expect(instance.has(key_ptr[0..key.len]));
+
+    // size
+    try std.testing.expectEqual(1, instance.size());
+    try instance.set(([_]u8{255} ** key_size)[0..], 100);
+    try std.testing.expectEqual(2, instance.size());
+
+    // delete
+    var del_res = instance.delete(([_]u8{254} ** key_size)[0..]);
+    try std.testing.expect(!del_res);
+    del_res = instance.delete(([_]u8{255} ** key_size)[0..]);
+    try std.testing.expect(del_res);
+    try std.testing.expectEqual(1, instance.size());
+
+    // clone
+    const clone_instance = try instance.clone();
+    defer clone_instance.deinit();
+    try std.testing.expectEqual(1, clone_instance.size());
+    result = clone_instance.get(key_ptr[0..key.len]);
+    if (result) |v| {
+        try std.testing.expectEqual(v, value);
+    } else {
+        try std.testing.expect(false);
+    }
+
+    // clear
+    instance.clear();
+    try std.testing.expectEqual(0, instance.size());
+
+    // cloned instance is not affected
+    try std.testing.expectEqual(1, clone_instance.size());
 }
