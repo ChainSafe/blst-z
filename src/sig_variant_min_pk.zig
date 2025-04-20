@@ -10,6 +10,8 @@ const c = @cImport({
     @cInclude("blst.h");
 });
 const util = @import("util.zig");
+const PubkeyIndexMap = @import("pubkey_index_map.zig").PubkeyIndexMap;
+const PUBKEY_INDEX_MAP_KEY_SIZE = @import("pubkey_index_map.zig").PUBKEY_INDEX_MAP_KEY_SIZE;
 const BLST_ERROR = util.BLST_ERROR;
 const toBlstError = util.toBlstError;
 
@@ -472,6 +474,69 @@ export fn deinit() void {
         pool.deinit();
         allocator.destroy(pool);
     }
+}
+
+export fn createPubkeyIndexMap() u64 {
+    const allocator = gpa.allocator();
+    const instance_ptr = PubkeyIndexMap.init(allocator) catch return 0;
+    return @intFromPtr(instance_ptr);
+}
+
+export fn destroyPubkeyIndexMap(nbr_ptr: u64) void {
+    const instance_ptr: *PubkeyIndexMap = @ptrFromInt(nbr_ptr);
+    instance_ptr.deinit();
+}
+
+// TODO: use correct returned value
+export fn pubkeyIndexMapSet(nbr_ptr: u64, key: [*c]const u8, key_length: c_uint, value: c_uint) c_uint {
+    if (key_length != PUBKEY_INDEX_MAP_KEY_SIZE) {
+        return c.BLST_BAD_ENCODING;
+    }
+    const instance_ptr: *PubkeyIndexMap = @ptrFromInt(nbr_ptr);
+    instance_ptr.set(key[0..key_length], value) catch return c.BLST_BAD_ENCODING;
+    return c.BLST_SUCCESS;
+}
+
+export fn pubkeyIndexMapGet(nbr_ptr: u64, key: [*c]const u8, key_length: c_uint) c_uint {
+    if (key_length != PUBKEY_INDEX_MAP_KEY_SIZE) {
+        return 0xffffffff;
+    }
+    const instance_ptr: *PubkeyIndexMap = @ptrFromInt(nbr_ptr);
+    // not found is 0xffffffff
+    const value = instance_ptr.get(key[0..key_length]) orelse return 0xffffffff;
+    return value;
+}
+
+export fn pubkeyIndexMapClear(nbr_ptr: u64) void {
+    const instance_ptr: *PubkeyIndexMap = @ptrFromInt(nbr_ptr);
+    instance_ptr.clear();
+}
+
+export fn pubkeyIndexMapClone(nbr_ptr: u64) u64 {
+    const instance_ptr: *PubkeyIndexMap = @ptrFromInt(nbr_ptr);
+    const clone_ptr = instance_ptr.clone() catch return 0;
+    return @intFromPtr(clone_ptr);
+}
+
+export fn pubkeyIndexMapHas(nbr_ptr: u64, key: [*c]const u8, key_length: c_uint) bool {
+    if (key_length != PUBKEY_INDEX_MAP_KEY_SIZE) {
+        return false;
+    }
+    const instance_ptr: *PubkeyIndexMap = @ptrFromInt(nbr_ptr);
+    return instance_ptr.has(key[0..key_length]);
+}
+
+export fn pubkeyIndexMapDelete(nbr_ptr: u64, key: [*c]const u8, key_length: c_uint) bool {
+    if (key_length != PUBKEY_INDEX_MAP_KEY_SIZE) {
+        return false;
+    }
+    const instance_ptr: *PubkeyIndexMap = @ptrFromInt(nbr_ptr);
+    return instance_ptr.delete(key[0..key_length]);
+}
+
+export fn pubkeyIndexMapSize(nbr_ptr: u64) c_uint {
+    const instance_ptr: *PubkeyIndexMap = @ptrFromInt(nbr_ptr);
+    return instance_ptr.size();
 }
 
 test "test_sign_n_verify" {

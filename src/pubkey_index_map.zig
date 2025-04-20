@@ -1,9 +1,9 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const key_size = 48;
-pub const Val = usize; // or whatever you're using
-pub const Key = [key_size]u8; // assuming fixed-length key for example
+pub const PUBKEY_INDEX_MAP_KEY_SIZE = 48;
+pub const Val = u32;
+pub const Key = [PUBKEY_INDEX_MAP_KEY_SIZE]u8;
 const AutoHashMap = std.AutoHashMap(Key, Val);
 
 /// a generic implementation for both zig application and Bun ffi
@@ -67,7 +67,7 @@ test "PubkeyIndexMap" {
     const instance = try PubkeyIndexMap.init(allocator);
     defer instance.deinit();
 
-    var key: [key_size]u8 = [_]u8{5} ** key_size;
+    var key: [PUBKEY_INDEX_MAP_KEY_SIZE]u8 = [_]u8{5} ** PUBKEY_INDEX_MAP_KEY_SIZE;
     const value = 42;
     try instance.set(key[0..], value);
     var result = instance.get(key[0..]);
@@ -95,7 +95,7 @@ test "PubkeyIndexMap" {
     try std.testing.expect(result == null);
 
     // new instance with same value
-    const key2: [key_size]u8 = [_]u8{5} ** key_size;
+    const key2: [PUBKEY_INDEX_MAP_KEY_SIZE]u8 = [_]u8{5} ** PUBKEY_INDEX_MAP_KEY_SIZE;
     result = instance.get(key2[0..]);
     if (result) |v| {
         try std.testing.expectEqual(v, value);
@@ -117,13 +117,13 @@ test "PubkeyIndexMap" {
 
     // size
     try std.testing.expectEqual(1, instance.size());
-    try instance.set(([_]u8{255} ** key_size)[0..], 100);
+    try instance.set(([_]u8{255} ** PUBKEY_INDEX_MAP_KEY_SIZE)[0..], 100);
     try std.testing.expectEqual(2, instance.size());
 
     // delete
-    var del_res = instance.delete(([_]u8{254} ** key_size)[0..]);
+    var del_res = instance.delete(([_]u8{254} ** PUBKEY_INDEX_MAP_KEY_SIZE)[0..]);
     try std.testing.expect(!del_res);
-    del_res = instance.delete(([_]u8{255} ** key_size)[0..]);
+    del_res = instance.delete(([_]u8{255} ** PUBKEY_INDEX_MAP_KEY_SIZE)[0..]);
     try std.testing.expect(del_res);
     try std.testing.expectEqual(1, instance.size());
 
