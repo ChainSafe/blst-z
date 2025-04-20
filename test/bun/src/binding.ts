@@ -145,6 +145,43 @@ const lib = dlopen(binaryPath, {
 		args: [],
 		returns: "void",
 	},
+	// PubkeyIndexMap functions
+	createPubkeyIndexMap: {
+		args: [],
+		returns: "ptr",
+	},
+	destroyPubkeyIndexMap: {
+		args: ["ptr"],
+		returns: "void",
+	},
+	pubkeyIndexMapSet: {
+		args: ["ptr", "ptr", "u32", "u32"],
+		returns: "u32",
+	},
+	pubkeyIndexMapGet: {
+		args: ["ptr", "ptr", "u32"],
+		returns: "u32",
+	},
+	pubkeyIndexMapClear: {
+		args: ["ptr"],
+		returns: "void",
+	},
+	pubkeyIndexMapClone: {
+		args: ["ptr"],
+		returns: "ptr",
+	},
+	pubkeyIndexMapHas: {
+		args: ["ptr", "ptr", "u32"],
+		returns: "bool",
+	},
+	pubkeyIndexMapDelete: {
+		args: ["ptr", "ptr", "u32"],
+		returns: "bool",
+	},
+	pubkeyIndexMapSize: {
+		args: ["ptr"],
+		returns: "u32",
+	},
 });
 
 export const binding = lib.symbols;
