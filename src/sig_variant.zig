@@ -1021,13 +1021,14 @@ pub fn createSigVariant(
             }
 
             const sig = @This().default();
-            const res = uncompressSignature(&sig.point, &sig_comp[0], sig_comp.len);
+            const res = uncompressSignature(&sig.point, sig_comp);
             return toBlstError(res) orelse sig;
         }
 
-        pub fn uncompressSignature(out: *sig_aff_type, sig_comp: [*c]const u8, len: usize) c_uint {
-            if (len == sig_comp_size and (sig_comp.* & 0x80) != 0) {
-                return sig_uncomp_fn(out, sig_comp);
+        pub fn uncompressSignature(out: *sig_aff_type, sig_comp: []const u8) c_uint {
+            const len = sig_comp.len;
+            if (len == sig_comp_size and (sig_comp[0] & 0x80) != 0) {
+                return sig_uncomp_fn(out, &sig_comp[0]);
             }
 
             return c.BLST_BAD_ENCODING;

@@ -310,7 +310,8 @@ export fn serializeSignature(out: *u8, point: *const SignatureType) void {
 }
 
 export fn uncompressSignature(out: *SignatureType, sig_comp: [*c]const u8, len: usize) c_uint {
-    return Signature.uncompressSignature(out, sig_comp, len);
+    // validate len inside uncompressSignature
+    return Signature.uncompressSignature(out, sig_comp[0..len]);
 }
 
 export fn deserializeSignature(out: *SignatureType, sig_in: [*c]const u8, len: usize) c_uint {
