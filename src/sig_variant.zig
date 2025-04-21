@@ -407,6 +407,7 @@ pub fn createSigVariant(
         // cannot deduplicate this function with the below 3 functions because pks may contain different sizes
         pub fn aggregateSerialized(pks: [][]const u8, pks_validate: bool) BLST_ERROR!@This() {
             // TODO - threading
+            // rust binding is also not implementing multi-thread anyway
             if (pks.len == 0) {
                 return BLST_ERROR.AGGR_TYPE_MISMATCH;
             }
