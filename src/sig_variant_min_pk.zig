@@ -359,7 +359,7 @@ export fn aggregateToSignature(out: *SignatureType, agg_sig: *const AggregateSig
 
 export fn aggregateSignatures(out: *SignatureType, sigs: [*c]*const SignatureType, len: usize, sigs_groupcheck: bool) c_uint {
     var aggregate_sig = defaultAggregateSignature();
-    const res = AggregateSignature.aggregateSignatures(&aggregate_sig, sigs, len, sigs_groupcheck);
+    const res = AggregateSignature.aggregateSignatures(&aggregate_sig, sigs[0..len], sigs_groupcheck);
     aggregateToSignature(out, &aggregate_sig);
     return res;
 }

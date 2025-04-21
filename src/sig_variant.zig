@@ -1151,11 +1151,12 @@ pub fn createSigVariant(
             // this is unsafe code but we scanned through testTypeAlignment unit test
             const sigs_ptr: [*c]*const sig_aff_type = @ptrCast(&sigs[0]);
             var agg_sig = @This().default();
-            const res = aggregateSignatures(&agg_sig.point, sigs_ptr, sigs.len, sigs_groupcheck);
+            const res = aggregateSignatures(&agg_sig.point, sigs_ptr[0..sigs.len], sigs_groupcheck);
             return toBlstError(res) orelse agg_sig;
         }
 
-        pub fn aggregateSignatures(out: *sig_type, sigs: [*c]*const sig_aff_type, len: usize, sigs_groupcheck: bool) c_uint {
+        pub fn aggregateSignatures(out: *sig_type, sigs: []*const sig_aff_type, sigs_groupcheck: bool) c_uint {
+            const len = sigs.len;
             if (len == 0) {
                 return c.BLST_AGGR_TYPE_MISMATCH;
             }
