@@ -1314,6 +1314,7 @@ pub fn createSigVariant(
             return sk;
         }
 
+        // cannot use slice for key gen functions because key_info could be null value
         pub fn secretKeyGen(out: *c.blst_scalar, ikm: [*c]const u8, ikm_len: usize, key_info: [*c]const u8, key_info_len: usize) c_uint {
             if (ikm_len < 32) {
                 return c.BLST_BAD_ENCODING;
@@ -1438,6 +1439,8 @@ pub fn createSigVariant(
             return sig_aff;
         }
 
+        // cannot use slice for aug because it could be null
+        // using C pointer for other params too for compatibility
         pub fn signC(out: *sig_aff_type, sk: *const c.blst_scalar, msg: [*c]const u8, msg_len: usize, dst: [*c]const u8, dst_len: usize, aug: [*c]const u8, aug_len: usize) void {
             var q = default_agg_sig_fn();
             hash_or_encode_to_fn(&q, msg, msg_len, dst, dst_len, aug, aug_len);
