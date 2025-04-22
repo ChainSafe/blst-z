@@ -106,7 +106,10 @@ export fn validatePublicKey(pk: *const PublicKeyType) c_uint {
 }
 
 export fn publicKeyBytesValidate(key: [*c]const u8, len: usize) c_uint {
-    return PublicKey.publicKeyBytesValidate(key, len);
+    if (len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
+    return PublicKey.publicKeyBytesValidate(key[0..len]);
 }
 
 export fn publicKeyFromAggregate(out: *PublicKeyType, agg_pk: *const AggregatePublicKeyType) void {
@@ -122,15 +125,24 @@ export fn serializePublicKey(out: *u8, point: *const PublicKeyType) void {
 }
 
 export fn uncompressPublicKey(out: *PublicKeyType, pk_comp: [*c]const u8, len: usize) c_uint {
-    return PublicKey.uncompressPublicKey(out, pk_comp, len);
+    if (len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
+    return PublicKey.uncompressPublicKey(out, pk_comp[0..len]);
 }
 
 export fn deserializePublicKey(out: *PublicKeyType, pk_in: [*c]const u8, len: usize) c_uint {
-    return PublicKey.deserializePublicKey(out, pk_in, len);
+    if (len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
+    return PublicKey.deserializePublicKey(out, pk_in[0..len]);
 }
 
 export fn publicKeyFromBytes(point: *PublicKeyType, pk_in: [*c]const u8, len: usize) c_uint {
-    return PublicKey.publicKeyFromBytes(point, pk_in, len);
+    if (len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
+    return PublicKey.publicKeyFromBytes(point, pk_in[0..len]);
 }
 
 export fn toPublicKeyBytes(out: *u8, point: *PublicKeyType) void {
@@ -155,15 +167,21 @@ export fn aggregateToPublicKey(out: *PublicKeyType, agg_pk: *const AggregatePubl
 }
 
 export fn aggregatePublicKeys(out: *PublicKeyType, pks: [*c]*const PublicKeyType, len: usize, pks_validate: bool) c_uint {
+    if (len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
     var aggregate_pk = defaultAggregatePublicKey();
-    const res = AggregatePublicKey.aggregatePublicKeys(&aggregate_pk, pks, len, pks_validate);
+    const res = AggregatePublicKey.aggregatePublicKeys(&aggregate_pk, pks[0..len], pks_validate);
     aggregateToPublicKey(out, &aggregate_pk);
     return res;
 }
 
 export fn aggregateSerializedPublicKeys(out: *PublicKeyType, pks: [*c][*c]const u8, pks_len: usize, pk_len: usize, pks_validate: bool) c_uint {
+    if (pks_len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
     var aggregate_pk = defaultAggregatePublicKey();
-    const res = AggregatePublicKey.aggregateSerializedPublicKeys(&aggregate_pk, pks, pks_len, pk_len, pks_validate);
+    const res = AggregatePublicKey.aggregateSerializedPublicKeys(&aggregate_pk, pks[0..pks_len], pk_len, pks_validate);
     aggregateToPublicKey(out, &aggregate_pk);
     return res;
 }
@@ -190,12 +208,17 @@ export fn validateSignature(sig: *const SignatureType, sig_infcheck: bool) c_uin
 }
 
 export fn sigValidate(out: *SignatureType, sig: [*c]const u8, sig_len: usize, sig_infcheck: bool) c_uint {
-    return Signature.sigValidateC(out, sig, sig_len, sig_infcheck);
+    if (sig_len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
+    return Signature.sigValidateC(out, sig[0..sig_len], sig_infcheck);
 }
 
 export fn verifySignature(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, pk: *const PublicKeyType, pk_validate: bool) c_uint {
-    // aug_ptr is null, aug_len is 0
-    return Signature.verifySignature(sig, sig_groupcheck, msg, msg_len, &DST[0], DST.len, null, 0, pk, pk_validate);
+    if (msg_len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
+    return Signature.verifySignature(sig, sig_groupcheck, msg[0..msg_len], DST, null, pk, pk_validate);
 }
 
 export fn aggregateVerify(sig: *const SignatureType, sig_groupcheck: bool, msgs: [*c][*c]const u8, msgs_len: usize, msg_len: usize, pks: [*c]const *PublicKeyType, pks_len: usize, pks_validate: bool) c_uint {
@@ -203,8 +226,12 @@ export fn aggregateVerify(sig: *const SignatureType, sig_groupcheck: bool, msgs:
 }
 
 pub fn doAggregateVerify(allocator: ?Allocator, sig: *const SignatureType, sig_groupcheck: bool, msgs: [*c][*c]const u8, msgs_len: usize, msg_len: usize, pks: [*c]const *PublicKeyType, pks_len: usize, pks_validate: bool) c_uint {
+    if (msgs_len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
+
     const pool = getMemoryPool(allocator) catch return util.MEMORY_POOL_ERROR;
-    return Signature.aggregateVerifyC(sig, sig_groupcheck, msgs, msgs_len, msg_len, &DST[0], DST.len, pks, pks_len, pks_validate, pool);
+    return Signature.aggregateVerifyC(sig, sig_groupcheck, msgs[0..msgs_len], msg_len, DST, pks[0..pks_len], pks_validate, pool);
 }
 
 export fn fastAggregateVerify(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, pks: [*c]*const PublicKeyType, pks_len: usize) c_uint {
@@ -212,8 +239,12 @@ export fn fastAggregateVerify(sig: *const SignatureType, sig_groupcheck: bool, m
 }
 
 pub fn doFastAggregateVerify(allocator: ?Allocator, sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, pks: [*c]*const PublicKeyType, pks_len: usize) c_uint {
+    if (pks_len == 0 or msg_len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
+
     const pool = getMemoryPool(allocator) catch return util.MEMORY_POOL_ERROR;
-    return Signature.fastAggregateVerifyC(sig, sig_groupcheck, msg, msg_len, &DST[0], DST.len, pks, pks_len, pool);
+    return Signature.fastAggregateVerifyC(sig, sig_groupcheck, msg[0..msg_len], DST, pks[0..pks_len], pool);
 }
 
 export fn fastAggregateVerifyPreAggregated(sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, pk: *PublicKeyType) c_uint {
@@ -221,8 +252,12 @@ export fn fastAggregateVerifyPreAggregated(sig: *const SignatureType, sig_groupc
 }
 
 pub fn doFastAggregateVerifyPreAggregated(allocator: ?Allocator, sig: *const SignatureType, sig_groupcheck: bool, msg: [*c]const u8, msg_len: usize, pk: *PublicKeyType) c_uint {
+    if (msg_len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
+
     const pool = getMemoryPool(allocator) catch return util.MEMORY_POOL_ERROR;
-    return Signature.fastAggregateVerifyPreAggregatedC(sig, sig_groupcheck, msg, msg_len, &DST[0], DST.len, pk, pool);
+    return Signature.fastAggregateVerifyPreAggregatedC(sig, sig_groupcheck, msg[0..msg_len], DST, pk, pool);
 }
 
 const RAND_BYTES = 8;
@@ -253,12 +288,13 @@ pub fn doVerifyMultipleAggregateSignatures(allocator: ?Allocator, sets: [*c]*con
     }
     rand_refs_initialized = true;
 
-    if (sets_len > MAX_SIGNATURE_SETS) {
+    if (sets_len == 0 or sets_len > MAX_SIGNATURE_SETS) {
         return c.BLST_BAD_ENCODING;
     }
+
     randBytes(rands[0..(sets_len * 8)]);
     const pool = getMemoryPool(allocator) catch return util.MEMORY_POOL_ERROR;
-    return Signature.verifyMultipleAggregateSignaturesC(sets, sets_len, msg_len, &DST[0], DST.len, pks_validate, sigs_groupcheck, &rand_refs[0], sets_len, RAND_BITS, pool);
+    return Signature.verifyMultipleAggregateSignaturesC(sets[0..sets_len], msg_len, DST, pks_validate, sigs_groupcheck, rand_refs[0..sets_len], RAND_BITS, pool);
 }
 
 export fn signatureFromAggregate(out: *SignatureType, agg_sig: *const AggregateSignatureType) void {
@@ -274,15 +310,22 @@ export fn serializeSignature(out: *u8, point: *const SignatureType) void {
 }
 
 export fn uncompressSignature(out: *SignatureType, sig_comp: [*c]const u8, len: usize) c_uint {
-    return Signature.uncompressSignature(out, sig_comp, len);
+    // validate len inside uncompressSignature
+    return Signature.uncompressSignature(out, sig_comp[0..len]);
 }
 
 export fn deserializeSignature(out: *SignatureType, sig_in: [*c]const u8, len: usize) c_uint {
-    return Signature.deserializeSignature(out, sig_in, len);
+    if (len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
+    return Signature.deserializeSignature(out, sig_in[0..len]);
 }
 
 export fn signatureFromBytes(out: *SignatureType, sig_in: [*c]const u8, len: usize) c_uint {
-    return Signature.signatureFromBytes(out, sig_in, len);
+    if (len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
+    return Signature.signatureFromBytes(out, sig_in[0..len]);
 }
 
 export fn signatureToBytes(out: *u8, point: *SignatureType) void {
@@ -316,14 +359,17 @@ export fn aggregateToSignature(out: *SignatureType, agg_sig: *const AggregateSig
 
 export fn aggregateSignatures(out: *SignatureType, sigs: [*c]*const SignatureType, len: usize, sigs_groupcheck: bool) c_uint {
     var aggregate_sig = defaultAggregateSignature();
-    const res = AggregateSignature.aggregateSignatures(&aggregate_sig, sigs, len, sigs_groupcheck);
+    const res = AggregateSignature.aggregateSignatures(&aggregate_sig, sigs[0..len], sigs_groupcheck);
     aggregateToSignature(out, &aggregate_sig);
     return res;
 }
 
 export fn aggregateSerializedSignatures(out: *SignatureType, sigs: [*c][*c]const u8, sigs_len: usize, sig_len: usize, sigs_groupcheck: bool) c_uint {
+    if (sigs_len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
     var aggregate_sig = defaultAggregateSignature();
-    const res = AggregateSignature.aggregateSerializedC(&aggregate_sig, sigs, sigs_len, sig_len, sigs_groupcheck);
+    const res = AggregateSignature.aggregateSerializedC(&aggregate_sig, sigs[0..sigs_len], sig_len, sigs_groupcheck);
     aggregateToSignature(out, &aggregate_sig);
     return res;
 }
@@ -440,8 +486,11 @@ export fn aggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, sets_
 /// a zig application should pass the allocator to this function
 /// for Bun binding, allocator is null
 pub fn doAggregateWithRandomness(allocator: ?Allocator, sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType) c_uint {
+    if (sets_len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
     const pool = getMemoryPool(allocator) catch return util.MEMORY_POOL_ERROR;
-    const res = SigVariant.aggregateWithRandomnessC(sets, sets_len, pool, pk_out, sig_out, null);
+    const res = SigVariant.aggregateWithRandomnessC(sets[0..sets_len], pool, pk_out, sig_out, null);
     return res;
 }
 
@@ -452,8 +501,11 @@ export fn asyncAggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, 
 /// a zig application should pass the allocator to this function
 /// for Bun binding, allocator is null
 pub fn doAsyncAggregateWithRandomness(allocator: ?Allocator, sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType, callback: CallBackFn) c_uint {
+    if (sets_len == 0) {
+        return c.BLST_BAD_ENCODING;
+    }
     const pool = getMemoryPool(allocator) catch return util.MEMORY_POOL_ERROR;
-    return SigVariant.asyncAggregateWithRandomness(sets, sets_len, pool, pk_out, sig_out, callback);
+    return SigVariant.asyncAggregateWithRandomness(sets[0..sets_len], pool, pk_out, sig_out, callback);
 }
 
 /// a Bun application should call this before using any of the exported functions

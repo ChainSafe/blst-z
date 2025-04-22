@@ -17,6 +17,10 @@ export function verify(
 	pkValidate?: boolean | undefined | null,
 	sigGroupcheck?: boolean | undefined | null
 ): boolean {
+	if (msg.length === 0) {
+		throw new Error("Message cannot be empty");
+	}
+
 	const res = binding.verifySignature(
 		sig.blst_point,
 		sigGroupcheck ?? false,
@@ -89,6 +93,10 @@ export function fastAggregateVerify(
 	sig: Signature,
 	sigsGroupcheck?: boolean | undefined | null
 ): boolean {
+	if (msg.length === 0) {
+		throw new Error("Message cannot be empty");
+	}
+
 	const pksReferences = writePublicKeysReference(pks);
 	const res = binding.fastAggregateVerify(
 		sig.blst_point,

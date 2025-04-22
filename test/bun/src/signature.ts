@@ -21,6 +21,10 @@ export class Signature {
 	 * Called from SecretKey so that we keep the constructor private.
 	 */
 	static sign(msg: Uint8Array, sk: Uint8Array): Signature {
+		if (msg.length === 0) {
+			throw new Error("Message cannot be empty");
+		}
+
 		const buffer = new Uint8Array(SIGNATURE_LENGTH_UNCOMPRESSED);
 		binding.sign(buffer, sk, msg, msg.length);
 		return new Signature(buffer);
