@@ -49,7 +49,7 @@ pub fn build(b: *std.Build) !void {
     // build blst-z shared library
     const sharedLib = b.addSharedLibrary(.{
         .name = "blst_min_pk",
-        .root_source_file = b.path("src/sig_variant_min_pk.zig"),
+        .root_source_file = b.path("src/root_c_abi_min_pk.zig"),
         .target = target,
         .optimize = optimize,
     });
