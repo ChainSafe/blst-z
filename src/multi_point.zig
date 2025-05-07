@@ -33,7 +33,7 @@ pub fn createMultiPoint(comptime IT: type, comptime OT: type, it_default_fn: any
 
             var scalars = [_]u8{0} ** (n_points * n_bytes);
 
-            var rng = std.rand.DefaultPrng.init(12345);
+            var rng = std.Random.DefaultPrng.init(12345);
             rng.random().bytes(scalars[0..]);
 
             var points: [n_points]OT = undefined;
@@ -68,7 +68,7 @@ pub fn createMultiPoint(comptime IT: type, comptime OT: type, it_default_fn: any
             const n_bytes = (n_bits + 7) / 8;
 
             var scalars = [_]u8{0} ** (n_points * n_bytes);
-            var rng = std.rand.DefaultPrng.init(12345);
+            var rng = std.Random.DefaultPrng.init(12345);
             rng.random().bytes(scalars[0..]);
 
             var scalars_refs: [n_points]*const u8 = undefined;

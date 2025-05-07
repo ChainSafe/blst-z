@@ -3,7 +3,7 @@ const Mutex = std.Thread.Mutex;
 const AtomicOrder = std.builtin.AtomicOrder;
 const Allocator = std.mem.Allocator;
 const testing = std.testing;
-const Xoshiro256 = std.rand.Xoshiro256;
+const Xoshiro256 = std.Random.Xoshiro256;
 const P = @import("./pairing.zig").Pairing;
 const PairingError = @import("./pairing.zig").PairingError;
 const spawnTask = @import("./thread_pool.zig").spawnTask;
@@ -26,7 +26,6 @@ const toBlstError = util.toBlstError;
 pub const MAX_SIGNATURE_SETS = 128;
 
 /// ideally I want to have this struct inside test but it does not work
-/// TODO: consider moving to test with zig verion > 0.13
 const Context = struct {
     fn callback(verification_res: c_uint) callconv(.C) void {
         if (Context.mutex) |_mutex| {
@@ -1796,7 +1795,7 @@ pub fn createSigVariant(
             const num_msgs = 10;
             const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
 
-            var rng = std.rand.DefaultPrng.init(12345);
+            var rng = std.Random.DefaultPrng.init(12345);
             var sks = [_]SecretKey{SecretKey.default()} ** num_msgs;
             for (0..num_msgs) |i| {
                 sks[i] = getRandomKey(&rng);
@@ -1908,7 +1907,7 @@ pub fn createSigVariant(
             const num_pks_per_sig = 10;
             const num_sigs = 10;
 
-            var rng = std.rand.DefaultPrng.init(12345);
+            var rng = std.Random.DefaultPrng.init(12345);
 
             var msgs: [num_sigs][]u8 = undefined;
             var sigs: [num_sigs]Signature = undefined;
@@ -2102,7 +2101,7 @@ pub fn createSigVariant(
         }
 
         pub fn testSerialization() !void {
-            var rng = std.rand.DefaultPrng.init(12345);
+            var rng = std.Random.DefaultPrng.init(12345);
             const sk = getRandomKey(&rng);
             const sk2 = getRandomKey(&rng);
 
@@ -2134,7 +2133,7 @@ pub fn createSigVariant(
         }
 
         pub fn testSerde() !void {
-            var rng = std.rand.DefaultPrng.init(12345);
+            var rng = std.Random.DefaultPrng.init(12345);
             const sk = getRandomKey(&rng);
             const pk = sk.skToPk();
             const sig = sk.sign("asdf", "qwer", "zxcv");
@@ -2176,7 +2175,7 @@ pub fn createSigVariant(
             try std.testing.expect(@sizeOf(AggregateSignature) == @sizeOf(sig_type));
 
             // make sure wrapped structs and C structs point to the same memory so that we can safely use @ptrCast
-            var rng = std.rand.DefaultPrng.init(12345);
+            var rng = std.Random.DefaultPrng.init(12345);
             const sk = getRandomKey(&rng);
             const pk = sk.skToPk();
             const pk_addr = @intFromPtr(&pk);
@@ -2422,12 +2421,12 @@ pub fn randBytes(bytes: []u8) void {
     rand.random().bytes(bytes);
 }
 
-var random: ?std.rand.DefaultPrng = null;
+var random: ?std.Random.DefaultPrng = null;
 
-fn getRandom() *std.rand.DefaultPrng {
+fn getRandom() *std.Random.DefaultPrng {
     if (random == null) {
         const timestamp: u64 = @intCast(std.time.milliTimestamp());
-        random = std.rand.DefaultPrng.init(timestamp);
+        random = std.Random.DefaultPrng.init(timestamp);
     }
     return &random.?;
 }
