@@ -906,7 +906,7 @@ pub fn createSigVariant(
 
         /// C-ABI version of verifyMultipleAggregateSignatures() with
         /// - extra msg_len parameter, all messages should have the same length
-        pub fn verifyMultipleAggregateSignaturesC(sets: []*const SignatureSet, msg_len: usize, dst: []const u8, pks_validate: bool, sigs_groupcheck: bool, rands: [][*c]const u8, rand_bits: usize, pool: *MemoryPool) c_uint {
+        pub fn verifyMultipleAggregateSignaturesC(sets: []*const SignatureSet, msg_len: usize, dst: []const u8, pks_validate: bool, sigs_groupcheck: bool, rands: [][]const u8, rand_bits: usize, pool: *MemoryPool) c_uint {
             const sets_len = sets.len;
             const rands_len = rands.len;
             if (sets_len == 0 or rands_len != sets_len) {
@@ -931,7 +931,7 @@ pub fn createSigVariant(
 
             for (0..n_workers) |_| {
                 spawnTaskWg(&wg, struct {
-                    fn run(_sets: []*const SignatureSet, _msg_len: usize, _dst: []const u8, _pks_validate: bool, _sigs_groupcheck: bool, _rands: [][*c]const u8, _rand_bits: usize, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _acc: *Pairing) void {
+                    fn run(_sets: []*const SignatureSet, _msg_len: usize, _dst: []const u8, _pks_validate: bool, _sigs_groupcheck: bool, _rands: [][]const u8, _rand_bits: usize, _pool: *MemoryPool, _atomic_counter: *AtomicCounter, _atomic_valid: *AtomicError, _acc: *Pairing) void {
                         var pairing = Pairing.new(_pool, hash_or_encode, _dst) catch {
                             // .release will publish the value to other threads
                             _atomic_valid.store(BLST_FAILED_PAIRING, AtomicOrder.release);
@@ -954,7 +954,7 @@ pub fn createSigVariant(
                                 break;
                             }
                             const set = _sets[counter];
-                            pairing.mulAndAggregate(set.pk, _pks_validate, set.sig, _sigs_groupcheck, _rands[counter], _rand_bits, set.msg[0.._msg_len], null) catch {
+                            pairing.mulAndAggregate(set.pk, _pks_validate, set.sig, _sigs_groupcheck, &_rands[counter][0], _rand_bits, set.msg[0.._msg_len], null) catch {
                                 // .release will publish the value to other threads
                                 _atomic_valid.store(c.BLST_VERIFY_FAIL, .release);
                                 return;
@@ -1679,12 +1679,12 @@ pub fn createSigVariant(
                 pool.returnSignatureScratch(sig_scratch) catch {};
             }
 
-            var pks_refs: [MAX_SIGNATURE_SETS]*pk_aff_type = undefined;
+            var pks_refs: [MAX_SIGNATURE_SETS]*const pk_aff_type = undefined;
             var sigs = [_]sig_aff_type{default_sig_fn()} ** MAX_SIGNATURE_SETS;
             var sigs_refs: [MAX_SIGNATURE_SETS]*sig_aff_type = undefined;
             var rands: [32 * MAX_SIGNATURE_SETS]u8 = [_]u8{0} ** (32 * MAX_SIGNATURE_SETS);
             randBytes(rands[0..(32 * sets_len)]);
-            var scalars_refs: [MAX_SIGNATURE_SETS]*u8 = undefined;
+            var scalars_refs: [MAX_SIGNATURE_SETS]*const u8 = undefined;
 
             for (0..sets_len) |i| {
                 var set = sets[i];
@@ -1707,7 +1707,7 @@ pub fn createSigVariant(
             AggregatePublicKey.aggregateToPublicKey(pk_out, &mult_pk_res);
 
             var mult_sig_res = default_agg_sig_fn();
-            multSignaturesC(&mult_sig_res, &sigs_refs[0], sets_len, &scalars_refs[0], n_bits, &sig_scratch[0]);
+            multSignaturesC(&mult_sig_res, @ptrCast(&sigs_refs[0]), sets_len, &scalars_refs[0], n_bits, &sig_scratch[0]);
             AggregateSignature.aggregateToSignature(sig_out, &mult_sig_res);
 
             if (callbackFn) |callback| {
@@ -2212,7 +2212,7 @@ pub fn createSigVariant(
             const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
             const num_pks = 10;
 
-            var rng = std.rand.DefaultPrng.init(12345);
+            var rng = std.Random.DefaultPrng.init(12345);
 
             // Create public keys
             var sks = [_]SecretKey{SecretKey.default()} ** num_pks;
@@ -2298,7 +2298,7 @@ pub fn createSigVariant(
             const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
             const num_pks = 10;
 
-            var rng = std.rand.DefaultPrng.init(12345);
+            var rng = std.Random.DefaultPrng.init(12345);
 
             // Create public keys
             var sks = [_]SecretKey{SecretKey.default()} ** num_pks;
