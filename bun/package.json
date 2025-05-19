@@ -21,7 +21,7 @@
 	"scripts": {
     "build": "bun ./node_modules/.bin/bun-ffi-z build",
 		"prepublishOnly": "bun ./node_modules/.bin/bun-ffi-z prepublish --artifacts artifacts",
-		"publish": "bun ./node_modules/.bin/bun-ffi-z publish",
+		"publish": "bun ./node_modules/.bin/bun-ffi-z publish --dry-run",
 		"test:unit": "bun test test/unit",
 		"lint": "biome check",
 		"lint:fix": "yarn lint --write",

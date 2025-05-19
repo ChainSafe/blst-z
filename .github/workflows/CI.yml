@@ -248,13 +248,13 @@ jobs:
       - bun-linux-arm64-musl
       - bun-darwin
     steps:
-      - name: Opening Release PR
-        if: github.ref == 'refs/heads/main'
-        uses: googleapis/release-please-action@v4
-        id: release
-        with:
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
+      # - name: Opening Release PR
+      #   if: github.ref == 'refs/heads/main'
+      #   uses: googleapis/release-please-action@v4
+      #   id: release
+      #   with:
+      #     config-file: release-please-config.json
+      #     manifest-file: .release-please-manifest.json
       - name: Checkout Repository
         uses: actions/checkout@v4
       - name: Install Bun
@@ -262,27 +262,27 @@ jobs:
         with:
           version: 1.2.13
       - name: Bun - Install Dependencies
-        if: ${{ steps.release.outputs.release_created }}
+        # if: ${{ steps.release.outputs.release_created }}
         run: bun install
         working-directory: ./bun
       - name: Download all artifacts
-        if: ${{ steps.release.outputs.release_created }}
+        # if: ${{ steps.release.outputs.release_created }}
         uses: actions/download-artifact@v4
         with:
           path: bun/artifacts
       - name: List artifacts
-        if: ${{ steps.release.outputs.release_created }}
+        # if: ${{ steps.release.outputs.release_created }}
         run: ls -R ./bun/artifacts
         shell: bash
       - name: Create targetPackages
-        if: ${{ steps.release.outputs.release_created }}
+        # if: ${{ steps.release.outputs.release_created }}
         run: bun run prepublishOnly
         working-directory: ./bun
       - name: List targetPackages
-        if: ${{ steps.release.outputs.release_created }}
+        # if: ${{ steps.release.outputs.release_created }}
         run: ls -R ./bun/targetPackages
         shell: bash
       - name: Publish
-        if: ${{ steps.release.outputs.release_created }}
+        # if: ${{ steps.release.outputs.release_created }}
         run: bun run publish
         working-directory: ./bun
