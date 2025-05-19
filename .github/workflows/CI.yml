@@ -286,3 +286,12 @@ jobs:
         # if: ${{ steps.release.outputs.release_created }}
         run: bun run publish
         working-directory: ./bun
+      - name: Package targetPackages
+        run: |
+          zip -r targetPackages.zip targetPackages
+        working-directory: ./bun
+      - name: Upload targetPackages.zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: targetPackages
+          path: ./bun/targetPackages.zip
