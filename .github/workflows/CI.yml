@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  zig-build-test:
+  zig-build-upload:
     strategy:
       matrix:
         settings:
