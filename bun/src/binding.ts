@@ -1,11 +1,9 @@
-import {dlopen, ptr} from "bun:ffi";
-import {getBinaryName, getPrebuiltBinaryPath} from "../utils/index.js";
-
-const binaryName = getBinaryName();
-const binaryPath = getPrebuiltBinaryPath(binaryName);
+import {ptr} from "bun:ffi";
+import path from "node:path";
+import {openLibrary} from "@chainsafe/bun-ffi-z";
 
 // Load the compiled Zig shared library
-const lib = dlopen(binaryPath, {
+const fns = {
 	// PublicKey functions
 	validatePublicKey: {
 		args: ["ptr"],
@@ -145,8 +143,13 @@ const lib = dlopen(binaryPath, {
 		args: [],
 		returns: "void",
 	},
-});
+};
 
+// Load the compiled Zig shared library
+// the first param is bun's cwd
+//   - on dev env it's the cwd which is `./bun`
+//   - on prod env it does not matter because bun-ffi-z will load platfrom-specific package like @chainsafe/state-transition-bun-linux-x64-gnu/libstate-transition-utils.so instead
+const lib = await openLibrary(path.join(import.meta.dirname, ".."), fns);
 export const binding = lib.symbols;
 
 /**
@@ -157,8 +160,9 @@ if (res !== 0) {
 	throw new Error("Failed to initialize Zig binding");
 }
 
-// console.log("@@@@ Zig binding initialized");
-
+/**
+ * Call this api to close the binding.
+ */
 export function closeBinding(): void {
 	binding.deinit();
 	lib.close();
