@@ -4,7 +4,7 @@
     "": {
       "name": "blst-bun",
       "dependencies": {
-        "@chainsafe/bun-ffi-z": "https://github.com/ChainSafe/bun-ffi-z.git",
+        "@chainsafe/bun-ffi-z": "^v1.0.0",
       },
       "devDependencies": {
         "@biomejs/biome": "^1.9.3",
@@ -83,7 +83,7 @@
 
     "@chainsafe/benchmark": ["@chainsafe/benchmark@1.2.3", "", { "dependencies": { "@actions/cache": "^4.0.0", "@actions/github": "^6.0.0", "@vitest/runner": "^2.1.8", "ajv": "^8.17.1", "aws-sdk": "^2.932.0", "cli-table3": "^0.6.5", "csv-parse": "^5.6.0", "csv-stringify": "^6.5.2", "debug": "^4.4.0", "glob": "^10.4.5", "log-symbols": "^7.0.0", "yaml": "^2.7.0", "yargs": "^17.7.2" }, "bin": { "benchmark": "bin/index.js" } }, "sha512-5rQKK2ar1k8DwqEMU5hTQlTrtrPzNdlfrMtbRgtrfYT/QpSADXGq1vBlywofY1D8HuEuv1LhRrn3p2rgibIXew=="],
 
-    "@chainsafe/bun-ffi-z": ["@chainsafe/bun-ffi-z@github:ChainSafe/bun-ffi-z#81b828f", { "peerDependencies": { "typescript": "^5" }, "bin": { "bun-ffi-z": "src/cli.ts" } }, "ChainSafe-bun-ffi-z-81b828f"],
+    "@chainsafe/bun-ffi-z": ["@chainsafe/bun-ffi-z@1.0.0", "", { "peerDependencies": { "typescript": "^5" }, "bin": { "bun-ffi-z": "src/cli.ts" } }, "sha512-IRQrGWvDVSWQOcNYPZqPeqMN8qRotad/84RHSxQ8xzIuhVhkpUp2lx4VeD92Tnkcwbp5Gr+tUT4Lb47nbIe1Xg=="],
 
     "@colors/colors": ["@colors/colors@1.5.0", "", {}, "sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ=="],
 
