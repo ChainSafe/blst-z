@@ -97,10 +97,6 @@ const CallBackFn = SigVariant.getCallBackFn();
 const MemoryPool = SigVariant.getMemoryPoolType();
 
 /// PublicKey functions
-export fn defaultPublicKey() PublicKeyType {
-    return PublicKey.defaultPublicKey();
-}
-
 export fn validatePublicKey(pk: *const PublicKeyType) c_uint {
     return PublicKey.validatePublicKey(pk);
 }
@@ -154,10 +150,6 @@ export fn isPublicKeyEqual(point: *PublicKeyType, other: *PublicKeyType) bool {
 }
 
 /// AggregatePublicKeyType functions
-export fn defaultAggregatePublicKey() AggregatePublicKeyType {
-    return AggregatePublicKey.defaultAggregatePublicKey();
-}
-
 export fn aggregateFromPublicKey(out: *AggregatePublicKeyType, pk: *const PublicKeyType) void {
     return AggregatePublicKey.aggregateFromPublicKey(out, pk);
 }
@@ -170,7 +162,7 @@ export fn aggregatePublicKeys(out: *PublicKeyType, pks: [*c]*const PublicKeyType
     if (len == 0) {
         return c.BLST_BAD_ENCODING;
     }
-    var aggregate_pk = defaultAggregatePublicKey();
+    var aggregate_pk = AggregatePublicKey.defaultAggregatePublicKey();
     const res = AggregatePublicKey.aggregatePublicKeys(&aggregate_pk, pks[0..len], pks_validate);
     aggregateToPublicKey(out, &aggregate_pk);
     return res;
@@ -180,7 +172,7 @@ export fn aggregateSerializedPublicKeys(out: *PublicKeyType, pks: [*c][*c]const 
     if (pks_len == 0) {
         return c.BLST_BAD_ENCODING;
     }
-    var aggregate_pk = defaultAggregatePublicKey();
+    var aggregate_pk = AggregatePublicKey.defaultAggregatePublicKey();
     const res = AggregatePublicKey.aggregateSerializedPublicKeys(&aggregate_pk, pks[0..pks_len], pk_len, pks_validate);
     aggregateToPublicKey(out, &aggregate_pk);
     return res;
@@ -199,10 +191,6 @@ export fn isAggregatePublicKeyEqual(agg_pk: *const AggregatePublicKeyType, other
 }
 
 /// Signature functions
-export fn defaultSignature() SignatureType {
-    return Signature.defaultSignature();
-}
-
 export fn validateSignature(sig: *const SignatureType, sig_infcheck: bool) c_uint {
     return Signature.validateSignature(sig, sig_infcheck);
 }
@@ -329,10 +317,6 @@ export fn isSignatureEqual(point: *const SignatureType, other: *const SignatureT
 }
 
 /// AggregateSignatureType functions
-export fn defaultAggregateSignature() AggregateSignatureType {
-    return AggregateSignature.defaultAggregateSignature();
-}
-
 export fn validateAggregateSignature(point: *const AggregateSignatureType) c_uint {
     return AggregateSignature.validateAggregateSignature(point);
 }
@@ -346,7 +330,7 @@ export fn aggregateToSignature(out: *SignatureType, agg_sig: *const AggregateSig
 }
 
 export fn aggregateSignatures(out: *SignatureType, sigs: [*c]*const SignatureType, len: usize, sigs_groupcheck: bool) c_uint {
-    var aggregate_sig = defaultAggregateSignature();
+    var aggregate_sig = AggregateSignature.defaultAggregateSignature();
     const res = AggregateSignature.aggregateSignatures(&aggregate_sig, sigs[0..len], sigs_groupcheck);
     aggregateToSignature(out, &aggregate_sig);
     return res;
@@ -356,7 +340,7 @@ export fn aggregateSerializedSignatures(out: *SignatureType, sigs: [*c][*c]const
     if (sigs_len == 0) {
         return c.BLST_BAD_ENCODING;
     }
-    var aggregate_sig = defaultAggregateSignature();
+    var aggregate_sig = AggregateSignature.defaultAggregateSignature();
     const res = AggregateSignature.aggregateSerializedC(&aggregate_sig, sigs[0..sigs_len], sig_len, sigs_groupcheck);
     aggregateToSignature(out, &aggregate_sig);
     return res;
@@ -379,10 +363,6 @@ export fn isAggregateSignatureEqual(point: *const AggregateSignatureType, other:
 }
 
 // SecretKeyType functions
-export fn defaultSecretKey() SecretKeyType {
-    return SecretKey.defaultSecretKey();
-}
-
 export fn secretKeyGen(out: *SecretKeyType, ikm: [*c]const u8, ikm_len: usize, key_info: [*c]const u8, key_info_len: usize) c_uint {
     return SecretKey.secretKeyGen(out, ikm, ikm_len, key_info, key_info_len);
 }
@@ -482,6 +462,7 @@ pub fn doAggregateWithRandomness(allocator: ?Allocator, sets: [*c]*const PkAndSe
     return res;
 }
 
+// bun-ffi-z: asyncAggregateWithRandomness (ptr, u32, ptr, ptr, callback) u32
 export fn asyncAggregateWithRandomness(sets: [*c]*const PkAndSerializedSigType, sets_len: c_uint, pk_out: *PublicKeyType, sig_out: *SignatureType, callback: CallBackFn) c_uint {
     return doAsyncAggregateWithRandomness(null, sets, sets_len, pk_out, sig_out, callback);
 }
@@ -574,15 +555,15 @@ test "test_aggregate_with_randomness" {
 test "verify_multipleaggregatesignatures" {
     // sanity test for verifyMultipleAggregateSignatures, we already test verifyMultipleAggregateSignaturesC inside sig_variant
     const msg0 = [_]u8{0} ** 32;
-    var sk0 = defaultSecretKey();
+    var sk0 = SecretKey.defaultSecretKey();
     var ikm = [_]u8{0} ** 32;
     var res = secretKeyGen(&sk0, &ikm[0], ikm.len, null, 0);
     try std.testing.expect(res == 0);
 
-    var pk0 = defaultPublicKey();
+    var pk0 = PublicKey.defaultPublicKey();
     secretKeyToPublicKey(&pk0, &sk0);
 
-    var sig0 = defaultSignature();
+    var sig0 = Signature.defaultSignature();
     sign(&sig0, &sk0, &msg0[0], msg0.len);
 
     const set: SignatureSetType = .{

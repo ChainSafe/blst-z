@@ -1,8 +1,11 @@
 import {JSCallback} from "bun:ffi";
-import {binding, writeNumber, writeReference} from "./binding.js";
+import {binding} from "./binding.js";
 import {MAX_AGGREGATE_WITH_RANDOMNESS_PER_JOB} from "./const.js";
 import {PublicKey} from "./publicKey.js";
 import {Signature} from "./signature.js";
+import {initBinding, writeNumber, writeReference} from "./util.js";
+
+initBinding();
 
 export interface PkAndSerializedSig {
 	pk: PublicKey;
