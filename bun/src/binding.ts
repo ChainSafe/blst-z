@@ -1,4 +1,3 @@
-import {ptr} from "bun:ffi";
 import path from "node:path";
 import {openLibrary} from "@chainsafe/bun-ffi-z";
 
@@ -151,69 +150,4 @@ const fns = {
 //   - on prod env it does not matter because bun-ffi-z will load platfrom-specific package like @chainsafe/blst-bun-linux-x64-gnu/libblst_min_pk.so instead
 const lib = await openLibrary(path.join(import.meta.dirname, ".."), fns);
 export const binding = lib.symbols;
-
-/**
- * Initialize the Zig binding
- */
-const res = binding.init();
-if (res !== 0) {
-	throw new Error("Failed to initialize Zig binding");
-}
-
-/**
- * Call this api to close the binding.
- */
-export function closeBinding(): void {
-	binding.deinit();
-	lib.close();
-}
-
-/**
- * Write reference of a data to the provided Uint32Array at offset
- * TODO: may accept data + offset and compute pointer from the parent typed array. This will help to avoid `subarray()` calls.
- */
-export function writeReference(data: Uint8Array | Uint32Array, out: Uint32Array, offset: number): void {
-	// 2 items of uint32 means 8 of uint8
-	if (offset + 2 > out.length) {
-		throw new Error("Output buffer must be at least 8 bytes long");
-	}
-
-	const pointer = ptr(data);
-
-	writeNumber(pointer, out, offset);
-}
-
-/**
- * Write a number to "usize" in Zig, which takes 8 bytes
- */
-export function writeNumber(data: number, out: Uint32Array, offset: number): void {
-	if (offset + 2 > out.length) {
-		throw new Error("Output buffer must be at least 8 bytes long");
-	}
-
-	// TODO: check endianess, this is for little endian
-	out[offset] = data & 0xffffffff;
-	out[offset + 1] = Math.floor(data / Math.pow(2, 32));
-}
-
-/**
- * Common util to map Uint8Array[] to `[*c][*c]const u8` in Zig
- */
-export function writeUint8ArrayArray(data: Uint8Array[], maxItem: number, tag: string, out: Uint32Array): void {
-	if (data.length > maxItem) {
-		throw new Error(`Too many ${tag}s, max is ${maxItem}`);
-	}
-
-	if (out.length < data.length * 2) {
-		throw new Error(`Output buffer must be at least double data size. out: ${out.length}, data: ${data.length}`);
-	}
-
-	const pkLength = data[0].length;
-
-	for (let i = 0; i < data.length; i++) {
-		if (data[i].length !== pkLength) {
-			throw new Error(`All ${tag}s must be the same length`);
-		}
-		writeReference(data[i], out, i * 2);
-	}
-}
+export const close = lib.close;

@@ -1,7 +1,10 @@
-import {binding, writeUint8ArrayArray} from "./binding.js";
+import {binding} from "./binding.js";
 import {MAX_AGGREGATE_PER_JOB} from "./const.js";
 import {PublicKey, writePublicKeysReference} from "./publicKey.js";
 import {Signature, writeSignaturesReference} from "./signature.js";
+import {initBinding, writeUint8ArrayArray} from "./util.js";
+
+initBinding();
 
 // global public keys reference to be reused across multiple calls
 // each 2 items are 8 bytes, store the reference of each public key

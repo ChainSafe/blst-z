@@ -1,6 +1,9 @@
-import {binding, writeReference} from "./binding.js";
+import {binding} from "./binding.js";
 import {BLST_SUCCESS, SIGNATURE_LENGTH_COMPRESSED, SIGNATURE_LENGTH_UNCOMPRESSED} from "./const.js";
 import {fromHex, toError, toHex} from "./util.js";
+import {initBinding, writeReference} from "./util.ts";
+
+initBinding();
 
 export class Signature {
 	// this is mapped directly to `*const SignatureType` in Zig

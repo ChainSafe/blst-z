@@ -2,7 +2,9 @@ import {binding} from "./binding.js";
 import {BLST_SUCCESS, SECRET_KEY_LENGTH} from "./const.js";
 import {PublicKey} from "./publicKey.js";
 import {Signature} from "./signature.js";
-import {fromHex, toError, toHex} from "./util.js";
+import {fromHex, initBinding, toError, toHex} from "./util.js";
+
+initBinding();
 
 export class SecretKey {
 	private blst_point: Uint8Array;

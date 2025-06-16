@@ -1,6 +1,9 @@
-import {binding, writeReference} from "./binding.ts";
+import {binding} from "./binding.ts";
 import {BLST_SUCCESS, PUBLIC_KEY_LENGTH_COMPRESSED, PUBLIC_KEY_LENGTH_UNCOMPRESSED} from "./const.ts";
 import {fromHex, toError, toHex} from "./util.ts";
+import {initBinding, writeReference} from "./util.ts";
+
+initBinding();
 
 export class PublicKey {
 	// this is mapped directly to `*const PublicKeyType` in Zig

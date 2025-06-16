@@ -1,8 +1,10 @@
-import {binding, writeReference} from "./binding.js";
+import {binding} from "./binding.js";
 import {MAX_SIGNATURE_SETS_PER_JOB} from "./const.js";
 import type {PublicKey} from "./publicKey.js";
 import type {Signature} from "./signature.js";
-import {pairing} from "./util.js";
+import {initBinding, writeReference} from "./util.ts";
+
+initBinding();
 
 export interface SignatureSet {
 	msg: Uint8Array;
