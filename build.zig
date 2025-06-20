@@ -30,6 +30,13 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
+    const module_blst = b.createModule(.{
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    b.modules.put(b.dupe("blst"), module_blst) catch @panic("OOM");
+
     // passed by "zig build -Dportable=true"
     const portable = b.option(bool, "portable", "Enable portable implementation") orelse false;
     // passed by "zig build -Dforce-adx=true"
