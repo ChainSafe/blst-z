@@ -30,12 +30,19 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
-    const module_blst = b.createModule(.{
-        .root_source_file = b.path("src/root.zig"),
+    const module_blst_min_pk = b.createModule(.{
+        .root_source_file = b.path("src/root_min_pk.zig"),
         .target = target,
         .optimize = optimize,
     });
-    b.modules.put(b.dupe("blst"), module_blst) catch @panic("OOM");
+    b.modules.put(b.dupe("blst_min_pk"), module_blst_min_pk) catch @panic("OOM");
+
+    const module_blst_min_sig = b.createModule(.{
+        .root_source_file = b.path("src/root_min_sig.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    b.modules.put(b.dupe("blst_min_sig"), module_blst_min_sig) catch @panic("OOM");
 
     // passed by "zig build -Dportable=true"
     const portable = b.option(bool, "portable", "Enable portable implementation") orelse false;
