@@ -33,19 +33,11 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive # Ensures submodules are cloned
-          fetch-depth: 0        # Fetches the entire history for all branches
 
       - name: Print OS ${{ matrix.settings.os }}
         run: uname -a
       - name: Print Architecture ${{ matrix.settings.arch }}
         run: uname -m
-
-      - name: Verify Submodules
-        run: |
-          git submodule update --init --recursive
-          ls -la blst
 
       - name: Install Zig
         uses: mlugg/setup-zig@v1
