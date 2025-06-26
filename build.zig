@@ -18,9 +18,11 @@ pub fn build(b: *std.Build) !void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    const blst_dep = b.dependency("blst", .{ .target = target, .optimize = optimize });
+
     // build blst-z static library
     const staticLib = b.addStaticLibrary(.{
-        .name = "blst",
+        .name = "blst-z",
         // In this case the main source file is merely a path, however, in more
         // complicated build scripts, this could be a generated file.
         .root_source_file = b.path("src/root.zig"),
@@ -36,10 +38,10 @@ pub fn build(b: *std.Build) !void {
     // blst does not need libc, however we need to link it to enable threading
     // see https://github.com/ChainSafe/blst-bun/issues/4
     staticLib.linkLibC();
-    try withBlst(b, staticLib, target, false, portable, force_adx);
+    try withBlst(blst_dep, staticLib, target, false, portable, force_adx);
 
     // the folder where blst.h is located
-    staticLib.addIncludePath(b.path("blst/bindings"));
+    staticLib.addIncludePath(blst_dep.path("bindings"));
 
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
@@ -57,8 +59,8 @@ pub fn build(b: *std.Build) !void {
     // blst does not need libc, however we need to link it to enable threading
     // see https://github.com/ChainSafe/blst-bun/issues/4
     sharedLib.linkLibC();
-    try withBlst(b, sharedLib, target, true, portable, force_adx);
-    sharedLib.addIncludePath(b.path("blst/bindings"));
+    try withBlst(blst_dep, sharedLib, target, true, portable, force_adx);
+    sharedLib.addIncludePath(blst_dep.path("bindings"));
     b.installArtifact(sharedLib);
 
     const exe = b.addExecutable(.{
@@ -105,7 +107,7 @@ pub fn build(b: *std.Build) !void {
     });
 
     lib_unit_tests.linkLibrary(staticLib);
-    lib_unit_tests.addIncludePath(b.path("blst/bindings"));
+    lib_unit_tests.addIncludePath(blst_dep.path("bindings"));
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 
@@ -129,7 +131,7 @@ pub fn build(b: *std.Build) !void {
 /// and zig will handle a mixture of C, assembly and Zig code
 /// reference to https://github.com/supranational/blst/blob/v0.3.13/bindings/rust/build.rs
 /// TODO: port all missing flows from the Rust build script
-fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, is_shared_lib: bool, portable: bool, force_adx: bool) !void {
+fn withBlst(blst_dep: *std.Build.Dependency, blst_z_lib: *Compile, target: ResolvedTarget, is_shared_lib: bool, portable: bool, force_adx: bool) !void {
     // add later, once we have cflags
     const arch = target.result.cpu.arch;
 
@@ -182,8 +184,8 @@ fn withBlst(b: *std.Build, blst_z_lib: *Compile, target: ResolvedTarget, is_shar
         try cflags.append("-fPIC");
     }
 
-    blst_z_lib.addCSourceFile(.{ .file = b.path("blst/src/server.c"), .flags = cflags.items });
-    blst_z_lib.addCSourceFile(.{ .file = b.path("blst/build/assembly.S"), .flags = cflags.items });
+    blst_z_lib.addCSourceFile(.{ .file = blst_dep.path("src/server.c"), .flags = cflags.items });
+    blst_z_lib.addCSourceFile(.{ .file = blst_dep.path("build/assembly.S"), .flags = cflags.items });
 
     // TODO: we may not need this since we linkLibC() above
     const os = target.result.os;
