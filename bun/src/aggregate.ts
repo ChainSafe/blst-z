@@ -1,4 +1,4 @@
-import {binding, writeUint8ArrayArray} from "./binding.js";
+import {binding} from "./binding.js";
 import {MAX_AGGREGATE_PER_JOB} from "./const.js";
 import {PublicKey, writePublicKeysReference} from "./publicKey.js";
 import {Signature, writeSignaturesReference} from "./signature.js";
@@ -25,7 +25,7 @@ export function aggregatePublicKeys(pks: Array<PublicKey>, pksValidate?: boolean
 		const pksBatch = pks.slice(i, Math.min(pks.length, i + MAX_AGGREGATE_PER_JOB));
 		const pksRef = writePublicKeysReference(pksBatch);
 		const outPk = PublicKey.defaultPublicKey();
-		const res = binding.aggregatePublicKeys(outPk.blst_point, pksRef, pksBatch.length, pksValidate ?? false);
+		const res = binding.aggregatePublicKeys(outPk.ptr, pksRef, pksBatch.length, pksValidate ?? false);
 
 		if (res !== 0) {
 			throw new Error(`Failed to aggregate public keys: ${res}`);
@@ -52,7 +52,7 @@ export function aggregateSignatures(sigs: Array<Signature>, sigsGroupcheck?: boo
 		const sigsBatch = sigs.slice(i, Math.min(sigs.length, i + MAX_AGGREGATE_PER_JOB));
 		const sigsRef = writeSignaturesReference(sigsBatch);
 		const outSig = Signature.defaultSignature();
-		const res = binding.aggregateSignatures(outSig.blst_point, sigsRef, sigsBatch.length, sigsGroupcheck ?? false);
+		const res = binding.aggregateSignatures(outSig.ptr, sigsRef, sigsBatch.length, sigsGroupcheck ?? false);
 
 		if (res !== 0) {
 			throw new Error(`Failed to aggregate signatures: ${res}`);
@@ -83,7 +83,7 @@ export function aggregateSerializedPublicKeys(
 		const pksRef = writeSerializedPublicKeysReference(pksBatch);
 		const outPk = PublicKey.defaultPublicKey();
 		const res = binding.aggregateSerializedPublicKeys(
-			outPk.blst_point,
+			outPk.ptr,
 			pksRef,
 			pksBatch.length,
 			pks[0].length,
@@ -119,7 +119,7 @@ export function aggregateSerializedSignatures(
 		const sigsRef = writeSerializedSignaturesReference(sigsBatch);
 		const outSig = Signature.defaultSignature();
 		const res = binding.aggregateSerializedSignatures(
-			outSig.blst_point,
+			outSig.ptr,
 			sigsRef,
 			sigsBatch.length,
 			sigs[0].length,

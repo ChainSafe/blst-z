@@ -1,27 +1,8 @@
 const std = @import("std");
 const testing = std.testing;
-pub const min_pk_sig_variant = @import("./root_c_abi_min_pk.zig");
-pub const min_sig_sig_variant = @import("./root_c_abi_min_sig.zig");
-pub const createMemoryPool = @import("./memory_pool.zig").createMemoryPool;
-pub const initializeThreadPool = @import("./thread_pool.zig").initializeThreadPool;
 
-pub const min_pk = struct {
-    pub const PublicKey = min_pk_sig_variant.PublicKey;
-    pub const AggregatePublicKey = min_pk_sig_variant.AggregatePublicKey;
-    pub const Signature = min_pk_sig_variant.Signature;
-    pub const AggregateSignature = min_pk_sig_variant.AggregateSignature;
-    pub const SecretKey = min_pk_sig_variant.SecretKey;
-    pub const aggregateWithRandomness = min_pk_sig_variant.aggregateWithRandomness;
-};
-
-pub const min_sig = struct {
-    pub const PublicKey = min_sig_sig_variant.PublicKey;
-    pub const AggregatePublicKey = min_sig_sig_variant.AggregatePublicKey;
-    pub const Signature = min_sig_sig_variant.Signature;
-    pub const AggregateSignature = min_sig_sig_variant.AggregateSignature;
-    pub const SecretKey = min_sig_sig_variant.SecretKey;
-    pub const aggregateWithRandomness = min_sig_sig_variant.aggregateWithRandomness;
-};
+pub const min_pk = @import("min_pk.zig");
+pub const min_sig = @import("min_sig.zig");
 
 test {
     testing.refAllDecls(@This());
@@ -36,14 +17,21 @@ test "test_sign_n_verify" {
         0x60, 0x5b, 0xb0, 0x56, 0xed, 0xfe, 0x2b, 0x60, 0xa6, 0x3c,
         0x48, 0x99,
     };
-    const sk = try SecretKey.keyGen(ikm[0..], null);
-    const pk = sk.skToPk();
+    const sk = try SecretKey.keyGen(&ikm, null);
+    const pk = sk.toPk();
 
     const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
     const msg = "hello foo";
     // aug is null
-    const sig = sk.sign(msg[0..], dst[0..], null);
+    const sig = sk.sign(msg, dst, null);
 
     // aug is null
-    try sig.verify(true, msg[0..], dst[0..], null, &pk, true);
+    try sig.verify(
+        true,
+        msg,
+        dst,
+        null,
+        &pk,
+        true,
+    );
 }

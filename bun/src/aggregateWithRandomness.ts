@@ -38,7 +38,7 @@ export function aggregateWithRandomness(sets: Array<PkAndSerializedSig>): PkAndS
 	const pkOut = PublicKey.defaultPublicKey();
 	const sigOut = Signature.defaultSignature();
 
-	const res = binding.aggregateWithRandomness(refs, sets.length, pkOut.blst_point, sigOut.blst_point);
+	const res = binding.aggregateWithRandomness(refs, sets.length, pkOut.ptr, sigOut.ptr);
 
 	if (res !== 0) {
 		throw new Error("Failed to aggregate with randomness res = " + res);
@@ -114,8 +114,8 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 		const res = binding.asyncAggregateWithRandomness(
 			refs,
 			sets.length,
-			pkOut.blst_point,
-			sigOut.blst_point,
+			pkOut.ptr,
+			sigOut.ptr,
 			// it's noted in bun:ffi doc that using JSCallback.prototype.ptr is faster than JSCallback object
 			jscallback.ptr
 		);

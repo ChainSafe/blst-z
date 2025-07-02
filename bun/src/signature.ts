@@ -1,33 +1,16 @@
-import {binding, writeReference} from "./binding.js";
-import {BLST_SUCCESS, SIGNATURE_LENGTH_COMPRESSED, SIGNATURE_LENGTH_UNCOMPRESSED} from "./const.js";
-import {fromHex, toError, toHex} from "./util.js";
+import type {Pointer} from "bun:ffi";
+import {binding} from "./binding.js";
+import {SIGNATURE_COMPRESS_SIZE, SIGNATURE_SIZE} from "./const.js";
+import {assertSuccess, fromHex, toHex} from "./util.js";
+import type { PublicKey } from "./publicKey.js";
+import { msgsU8, pksU8, writeMessages, writePublicKeys } from "./buffer.js";
 
 export class Signature {
-	// this is mapped directly to `*const SignatureType` in Zig
-	blst_point: Uint8Array;
-	private constructor(buffer: Uint8Array) {
-		this.blst_point = buffer;
-	}
+	// this is mapped directly to `*const Signature` in Zig
+	ptr: Uint8Array | Pointer;
 
-	/**
-	 * Supposed to be used to mutate the signature after this call
-	 */
-	static defaultSignature(): Signature {
-		const buffer = new Uint8Array(SIGNATURE_LENGTH_UNCOMPRESSED);
-		return new Signature(buffer);
-	}
-
-	/**
-	 * Called from SecretKey so that we keep the constructor private.
-	 */
-	static sign(msg: Uint8Array, sk: Uint8Array): Signature {
-		if (msg.length === 0) {
-			throw new Error("Message cannot be empty");
-		}
-
-		const buffer = new Uint8Array(SIGNATURE_LENGTH_UNCOMPRESSED);
-		binding.sign(buffer, sk, msg, msg.length);
-		return new Signature(buffer);
+	constructor(ptr: Uint8Array | Pointer) {
+		this.ptr = ptr;
 	}
 
 	/**
@@ -42,16 +25,15 @@ export class Signature {
 		sigValidate?: boolean | undefined | null,
 		sigInfcheck?: boolean | undefined | null
 	): Signature {
-		const buffer = new Uint8Array(SIGNATURE_LENGTH_UNCOMPRESSED);
-		let res = 0;
-		if (sigValidate) {
-			res = binding.sigValidate(buffer, bytes, bytes.length, sigInfcheck ?? true);
-		} else {
-			res = binding.signatureFromBytes(buffer, bytes, bytes.length);
-		}
+		const buffer = new Uint8Array(SIGNATURE_SIZE);
+		assertSuccess(
+			binding.signatureFromBytes(buffer, bytes, bytes.length)
+		);
 
-		if (res !== BLST_SUCCESS) {
-			throw toError(res);
+		if (sigValidate) {
+			assertSuccess(
+				binding.signatureValidate(buffer, sigInfcheck ?? true)
+			);
 		}
 
 		return new Signature(buffer);
@@ -74,23 +56,15 @@ export class Signature {
 	}
 
 	/** Serialize a signature to a byte array. */
-	toBytes(inCompress?: boolean | undefined | null): Uint8Array {
-		// this is the same to Rust binding
-		const compress = inCompress ?? true;
-		if (compress) {
-			const out = new Uint8Array(SIGNATURE_LENGTH_COMPRESSED);
-			binding.signatureToBytes(out, this.blst_point);
-			return out;
-		}
-
-		const out = new Uint8Array(SIGNATURE_LENGTH_UNCOMPRESSED);
-		binding.serializeSignature(out, this.blst_point);
+	toBytes(): Uint8Array {
+		const out = new Uint8Array(SIGNATURE_COMPRESS_SIZE);
+		binding.signatureToBytes(out, this.ptr);
 		return out;
 	}
 
 	/** Serialize a signature to a hex string. */
-	toHex(compress?: boolean | undefined | null): string {
-		const bytes = this.toBytes(compress);
+	toHex(): string {
+		const bytes = this.toBytes();
 		return toHex(bytes);
 	}
 
@@ -100,33 +74,105 @@ export class Signature {
 	 * If `sig_infcheck` is `false`, the infinity check will be skipped.
 	 */
 	sigValidate(sigInfcheck?: boolean | undefined | null): void {
-		const res = binding.validateSignature(this.blst_point, sigInfcheck ?? true);
-		if (res !== BLST_SUCCESS) {
-			throw toError(res);
+		assertSuccess(
+			binding.signatureValidate(this.ptr, sigInfcheck ?? true)
+		);
+	}
+
+	/**
+	 * Verify a signature against a message and public key.
+	 *
+	 * If `pk_validate` is `true`, the public key will be infinity and group checked.
+	 *
+	 * If `sig_groupcheck` is `true`, the signature will be group checked.
+	 */
+	verify(
+		msg: Uint8Array,
+		pk: PublicKey,
+		pkValidate?: boolean | undefined | null,
+		sigGroupcheck?: boolean | undefined | null
+	): boolean {
+		if (msg.length === 0) {
+			throw new Error("Message cannot be empty");
 		}
+
+		const res = binding.signatureVerify(
+			this.ptr,
+			sigGroupcheck ?? false,
+			msg,
+			msg.length,
+			pk.ptr,
+			pkValidate ?? false
+		);
+		return res === 0;
 	}
 
-	/** Write reference of `blst_point` to the provided Uint32Array */
-	writeReference(out: Uint32Array, offset: number): void {
-		writeReference(this.blst_point, out, offset);
+	/**
+	 * Verify an aggregated signature against a single message and multiple public keys.
+	 *
+	 * Proof-of-possession is required for public keys.
+	 *
+	 * If `sigs_groupcheck` is `true`, the signatures will be group checked.
+	 */
+	fastAggregateVerify(
+		msg: Uint8Array,
+		pks: PublicKey[],
+		sigsGroupcheck?: boolean | undefined | null
+	): boolean {
+		if (msg.length !== 32) {
+			throw new Error("Message must be 32 bytes long");
+		}
+
+		writePublicKeys(pks);
+		const res =	binding.signatureFastAggregateVerify(
+			this.ptr,
+			sigsGroupcheck ?? false,
+			msg,
+			pksU8,
+			pks.length,
+		);
+		return res === 0;
 	}
-}
 
-const MAX_PKS = 128;
-// global public key references to be reused across multiple calls
-const signaturesRefs = new Uint32Array(MAX_PKS * 2);
+	/**
+	 * Verify an aggregated signature against multiple messages and multiple public keys.
+	 *
+	 * If `pk_validate` is `true`, the public keys will be infinity and group checked.
+	 *
+	 * If `sigs_groupcheck` is `true`, the signatures will be group checked.
+	 *
+	 * The down side of zig binding is all messages have to be the same length.
+	 */
+	aggregateVerify(
+		msgs: Array<Uint8Array>,
+		pks: Array<PublicKey>,
+		pkValidate?: boolean | undefined | null,
+		sigsGroupcheck?: boolean | undefined | null
+	): boolean {
+		if (msgs.length < 1) {
+			// this is the same to the original napi-rs blst-ts
+			return false;
+		}
+		if (msgs.length !== pks.length) {
+			throw new Error("Number of messages must be equal to the number of public keys");
+		}
 
-/**
- * Map Signature[] in typescript to [*c]const *SignatureType in Zig.
- */
-export function writeSignaturesReference(sigs: Signature[]): Uint32Array {
-	if (sigs.length > MAX_PKS) {
-		throw new Error(`Too many signatures, max is ${MAX_PKS}`);
+		for (let i = 0; i < msgs.length; i++) {
+			if (msgs[i].length !== 32) {
+				throw new Error("All messages must be 32 bytes long");
+			}
+		}
+
+		writeMessages(msgs);
+		writePublicKeys(pks);
+		const res = binding.signatureAggregateVerify(
+			this.ptr,
+			sigsGroupcheck ?? false,
+			msgsU8,
+			pksU8,
+			pks.length,
+			pkValidate ?? false,
+		);
+		return res === 0;
 	}
-
-	for (let i = 0; i < sigs.length; i++) {
-		sigs[i].writeReference(signaturesRefs, i * 2);
-	}
-
-	return signaturesRefs.subarray(0, sigs.length * 2);
 }
