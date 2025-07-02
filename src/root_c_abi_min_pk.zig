@@ -10,7 +10,7 @@ const c = @cImport({
     @cInclude("blst.h");
 });
 const util = @import("util.zig");
-const BLST_ERROR = util.BLST_ERROR;
+const BLST_ERROR = util.BlstError;
 const toBlstError = util.toBlstError;
 
 const createSigVariant = @import("./sig_variant.zig").createSigVariant;
