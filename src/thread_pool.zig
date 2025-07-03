@@ -105,6 +105,7 @@ fn performSpawnTaskTest(allocator: ?Allocator) !void {
     while (total_finished < 4) {
         c.wait(&m);
     }
+    // if tasks are executed sequentially, total time is 10 + 11 + 12 + 13 = 46ms, so expect it < 20ms because we execute them in parallel
     std.debug.print("Time taken for performSpawnTaskTest: {d} ms\n", .{std.time.milliTimestamp() - start});
 }
 
@@ -134,6 +135,7 @@ fn performSpawnTaskWgTest(allocator: ?Allocator) !void {
 
     waitAndWork(&wg);
 
+    // if tasks are executed sequentially, total time is 10 + 11 + 12 + 13 = 46ms, so expect it < 20ms because we execute them in parallel
     std.debug.print("Time taken for performSpawnTaskWgTest: {d} ms\n", .{std.time.milliTimestamp() - start});
 
     try std.testing.expectEqual(total_finished, 4);
