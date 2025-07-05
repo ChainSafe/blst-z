@@ -5,6 +5,8 @@ pub const Signature = min_pk_sig_variant.Signature;
 pub const AggregateSignature = min_pk_sig_variant.AggregateSignature;
 pub const SecretKey = min_pk_sig_variant.SecretKey;
 pub const MemoryPool = min_pk_sig_variant.MemoryPool;
+pub const initializeThreadPool = @import("./thread_pool.zig").initializeThreadPool;
+pub const deinitializeThreadPool = @import("./thread_pool.zig").deinitializeThreadPool;
 pub const aggregateWithRandomness = min_pk_sig_variant.aggregateWithRandomness;
 
 test "test_sign_n_verify" {
