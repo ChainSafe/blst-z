@@ -4,6 +4,7 @@ pub const AggregatePublicKey = min_pk_sig_variant.AggregatePublicKey;
 pub const Signature = min_pk_sig_variant.Signature;
 pub const AggregateSignature = min_pk_sig_variant.AggregateSignature;
 pub const SecretKey = min_pk_sig_variant.SecretKey;
+pub const MemoryPool = min_pk_sig_variant.MemoryPool;
 pub const aggregateWithRandomness = min_pk_sig_variant.aggregateWithRandomness;
 
 test "test_sign_n_verify" {
