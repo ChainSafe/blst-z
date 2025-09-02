@@ -1,6 +1,6 @@
 {
 	"name": "@chainsafe/blst-bun",
-  "version": "0.0.0",
+	"version": "1.0.0",
 	"module": "src/index.ts",
 	"type": "module",
 	"dependencies": {
@@ -19,13 +19,13 @@
 		"typescript": "^5.0.0"
 	},
 	"scripts": {
-    "build": "bun ./node_modules/.bin/bun-ffi-z build",
+		"build": "bun ./node_modules/.bin/bun-ffi-z build",
 		"prepublishOnly": "bun ./node_modules/.bin/bun-ffi-z prepublish --artifacts artifacts",
 		"publish": "bun ./node_modules/.bin/bun-ffi-z publish",
 		"test:unit": "bun test test/unit",
 		"lint": "biome check",
 		"lint:fix": "yarn lint --write",
-    "benchmark": "bun benchmark:files 'test/perf/*.test.ts'",
+		"benchmark": "bun benchmark:files 'test/perf/*.test.ts'",
 		"benchmark:files": "bun ./node_modules/.bin/benchmark --config .benchrc.yaml --defaultBranch main"
 	},
 	"bun-ffi-z": {
