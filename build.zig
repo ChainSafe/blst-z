@@ -20,6 +20,11 @@ pub fn build(b: *std.Build) !void {
 
     const blst_dep = b.dependency("blst", .{ .target = target, .optimize = optimize });
 
+    // passed by "zig build -Dportable=true"
+    const portable = b.option(bool, "portable", "Enable portable implementation") orelse false;
+    // passed by "zig build -Dforce-adx=true"
+    const force_adx = b.option(bool, "force-adx", "Enable ADX optimizations") orelse false;
+
     // build blst-z static library
     const staticLib = b.addStaticLibrary(.{
         .name = "blst-z",
@@ -30,18 +35,28 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
-    // passed by "zig build -Dportable=true"
-    const portable = b.option(bool, "portable", "Enable portable implementation") orelse false;
-    // passed by "zig build -Dforce-adx=true"
-    const force_adx = b.option(bool, "force-adx", "Enable ADX optimizations") orelse false;
+    const module_blst_min_pk = b.createModule(.{
+        .root_source_file = b.path("src/root_min_pk.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    try withBlst(blst_dep, module_blst_min_pk, target, false, portable, force_adx);
+
+    b.modules.put(b.dupe("blst_min_pk"), module_blst_min_pk) catch @panic("OOM");
+
+    const module_blst_min_sig = b.createModule(.{
+        .root_source_file = b.path("src/root_min_sig.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    try withBlst(blst_dep, module_blst_min_sig, target, false, portable, force_adx);
+    b.modules.put(b.dupe("blst_min_sig"), module_blst_min_sig) catch @panic("OOM");
 
     // blst does not need libc, however we need to link it to enable threading
     // see https://github.com/ChainSafe/blst-bun/issues/4
     staticLib.linkLibC();
-    try withBlst(blst_dep, staticLib, target, false, portable, force_adx);
-
     // the folder where blst.h is located
-    staticLib.addIncludePath(blst_dep.path("bindings"));
+    try withBlst(blst_dep, staticLib.root_module, target, false, portable, force_adx);
 
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
@@ -59,8 +74,7 @@ pub fn build(b: *std.Build) !void {
     // blst does not need libc, however we need to link it to enable threading
     // see https://github.com/ChainSafe/blst-bun/issues/4
     sharedLib.linkLibC();
-    try withBlst(blst_dep, sharedLib, target, true, portable, force_adx);
-    sharedLib.addIncludePath(blst_dep.path("bindings"));
+    try withBlst(blst_dep, sharedLib.root_module, target, true, portable, force_adx);
     b.installArtifact(sharedLib);
 
     const exe = b.addExecutable(.{
@@ -106,8 +120,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
-    lib_unit_tests.linkLibrary(staticLib);
-    lib_unit_tests.addIncludePath(blst_dep.path("bindings"));
+    try withBlst(blst_dep, lib_unit_tests.root_module, target, true, portable, force_adx);
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 
@@ -131,7 +144,8 @@ pub fn build(b: *std.Build) !void {
 /// and zig will handle a mixture of C, assembly and Zig code
 /// reference to https://github.com/supranational/blst/blob/v0.3.13/bindings/rust/build.rs
 /// TODO: port all missing flows from the Rust build script
-fn withBlst(blst_dep: *std.Build.Dependency, blst_z_lib: *Compile, target: ResolvedTarget, is_shared_lib: bool, portable: bool, force_adx: bool) !void {
+fn withBlst(blst_dep: *std.Build.Dependency, module: *std.Build.Module, target: ResolvedTarget, is_shared_lib: bool, portable: bool, force_adx: bool) !void {
+    module.addIncludePath(blst_dep.path("bindings"));
     // add later, once we have cflags
     const arch = target.result.cpu.arch;
 
@@ -141,10 +155,10 @@ fn withBlst(blst_dep: *std.Build.Dependency, blst_z_lib: *Compile, target: Resol
     if (portable == true and force_adx == false) {
         // TODO: panic if target_env is sgx
         // use this instead
-        blst_z_lib.root_module.addCMacro("__BLST_PORTABLE__", "");
+        module.addCMacro("__BLST_PORTABLE__", "");
     } else if (portable == false and force_adx == true) {
         if (arch == .x86_64) {
-            blst_z_lib.root_module.addCMacro("__ADX__", "");
+            module.addCMacro("__ADX__", "");
         } else {
             std.debug.print("`force-adx` is ignored for non-x86_64 targets \n", .{});
         }
@@ -153,15 +167,13 @@ fn withBlst(blst_dep: *std.Build.Dependency, blst_z_lib: *Compile, target: Resol
         // if std::is_x86_feature_detected!("adx") {
         if (arch == .x86_64) {
             std.debug.print("ADX is turned on by default for x86_64 targets \n", .{});
-            blst_z_lib.root_module.addCMacro("__ADX__", "");
+            module.addCMacro("__ADX__", "");
         }
         // otherwise get: "undefined symbol redcx_mont_256" when run tests in Linux
     } else {
         // both are true
         @panic("Cannot set both `portable` and `force-adx` to true");
     }
-
-    blst_z_lib.no_builtin = true;
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -184,8 +196,8 @@ fn withBlst(blst_dep: *std.Build.Dependency, blst_z_lib: *Compile, target: Resol
         try cflags.append("-fPIC");
     }
 
-    blst_z_lib.addCSourceFile(.{ .file = blst_dep.path("src/server.c"), .flags = cflags.items });
-    blst_z_lib.addCSourceFile(.{ .file = blst_dep.path("build/assembly.S"), .flags = cflags.items });
+    module.addCSourceFile(.{ .file = blst_dep.path("src/server.c"), .flags = cflags.items });
+    module.addCSourceFile(.{ .file = blst_dep.path("build/assembly.S"), .flags = cflags.items });
 
     // TODO: we may not need this since we linkLibC() above
     const os = target.result.os;
@@ -195,12 +207,12 @@ fn withBlst(blst_dep: *std.Build.Dependency, blst_z_lib: *Compile, target: Resol
     if (os.tag == .linux) {
         // since "zig cc" works fine, we just follow it
         // zig cc -E -Wp,-v -
-        blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
-        blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include" });
+        module.addIncludePath(.{ .cwd_relative = "/usr/local/include" });
+        module.addIncludePath(.{ .cwd_relative = "/usr/include" });
         if (arch == .x86_64) {
-            blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include/x86_64-linux-gnu" });
+            module.addIncludePath(.{ .cwd_relative = "/usr/include/x86_64-linux-gnu" });
         } else if (arch == .aarch64) {
-            blst_z_lib.addIncludePath(.{ .cwd_relative = "/usr/include/aarch64-linux-gnu" });
+            module.addIncludePath(.{ .cwd_relative = "/usr/include/aarch64-linux-gnu" });
         }
     }
 }
