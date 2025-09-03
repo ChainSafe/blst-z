@@ -510,7 +510,7 @@ const fns = {
     "args": [],
     "returns": "void"
   }
-};
+} as const;
 const lib = await openLibrary(path.join(import.meta.dirname, ".."), fns);
 
 export const binding = lib.symbols;
