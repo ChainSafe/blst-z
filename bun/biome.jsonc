@@ -6,7 +6,8 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"include": ["src/**/*.ts", "test/**/*.ts"]
+		"include": ["src/**/*.ts", "test/**/*.ts"],
+		"ignore": ["package.json", "src/binding.ts"]
 	},
 	"formatter": {
 		"enabled": true,

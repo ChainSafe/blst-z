@@ -1,8 +1,10 @@
-import {binding, writeReference} from "./binding.js";
+import {binding} from "./binding.js";
 import {type PublicKey, writePublicKeysReference} from "./publicKey.js";
 import type {Signature} from "./signature.js";
 import {pairing} from "./util.js";
+import {initBinding, writeReference} from "./util.ts";
 
+initBinding();
 /**
  * Verify a signature against a message and public key.
  *
