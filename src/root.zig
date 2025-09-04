@@ -18,7 +18,7 @@ test "test_sign_n_verify" {
         0x48, 0x99,
     };
     const sk = try SecretKey.keyGen(&ikm, null);
-    const pk = sk.toPk();
+    const pk = sk.toPublicKey();
 
     const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
     const msg = "hello foo";
