@@ -4,7 +4,7 @@
 	"module": "src/index.ts",
 	"type": "module",
 	"dependencies": {
-		"@chainsafe/bun-ffi-z": "^v1.0.0"
+		"@chainsafe/bun-ffi-z": "^1.1.1"
 	},
 	"devDependencies": {
 		"@types/bun": "latest",
@@ -20,6 +20,7 @@
 	},
 	"scripts": {
     "build": "bun ./node_modules/.bin/bun-ffi-z build",
+    "generate": "bun ./node_modules/.bin/bun-ffi-z generate-binding",
 		"prepublishOnly": "bun ./node_modules/.bin/bun-ffi-z prepublish --artifacts artifacts",
 		"publish": "bun ./node_modules/.bin/bun-ffi-z publish",
 		"test:unit": "bun test test/unit",
@@ -39,6 +40,9 @@
 			"darwin-arm64"
 		],
 		"optimize": "ReleaseSafe",
-		"zigCwd": ".."
+		"zigCwd": "..",
+		"zigExportFiles": [
+			"src/eth_c_abi.zig"
+		]
 	}
 }

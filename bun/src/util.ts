@@ -1,8 +1,3 @@
-import {binding} from "./binding.js";
-
-// global pairing buffer to be reused across multiple calls
-export const pairing = new Uint8Array(binding.sizeOfPairing());
-
 export function toHex(buffer: Uint8Array | Parameters<typeof Buffer.from>[0]): string {
 	if (Buffer.isBuffer(buffer)) {
 		return "0x" + buffer.toString("hex");
@@ -18,6 +13,12 @@ export function toHex(buffer: Uint8Array | Parameters<typeof Buffer.from>[0]): s
 export function fromHex(hex: string): Uint8Array {
 	const b = Buffer.from(hex.replace("0x", ""), "hex");
 	return new Uint8Array(b.buffer, b.byteOffset, b.length);
+}
+
+export function assertSuccess(blstErrorCode: number): void {
+	if (blstErrorCode !== 0) {
+		throw toError(blstErrorCode);
+	}
 }
 
 export function toError(blstErrorCode: number): Error {
@@ -71,5 +72,17 @@ export function blstErrorToCode(blstError: number): string {
 			return "BLST_BAD_SCALAR";
 		default:
 			return `Unknown error code ${blstError}`;
+	}
+}
+
+import {read, type Pointer} from "bun:ffi";
+
+/**
+ * Write a pointer value to a buffer at the specified offset.
+ * NOTE: Only works with pointers of size divisible by 4.
+ */
+export function writePtr(ptr: Pointer, size: number, buf: Uint32Array, offset: number): void {
+	for (let i = 0; i < size / 4; i++) {
+		buf[offset + i] = read.u32(ptr, i * 4);
 	}
 }

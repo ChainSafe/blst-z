@@ -1,34 +1,27 @@
+import type {Pointer} from "bun:ffi";
 import {binding} from "./binding.js";
-import {BLST_SUCCESS, SECRET_KEY_LENGTH} from "./const.js";
+import {PUBLIC_KEY_SIZE, SECRET_KEY_SIZE, SIGNATURE_SIZE} from "./const.js";
 import {PublicKey} from "./publicKey.js";
 import {Signature} from "./signature.js";
-import {fromHex, toError, toHex} from "./util.js";
+import {assertSuccess, fromHex, toHex} from "./util.js";
 
 export class SecretKey {
-	private blst_point: Uint8Array;
-	private constructor(buffer: Uint8Array) {
-		this.blst_point = buffer;
+	private ptr: Uint8Array | Pointer;
+
+	private constructor(ptr: Uint8Array | Pointer) {
+		this.ptr = ptr;
 	}
 
 	/**
 	 * Generate a secret key deterministically from a secret byte array `ikm`.
 	 *
 	 * `ikm` must be at least 32 bytes long.
-	 *
-	 * Optionally pass `key_info` bytes to derive multiple independent keys from the same `ikm`.
-	 * By default, the `key_info` is empty.
 	 */
-	static fromKeygen(ikm: Uint8Array, keyInfo?: Uint8Array | undefined | null): SecretKey {
-		// napi automatically throws on invalid types but for Bun, need to check manually
-		if (keyInfo !== undefined && !(keyInfo instanceof Uint8Array)) {
-			throw new Error("Invalid key info type");
-		}
-
-		const buffer = new Uint8Array(SECRET_KEY_LENGTH);
-		const res = binding.secretKeyGen(buffer, ikm, ikm.length, keyInfo ?? null, keyInfo?.length ?? 0);
-		if (res !== BLST_SUCCESS) {
-			throw toError(res);
-		}
+	static fromKeygen(ikm: Uint8Array): SecretKey {
+		const buffer = new Uint8Array(SECRET_KEY_SIZE);
+		assertSuccess(
+			binding.secretKeyKeyGen(buffer, ikm, ikm.length)
+		);
 
 		return new SecretKey(buffer);
 	}
@@ -41,11 +34,10 @@ export class SecretKey {
 	 * See https://eips.ethereum.org/EIPS/eip-2333
 	 */
 	static deriveMasterEip2333(ikm: Uint8Array): SecretKey {
-		const buffer = new Uint8Array(SECRET_KEY_LENGTH);
-		const res = binding.secretKeyDeriveMasterEip2333(buffer, ikm, ikm.length);
-		if (res !== BLST_SUCCESS) {
-			throw toError(res);
-		}
+		const buffer = new Uint8Array(SECRET_KEY_SIZE);
+		assertSuccess(
+			binding.secretKeyDeriveMasterEip2333(buffer, ikm, ikm.length)
+		);
 
 		return new SecretKey(buffer);
 	}
@@ -56,18 +48,17 @@ export class SecretKey {
 	 * See https://eips.ethereum.org/EIPS/eip-2333
 	 */
 	deriveChildEip2333(index: number): SecretKey {
-		const buffer = new Uint8Array(SECRET_KEY_LENGTH);
-		binding.secretKeyDeriveChildEip2333(buffer, this.blst_point, index);
+		const buffer = new Uint8Array(SECRET_KEY_SIZE);
+		binding.secretKeyDeriveChildEip2333(buffer, this.ptr, index);
 		return new SecretKey(buffer);
 	}
 
 	/** Deserialize a secret key from a byte array. */
 	static fromBytes(bytes: Uint8Array): SecretKey {
-		const buffer = new Uint8Array(SECRET_KEY_LENGTH);
-		const res = binding.secretKeyFromBytes(buffer, bytes, bytes.length);
-		if (res !== BLST_SUCCESS) {
-			throw toError(res);
-		}
+		const buffer = new Uint8Array(SECRET_KEY_SIZE);
+		assertSuccess(
+			binding.secretKeyFromBytes(buffer, bytes, bytes.length)
+		);
 
 		return new SecretKey(buffer);
 	}
@@ -80,8 +71,8 @@ export class SecretKey {
 
 	/** Serialize a secret key to a byte array. */
 	toBytes(): Uint8Array {
-		const bytes = new Uint8Array(SECRET_KEY_LENGTH);
-		binding.secretKeyToBytes(bytes, this.blst_point);
+		const bytes = new Uint8Array(SECRET_KEY_SIZE);
+		binding.secretKeyToBytes(bytes, this.ptr);
 		return bytes;
 	}
 
@@ -93,7 +84,9 @@ export class SecretKey {
 
 	/** Return the corresponding public key */
 	toPublicKey(): PublicKey {
-		return PublicKey.fromSecretKey(this.blst_point);
+		const pk = new Uint8Array(PUBLIC_KEY_SIZE);
+		binding.secretKeyToPublicKey(pk, this.ptr);
+		return new PublicKey(pk);
 	}
 
 	/** Return the signature */
@@ -102,6 +95,8 @@ export class SecretKey {
 			throw new Error("Message cannot be empty");
 		}
 
-		return Signature.sign(msg, this.blst_point);
+		const sig = new Uint8Array(SIGNATURE_SIZE);
+		binding.secretKeySign(sig, this.ptr, msg, msg.length);
+		return new Signature(sig);
 	}
 }
