@@ -311,11 +311,12 @@ export fn aggregateSignatureAggregateWithRandomness(
     return 0;
 }
 
-export fn aggregateSignatureAddAggregate(out: *blst.AggregateSignature, other: *const blst.AggregateSignature) void {
-    out.addAggregate(other);
+export fn aggregateSignatureAddAggregate(out: *blst.AggregateSignature, other: *const blst.AggregateSignature) c_uint {
+    out.addAggregate(other) catch |e| return intFromError(e);
+    return 0;
 }
 
-export fn aggregateSignatureAddSignature(out: *blst.AggregateSignature, sig: *const blst.Signature, sig_groupcheck: bool) c_uint {
-    out.addSignature(sig, sig_groupcheck) catch |e| return intFromError(e);
+export fn aggregateSignatureAddSignature(out: *blst.AggregateSignature, sig: *const blst.Signature) c_uint {
+    out.addSignature(sig) catch |e| return intFromError(e);
     return 0;
 }
