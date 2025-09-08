@@ -1,12 +1,14 @@
 const std = @import("std");
-const blst = @import("min_pk.zig");
+const blst = @import("root.zig");
 const intFromError = @import("error.zig").intFromError;
 
 /// See https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#bls-signatures
 const DST = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
 
+pub const SCRATCH_SIZE: usize = 3192;
+
 /// This is a scratch buffer used for operations that require temporary storage
-threadlocal var scratch: [1024 * 16]u8 = undefined;
+threadlocal var scratch: [SCRATCH_SIZE]u8 = undefined;
 
 ////// SecretKey
 
@@ -19,7 +21,7 @@ export fn secretKeySerializeSize() c_uint {
 }
 
 export fn secretKeyFromBytes(out: *blst.SecretKey, bytes: [*c]const u8, len: c_uint) c_uint {
-    out.* = blst.SecretKey.deserialize(bytes[0..len]) catch |e| return intFromError(e);
+    out.* = blst.SecretKey.deserialize(@ptrCast(bytes[0..len])) catch |e| return intFromError(e);
     return 0;
 }
 
@@ -33,7 +35,7 @@ export fn secretKeyKeyGen(out: *blst.SecretKey, ikm: [*c]const u8, ikm_len: c_ui
 }
 
 export fn secretKeyKeyGenV3(out: *blst.SecretKey, ikm: [*c]const u8, ikm_len: c_uint) c_uint {
-    out.* = blst.SecretKey.keyGenV3(ikm[0..ikm_len]) catch |e| return intFromError(e);
+    out.* = blst.SecretKey.keyGenV3(ikm[0..ikm_len], null) catch |e| return intFromError(e);
     return 0;
 }
 
@@ -57,7 +59,7 @@ export fn secretKeyToPublicKey(out: *blst.PublicKey, sk: *const blst.SecretKey) 
 }
 
 export fn secretKeySign(out: *blst.Signature, sk: *const blst.SecretKey, msg: [*c]const u8, msg_len: c_uint) c_uint {
-    out.* = sk.sign(msg[0..msg_len], DST, null) catch |e| return intFromError(e);
+    out.* = sk.sign(msg[0..msg_len], DST, null);
     return 0;
 }
 
@@ -68,7 +70,7 @@ export fn publicKeySizeOf() c_uint {
 }
 
 export fn publicKeyCompressSize() c_uint {
-    return blst.PublicKey.compress_size;
+    return blst.MIN_PK_SERIALIZE_SIZE;
 }
 
 export fn publicKeyFromBytes(out: *blst.PublicKey, bytes: [*c]const u8, len: c_uint) c_uint {
@@ -77,7 +79,7 @@ export fn publicKeyFromBytes(out: *blst.PublicKey, bytes: [*c]const u8, len: c_u
 }
 
 export fn publicKeyToBytes(out: [*c]u8, pk: *const blst.PublicKey) void {
-    out[0..blst.PublicKey.compress_size].* = pk.compress();
+    out[0..blst.MIN_PK_COMPRESS_SIZE].* = pk.compress();
 }
 
 export fn publicKeyIsEqual(a: *const blst.PublicKey, b: *const blst.PublicKey) bool {
@@ -167,7 +169,7 @@ export fn signatureSizeOf() c_uint {
 }
 
 export fn signatureCompressSize() c_uint {
-    return blst.Signature.compress_size;
+    return blst.MIN_PK_COMPRESS_SIZE;
 }
 
 export fn signatureFromBytes(out: *blst.Signature, bytes: [*c]const u8, bytes_len: c_uint) c_uint {
@@ -176,7 +178,7 @@ export fn signatureFromBytes(out: *blst.Signature, bytes: [*c]const u8, bytes_le
 }
 
 export fn signatureToBytes(out: [*c]u8, sig: *const blst.Signature) void {
-    out[0..blst.Signature.compress_size].* = sig.compress();
+    out[0..blst.MIN_PK_COMPRESS_SIZE].* = sig.compress();
 }
 
 export fn signatureValidate(sig: *const blst.Signature, sig_infcheck: bool) c_uint {
@@ -223,7 +225,7 @@ export fn signatureAggregateVerify(
     len: c_uint,
     pks_validate: bool,
 ) c_uint {
-    sig.aggregateVerify(
+    const res = sig.aggregateVerify(
         sig_groupcheck,
         &scratch,
         msgs[0..len],
@@ -231,24 +233,24 @@ export fn signatureAggregateVerify(
         pks[0..len],
         pks_validate,
     ) catch |e| return intFromError(e);
-    return 0;
+    return @intFromBool(!res);
 }
 
 export fn signatureFastAggregateVerify(
     sig: *const blst.Signature,
     sig_groupcheck: bool,
-    msg: *const [32]u8,
+    msg: *[32]u8,
     pks: [*c]const blst.PublicKey,
     pks_len: c_uint,
 ) c_uint {
-    sig.fastAggregateVerify(
+    const res = sig.fastAggregateVerify(
         sig_groupcheck,
         &scratch,
-        msg,
+        msg.*,
         DST,
         pks[0..pks_len],
     ) catch |e| return intFromError(e);
-    return 0;
+    return @intFromBool(res);
 }
 
 export fn signatureAggregateWithRandomness(
@@ -262,7 +264,7 @@ export fn signatureAggregateWithRandomness(
         sigs[0..len],
         randomness[0..len],
         sigs_groupcheck,
-        &scratch,
+        scratch[0..],
     ) catch |e| return intFromError(e);
 
     out.* = agg_sig.toSignature();
@@ -317,6 +319,6 @@ export fn aggregateSignatureAddAggregate(out: *blst.AggregateSignature, other: *
 }
 
 export fn aggregateSignatureAddSignature(out: *blst.AggregateSignature, sig: *const blst.Signature) c_uint {
-    out.addSignature(sig) catch |e| return intFromError(e);
+    out.addSignature(sig, out) catch |e| return intFromError(e);
     return 0;
 }
