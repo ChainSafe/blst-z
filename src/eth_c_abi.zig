@@ -178,7 +178,7 @@ export fn signatureFromBytes(out: *blst.Signature, bytes: [*c]const u8, bytes_le
 }
 
 export fn signatureToBytes(out: [*c]u8, sig: *const blst.Signature) void {
-    out[0..blst.MIN_PK_COMPRESS_SIZE].* = sig.compress();
+    out[0..blst.SIGNATURE_LENGTH_COMPRESSED].* = sig.compress();
 }
 
 export fn signatureValidate(sig: *const blst.Signature, sig_infcheck: bool) c_uint {

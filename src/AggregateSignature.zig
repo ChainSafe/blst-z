@@ -2,13 +2,13 @@ const std = @import("std");
 const BlstError = @import("error.zig").BlstError;
 const check = @import("error.zig").check;
 const Signature = @import("signature.zig").Signature;
-const blst = @import("blst.zig");
+const min_pk = @import("min_pk.zig");
 const c = @cImport({
     @cInclude("blst.h");
 });
 const SCRATCH_SIZE = @import("eth_c_abi.zig").SCRATCH_SIZE;
 
-point: blst.AggSignature = blst.AggSignature{},
+point: min_pk.AggSignature = min_pk.AggSignature{},
 
 const Self = @This();
 

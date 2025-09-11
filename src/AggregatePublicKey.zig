@@ -6,12 +6,12 @@ const Pairing = @import("pairing.zig").Pairing;
 const pairing_size = @import("pairing.zig").pairing_size;
 
 const SCRATCH_SIZE = @import("eth_c_abi.zig").SCRATCH_SIZE;
-const blst = @import("blst.zig");
+const min_pk = @import("min_pk.zig");
 const c = @cImport({
     @cInclude("blst.h");
 });
 
-point: blst.AggPublicKey = blst.AggPublicKey{},
+point: min_pk.AggPublicKey = min_pk.AggPublicKey{},
 
 const Self = @This();
 

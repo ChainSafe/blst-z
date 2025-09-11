@@ -4,7 +4,7 @@ const check = @import("error.zig").check;
 const PublicKey = @import("public_key.zig").PublicKey;
 const Signature = @import("signature.zig").Signature;
 
-const blst = @import("blst.zig");
+const min_pk = @import("min_pk.zig");
 const c = @cImport({
     @cInclude("blst.h");
 });
@@ -109,7 +109,7 @@ pub const SecretKey = extern struct {
     // Sign
     pub fn sign(self: *const Self, msg: []const u8, dst: []const u8, aug: ?[]const u8) Signature {
         var sig = Signature{};
-        var q = blst.AggSignature{};
+        var q = min_pk.AggSignature{};
         c.blst_hash_to_g2(
             &q,
             @ptrCast(msg.ptr),

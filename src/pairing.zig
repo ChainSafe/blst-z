@@ -6,7 +6,7 @@ const check = @import("error.zig").check;
 const c = @cImport({
     @cInclude("blst.h");
 });
-const blst = @import("blst.zig");
+const min_pk = @import("min_pk.zig");
 
 pub const pairing_size = Pairing.sizeOf();
 
@@ -56,9 +56,9 @@ pub const Pairing = extern struct {
 
     pub fn aggregate(
         self: *Self,
-        pk: *const blst.PublicKey,
+        pk: *const min_pk.PublicKey,
         pk_validate: bool,
-        sig: ?*const blst.Signature,
+        sig: ?*const min_pk.Signature,
         sig_groupcheck: bool,
         msg: []const u8,
         aug: ?[]const u8,
@@ -82,9 +82,9 @@ pub const Pairing = extern struct {
     // check for other apis as well
     pub fn mulAndAggregate(
         self: *Self,
-        pk: *const blst.PublicKey,
+        pk: *const min_pk.PublicKey,
         pk_validate: bool,
-        sig: *const blst.Signature,
+        sig: *const min_pk.Signature,
         sig_groupcheck: bool,
         scalar: []const u8,
         nbits: usize,
@@ -108,7 +108,7 @@ pub const Pairing = extern struct {
         );
     }
 
-    pub fn aggregated(gtsig: *c.blst_fp12, sig: *const blst.Signature) void {
+    pub fn aggregated(gtsig: *c.blst_fp12, sig: *const min_pk.Signature) void {
         c.blst_aggregated_in_g2(gtsig, sig);
     }
 
