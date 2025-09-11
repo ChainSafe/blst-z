@@ -136,11 +136,17 @@ const fns = {
     ],
     "returns": "void"
   },
-  "aggregatePublicKeySizeOf": {
-    "args": [],
+  "publicKeyAggregateWithRandomness": {
+    "args": [
+      "ptr",
+      "ptr",
+      "ptr",
+      "u32",
+      "bool"
+    ],
     "returns": "u32"
   },
-  "aggregatePublicKeyAggregate": {
+  "publicKeyAggregate": {
     "args": [
       "ptr",
       "ptr",
@@ -149,7 +155,20 @@ const fns = {
     ],
     "returns": "u32"
   },
-  "aggregatePublicKeyAggregateWithRandomness": {
+  "aggregatePublicKeySizeOf": {
+    "args": [],
+    "returns": "u32"
+  },
+  "aggregatePublicKeys": {
+    "args": [
+      "ptr",
+      "ptr",
+      "u32",
+      "bool"
+    ],
+    "returns": "u32"
+  },
+  "aggregatePublicKeyWithRandomness": {
     "args": [
       "ptr",
       "ptr",
@@ -240,7 +259,6 @@ const fns = {
       "ptr",
       "bool",
       "ptr",
-      "u32",
       "ptr",
       "u32",
       "bool"
@@ -254,6 +272,25 @@ const fns = {
       "ptr",
       "ptr",
       "u32"
+    ],
+    "returns": "u32"
+  },
+  "signatureAggregateWithRandomness": {
+    "args": [
+      "ptr",
+      "ptr",
+      "ptr",
+      "u32",
+      "bool"
+    ],
+    "returns": "u32"
+  },
+  "signatureAggregate": {
+    "args": [
+      "ptr",
+      "ptr",
+      "u32",
+      "bool"
     ],
     "returns": "u32"
   },
@@ -285,13 +322,12 @@ const fns = {
       "ptr",
       "ptr"
     ],
-    "returns": "void"
+    "returns": "u32"
   },
   "aggregateSignatureAddSignature": {
     "args": [
       "ptr",
-      "ptr",
-      "bool"
+      "ptr"
     ],
     "returns": "u32"
   }

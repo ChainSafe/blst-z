@@ -1,4 +1,5 @@
-import {binding, writeReference} from "./binding.js";
+import {binding} from "./binding.js";
+import {writeReference} from "./writers.ts";
 import {MAX_SIGNATURE_SETS_PER_JOB} from "./const.js";
 import type {PublicKey} from "./publicKey.js";
 import type {Signature} from "./signature.js";
@@ -65,6 +66,6 @@ function writeSignatureSetsReference(sets: SignatureSet[], out: Uint32Array): vo
 // each SignatureSet needs 24 bytes = 6 * uint32 for references
 function writeSignatureSetReference(set: SignatureSet, out: Uint32Array, offset: number): void {
 	writeReference(set.msg, out, offset);
-	set.pk.writeReference(out, offset + 2);
-	set.sig.writeReference(out, offset + 4);
+	writeReference(out, set.pk, offset + 2);
+	writeReference(out, set.sig, offset + 4);
 }

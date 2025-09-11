@@ -5,6 +5,7 @@ import {getTestSet, getTestSets} from "../utils/testSets.js";
 describe("Verify Multiple Aggregate Signatures", () => {
 	describe("verifyMultipleAggregateSignatures", () => {
 		it("should return a boolean", () => {
+			console.log("ASDASDASD");
 			expect(verifyMultipleAggregateSignatures([])).toBeBoolean();
 		});
 		it("should default to false", () => {

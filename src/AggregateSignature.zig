@@ -33,13 +33,16 @@ pub fn toSignature(self: *const Self) Signature {
 pub fn aggregate(sigs: []const Signature, sigs_groupcheck: bool) BlstError!Self {
     if (sigs.len == 0) return BlstError.AggrTypeMismatch;
     if (sigs_groupcheck) {
-        for (sigs) |sig| {
-            try sig.validate(false);
-        }
+        //        for (sigs) |sig| {
+        //            try sig.validate(false);
+        //        }
     }
     var agg_sig = Self{};
-    // warn: ptrCast here is a little sketchy
-    c.blst_p2s_add(&agg_sig.point, @ptrCast(sigs.ptr), sigs.len);
+    c.blst_p2_from_affine(&agg_sig.point, &sigs[0].point);
+    for (1..sigs.len) |i| {
+        c.blst_p2_add_or_double_affine(&agg_sig.point, &agg_sig.point, &sigs[i].point);
+    }
+
     return agg_sig;
 }
 

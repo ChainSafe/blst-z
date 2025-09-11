@@ -31,14 +31,18 @@ pub fn aggregate(pks: []const PublicKey, pks_validate: bool) BlstError!Self {
     if (pks.len == 0) {
         return BlstError.AggrTypeMismatch;
     }
+
     if (pks_validate) {
         for (pks) |pk| {
             try pk.validate();
         }
     }
+
     var agg_pk = Self{};
-    // warn: ptrCast here is a little sketchy
-    c.blst_p1s_add(&agg_pk.point, @ptrCast(pks), pks.len);
+    c.blst_p1_from_affine(&agg_pk.point, &pks[0].point);
+    for (1..pks.len) |i| {
+        c.blst_p1_add_or_double_affine(&agg_pk.point, &agg_pk.point, &pks[i].point);
+    }
     return agg_pk;
 }
 

@@ -13,6 +13,25 @@ const c = @cImport({
 });
 const min_pk = @import("min_pk.zig");
 
+const SignatureSet = extern struct {
+    msg: [*c]const u8,
+    pk: *const min_pk.PublicKey,
+    sig: *const min_pk.Signature,
+};
+
+//pub fn verifyMultipleAggregateSignaturesC(
+//    sets: []*const SignatureSet,
+//    buffer: *[pairing_size]u8,
+//    msg_len: usize,
+//    dst: []const u8,
+//    pks_validate: bool,
+//    sigs_groupcheck: bool,
+//    rands: [][]const u8,
+//    rand_bits: usize,
+//) c_uint {
+//    var pairing = Pairing.init(buffer, true, dst);
+//}
+
 pub const Signature = extern struct {
     point: min_pk.Signature = min_pk.Signature{},
 
@@ -48,19 +67,15 @@ pub const Signature = extern struct {
         pk: *const PublicKey,
         pk_validate: bool,
     ) BlstError!void {
-        if (sig_groupcheck) {
-            try self.validate(false);
-        }
+        if (sig_groupcheck) try self.validate(false);
 
-        if (pk_validate) {
-            try pk.validate();
-        }
+        if (pk_validate) try pk.validate();
 
         if (msg.len == 0 or dst.len == 0) {
             return BlstError.BadEncoding;
         }
 
-        try check(c.blst_core_verify_pk_in_g1(
+        const chk = check(c.blst_core_verify_pk_in_g1(
             @ptrCast(&pk.point),
             @ptrCast(&self.point),
             true,
@@ -71,6 +86,8 @@ pub const Signature = extern struct {
             @ptrCast(aug),
             if (aug) |a| a.len else 0,
         ));
+
+        return chk;
     }
 
     pub fn aggregateVerify(
@@ -86,9 +103,7 @@ pub const Signature = extern struct {
         if (n_elems == 0 or msgs.len != n_elems) {
             return BlstError.VerifyFail;
         }
-
         var pairing = Pairing.init(buffer, true, dst);
-
         try pairing.aggregate(
             &pks[0].point,
             pks_validate,
@@ -206,8 +221,8 @@ pub const Signature = extern struct {
         return sig;
     }
 
-    pub fn compress(self: *const Self) [min_pk.PK_COMPRESS_SIZE]u8 {
-        var sig_comp = [_]u8{0} ** min_pk.PK_COMPRESS_SIZE;
+    pub fn compress(self: *const Self) [min_pk.SIGNATURE_LENGTH_COMPRESSED]u8 {
+        var sig_comp = [_]u8{0} ** min_pk.SIGNATURE_LENGTH_COMPRESSED;
         c.blst_p2_affine_compress(&sig_comp, &self.point);
         return sig_comp;
     }
@@ -220,7 +235,7 @@ pub const Signature = extern struct {
 
     pub fn uncompress(sig_comp: []const u8) BlstError!Self {
         const len = sig_comp.len;
-        if (len == min_pk.PK_SERIALIZE_SIZE and (sig_comp[0] & 0x80) != 0) {
+        if (len == min_pk.SIGNATURE_LENGTH_COMPRESSED and (sig_comp[0] & 0x80) != 0) {
             var sig = Self{};
             try check(c.blst_p2_uncompress(&sig.point, &sig_comp[0]));
             return sig;

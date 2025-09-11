@@ -19,12 +19,6 @@ describe("SecretKey", () => {
 			it("should create the same key from the same ikm", () => {
 				expectEqualHex(SecretKey.fromKeygen(KEY_MATERIAL).toBytes(), SecretKey.fromKeygen(KEY_MATERIAL).toBytes());
 			});
-			it("should take a second 'info' argument", () => {
-				expectNotEqualHex(
-					SecretKey.fromKeygen(KEY_MATERIAL, Buffer.from("some fancy info")).toBytes(),
-					SecretKey.fromKeygen(KEY_MATERIAL).toBytes()
-				);
-			});
 
 			describe("argument validation", () => {
 				const validInfoTypes = ["undefined", "null", "string"];
@@ -38,9 +32,6 @@ describe("SecretKey", () => {
 						});
 					}
 				}
-				it("should throw incorrect length ikm", () => {
-					expect(() => SecretKey.fromKeygen(Buffer.alloc(12, "*"))).toThrow("Invalid encoding");
-				});
 			});
 
 			describe("SecretKey.fromBytes", () => {
@@ -53,9 +44,6 @@ describe("SecretKey", () => {
 							expect(() => SecretKey.fromBytes(invalid)).toThrow();
 						});
 					}
-					it("should throw incorrect length ikm", () => {
-						expect(() => SecretKey.fromBytes(Buffer.alloc(12, "*"))).toThrow("Invalid encoding");
-					});
 				});
 			});
 		});

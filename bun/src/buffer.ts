@@ -1,5 +1,3 @@
-
-
 import {read, type Pointer} from "bun:ffi";
 import { MAX_AGGREGATE_PER_JOB, PUBLIC_KEY_SIZE } from "./const.js";
 import type { PublicKey } from "./publicKey.js";

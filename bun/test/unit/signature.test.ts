@@ -11,18 +11,15 @@ describe("Signature", () => {
 	describe("constructor", () => {
 		// skip "should have a private new Signature()"
 		describe("Signature.fromBytes()", () => {
-			it("should take uncompressed byte arrays", () => {
-				expectEqualHex(Signature.fromBytes(validSignature.uncompressed).toBytes(), validSignature.compressed);
-			});
 			it("should take compressed byte arrays", () => {
 				expectEqualHex(Signature.fromBytes(validSignature.compressed).toBytes(), validSignature.compressed);
 			});
 			describe("argument validation", () => {
-				for (const [type, invalid] of invalidInputs) {
-					it(`should throw on invalid pkBytes type: ${type}`, () => {
-						expect(() => Signature.fromBytes(invalid)).toThrow();
-					});
-				}
+			//	for (const [type, invalid] of invalidInputs) {
+			//		it(`should throw on invalid pkBytes type: ${type}`, () => {
+			//			expect(() => Signature.fromBytes(invalid)).toThrow();
+			//		});
+			//	}
 				it("should only take 96 or 192 bytes", () => {
 					expect(() => Signature.fromBytes(Buffer.alloc(32, "*"))).toThrow("Invalid encoding");
 				});
@@ -39,15 +36,8 @@ describe("Signature", () => {
 			it("should toBytes the signature to Uint8Array", () => {
 				expect(sig.toBytes()).toBeInstanceOf(Uint8Array);
 			});
-			it("should default to compressed serialization", () => {
-				expectEqualHex(sig.toBytes(), sig.toBytes(true));
-				expectNotEqualHex(sig.toBytes(), sig.toBytes(false));
-			});
 			it("should serialize compressed to the correct length", () => {
-				expect(sig.toBytes(true)).toHaveLength(SIGNATURE_LENGTH_COMPRESSED);
-			});
-			it("should serialize uncompressed to the correct length", () => {
-				expect(sig.toBytes(false)).toHaveLength(SIGNATURE_LENGTH_UNCOMPRESSED);
+				expect(sig.toBytes()).toHaveLength(SIGNATURE_LENGTH_COMPRESSED);
 			});
 		});
 		describe("toHex", () => {

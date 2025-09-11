@@ -102,13 +102,24 @@ export fn publicKeyToAggregate(out: *blst.AggregatePublicKey, pk: *const blst.Pu
 export fn publicKeyAggregateWithRandomness(
     out: *blst.PublicKey,
     pks: [*c]const blst.PublicKey,
-    randomness: [*c]const u64,
     len: c_uint,
     pks_validate: bool,
 ) c_uint {
+    var rands: [32 * 128]u64 = [_]u64{0} ** (32 * 128);
+    var prng = std.Random.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
+        break :blk seed;
+    });
+    const rand = prng.random();
+
+    for (0..32 * 128) |i| {
+        rands[i] = std.Random.int(rand, u64);
+    }
+
     const agg_pk = blst.AggregatePublicKey.aggregateWithRandomness(
         pks[0..len],
-        randomness[0..len],
+        rands[0..len],
         pks_validate,
         &scratch,
     ) catch |e| return intFromError(e);
@@ -132,12 +143,13 @@ export fn aggregatePublicKeySizeOf() c_uint {
     return @sizeOf(blst.AggregatePublicKey);
 }
 
-export fn aggregatePublicKeyAggregate(out: *blst.AggregatePublicKey, pks: [*c]const blst.PublicKey, pks_len: c_uint, pks_validate: bool) c_uint {
+export fn aggregatePublicKeys(out: *blst.AggregatePublicKey, pks: [*c]const blst.PublicKey, pks_len: c_uint, pks_validate: bool) c_uint {
     out.* = blst.AggregatePublicKey.aggregate(pks[0..pks_len], pks_validate) catch |e| return intFromError(e);
+
     return 0;
 }
 
-export fn aggregatePublicKeyAggregateWithRandomness(
+export fn aggregatePublicKeyWithRandomness(
     out: *blst.AggregatePublicKey,
     pks: [*c]const blst.PublicKey,
     randomness: [*c]const u64,
@@ -250,19 +262,30 @@ export fn signatureFastAggregateVerify(
         DST,
         pks[0..pks_len],
     ) catch |e| return intFromError(e);
-    return @intFromBool(res);
+    return @intFromBool(!res);
 }
 
 export fn signatureAggregateWithRandomness(
     out: *blst.Signature,
     sigs: [*c]const blst.Signature,
-    randomness: [*c]const u64,
     len: c_uint,
     sigs_groupcheck: bool,
 ) c_uint {
+    var rands: [32 * 128]u64 = [_]u64{0} ** (32 * 128);
+    var prng = std.Random.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
+        break :blk seed;
+    });
+    const rand = prng.random();
+
+    for (0..32 * 128) |i| {
+        rands[i] = std.Random.int(rand, u64);
+    }
+
     const agg_sig = blst.AggregateSignature.aggregateWithRandomness(
         sigs[0..len],
-        randomness[0..len],
+        rands[0..len],
         sigs_groupcheck,
         scratch[0..],
     ) catch |e| return intFromError(e);
@@ -291,7 +314,12 @@ export fn aggregateSignatureSizeOf() c_uint {
     return @sizeOf(blst.AggregateSignature);
 }
 
-export fn aggregateSignatureAggregate(out: *blst.AggregateSignature, sigs: [*c]const blst.Signature, sigs_len: c_uint, sigs_groupcheck: bool) c_uint {
+export fn aggregateSignatureAggregate(
+    out: *blst.AggregateSignature,
+    sigs: [*c]const blst.Signature,
+    sigs_len: c_uint,
+    sigs_groupcheck: bool,
+) c_uint {
     out.* = blst.AggregateSignature.aggregate(sigs[0..sigs_len], sigs_groupcheck) catch |e| return intFromError(e);
     return 0;
 }
@@ -299,13 +327,24 @@ export fn aggregateSignatureAggregate(out: *blst.AggregateSignature, sigs: [*c]c
 export fn aggregateSignatureAggregateWithRandomness(
     out: *blst.AggregateSignature,
     sigs: [*c]const blst.Signature,
-    randomness: [*c]const u64,
     len: c_uint,
     sigs_groupcheck: bool,
 ) c_uint {
+    var rands: [32 * 128]u64 = [_]u64{0} ** (32 * 128);
+    var prng = std.Random.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
+        break :blk seed;
+    });
+    const rand = prng.random();
+
+    for (0..32 * 128) |i| {
+        rands[i] = std.Random.int(rand, u64);
+    }
+
     out.* = blst.AggregateSignature.aggregateWithRandomness(
         sigs[0..len],
-        randomness[0..len],
+        rands[0..len],
         sigs_groupcheck,
         &scratch,
     ) catch |e| return intFromError(e);

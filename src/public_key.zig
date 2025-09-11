@@ -16,15 +16,13 @@ pub const PublicKey = extern struct {
 
     // key_validate
     pub fn validate(self: *const Self) BlstError!void {
-        if (c.blst_p1_affine_is_inf(&self.point))
-            return BlstError.PkIsInfinity;
-
-        if (!c.blst_p1_affine_in_g1(&self.point))
-            return BlstError.PointNotInGroup;
+        if (c.blst_p1_affine_is_inf(&self.point)) return BlstError.PkIsInfinity;
+        if (!c.blst_p1_affine_in_g1(&self.point)) return BlstError.PointNotInGroup;
     }
 
     pub fn keyValidate(key: []const u8) BlstError!Self {
-        const pk = try Self.deserialize(key);
+        const pk = PublicKey.fromBytes(key);
+        // const pk = try Self.deserialize(key);
         try pk.validate();
         return pk;
     }
@@ -69,7 +67,7 @@ pub const PublicKey = extern struct {
             (pk_in.len == min_pk.PK_COMPRESS_SIZE and (pk_in[0] & 0x80) != 0))
         {
             var pk = Self{};
-            return c.blst_p1_deserialize(&pk.point, &pk_in);
+            return c.blst_p1_deserialize(&pk.point, &pk_in[0]);
         }
 
         return BlstError.BadEncoding;

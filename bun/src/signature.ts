@@ -26,15 +26,16 @@ export class Signature {
 		sigInfcheck?: boolean | undefined | null
 	): Signature {
 		const buffer = new Uint8Array(SIGNATURE_SIZE);
-		assertSuccess(
-			binding.signatureFromBytes(buffer, bytes, bytes.length)
-		);
-
 		if (sigValidate) {
 			assertSuccess(
 				binding.signatureValidate(buffer, sigInfcheck ?? true)
 			);
 		}
+
+		assertSuccess(
+			binding.signatureFromBytes(buffer, bytes, bytes.length)
+		);
+
 
 		return new Signature(buffer);
 	}
@@ -124,7 +125,7 @@ export class Signature {
 		}
 
 		writePublicKeys(pks);
-		const res =	binding.signatureFastAggregateVerify(
+		const res = binding.signatureFastAggregateVerify(
 			this.ptr,
 			sigsGroupcheck ?? false,
 			msg,

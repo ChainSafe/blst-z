@@ -6,6 +6,7 @@ const check = @import("error.zig").check;
 const c = @cImport({
     @cInclude("blst.h");
 });
+
 const min_pk = @import("min_pk.zig");
 
 pub const pairing_size = Pairing.sizeOf();
