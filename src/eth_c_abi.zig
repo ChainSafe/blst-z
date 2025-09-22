@@ -1,5 +1,6 @@
 const std = @import("std");
 const blst = @import("root.zig");
+const signature = @import("signature.zig");
 const intFromError = @import("error.zig").intFromError;
 
 /// See https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#bls-signatures
@@ -85,11 +86,12 @@ export fn publicKeyToBytes(out: [*c]u8, pk: *const blst.PublicKey) void {
 export fn publicKeyIsEqual(a: *const blst.PublicKey, b: *const blst.PublicKey) bool {
     return a.isEqual(b);
 }
-
 export fn publicKeyValidate(a: *const blst.PublicKey) c_uint {
     a.validate() catch |e| return intFromError(e);
-    return 0;
-}
+    return 0; //export fn publicKeyValidate(a: *const blst.PublicKey) c_uint {
+} //    a.validate() catch |e| return intFromError(e);
+//    return 0;
+//}
 
 export fn publicKeyFromAggregate(out: *blst.PublicKey, agg_pk: *const blst.AggregatePublicKey) void {
     out.* = agg_pk.toPublicKey();
@@ -262,6 +264,40 @@ export fn signatureFastAggregateVerify(
         DST,
         pks[0..pks_len],
     ) catch |e| return intFromError(e);
+    return @intFromBool(!res);
+}
+
+export fn signatureVerifyMultipleAggregateSignatures(
+    n_elems: c_uint,
+    msgs: [*c]const [32]u8,
+    pks: [*c]const *blst.PublicKey,
+    pks_validate: bool,
+    sigs: [*c]const *blst.Signature,
+    sig_groupcheck: bool,
+) c_uint {
+    var rands: [32 * 128][32]u8 = undefined;
+    var prng = std.Random.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
+        break :blk seed;
+    });
+    const rand = prng.random();
+
+    for (0..32 * 128) |i| {
+        std.Random.bytes(rand, &rands[i]);
+    }
+    const res = @import("signature.zig").verifyMultipleAggregateSignatures(
+        &scratch,
+        n_elems,
+        msgs,
+        DST,
+        pks,
+        pks_validate,
+        sigs,
+        sig_groupcheck,
+        &rands,
+    ) catch |e| return intFromError(e);
+
     return @intFromBool(!res);
 }
 

@@ -13,24 +13,55 @@ const c = @cImport({
 });
 const min_pk = @import("min_pk.zig");
 
-const SignatureSet = extern struct {
+const RAND_BYTES = 8;
+const RAND_BITS = 8 * RAND_BYTES;
+
+pub const SignatureSet = extern struct {
     msg: [*c]const u8,
     pk: *const min_pk.PublicKey,
     sig: *const min_pk.Signature,
 };
 
-//pub fn verifyMultipleAggregateSignaturesC(
-//    sets: []*const SignatureSet,
-//    buffer: *[pairing_size]u8,
-//    msg_len: usize,
-//    dst: []const u8,
-//    pks_validate: bool,
-//    sigs_groupcheck: bool,
-//    rands: [][]const u8,
-//    rand_bits: usize,
-//) c_uint {
-//    var pairing = Pairing.init(buffer, true, dst);
-//}
+/// https://ethresear.ch/t/fast-verification-of-multiple-bls-signatures/5407
+///
+/// Returns false if verification fails.
+pub fn verifyMultipleAggregateSignatures(
+    pairing_buf: *[pairing_size]u8,
+    n_elems: usize,
+    msgs: [*c]const [32]u8,
+    dst: []const u8,
+    pks: [*c]const *PublicKey,
+    pks_validate: bool,
+    sigs: [*c]const *Signature,
+    sigs_groupcheck: bool,
+    rands: [*c]const [32]u8,
+) BlstError!bool {
+    if (n_elems == 0) {
+        return BlstError.VerifyFail;
+    }
+
+    var pairing = Pairing.init(
+        pairing_buf,
+        true,
+        dst,
+    );
+
+    for (0..n_elems) |i| {
+        try pairing.mulAndAggregate(
+            &pks[i].point,
+            pks_validate,
+            &sigs[i].point,
+            sigs_groupcheck,
+            &rands[i],
+            RAND_BITS,
+            &msgs[i],
+        );
+    }
+
+    pairing.commit();
+
+    return pairing.finalVerify(null);
+}
 
 pub const Signature = extern struct {
     point: min_pk.Signature = min_pk.Signature{},
@@ -90,6 +121,7 @@ pub const Signature = extern struct {
         return chk;
     }
 
+    /// Returns false if verification fails.
     pub fn aggregateVerify(
         self: *const Self,
         sig_groupcheck: bool,
@@ -99,6 +131,18 @@ pub const Signature = extern struct {
         pks: []const PublicKey,
         pks_validate: bool,
     ) BlstError!bool {
+        var rands: [32 * 128][32]u8 = undefined;
+        var prng = std.Random.DefaultPrng.init(blk: {
+            var seed: u64 = undefined;
+            std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
+            break :blk seed;
+        });
+        const rand = prng.random();
+
+        for (0..32 * 128) |i| {
+            std.Random.bytes(rand, &rands[i]);
+        }
+
         const n_elems = pks.len;
         if (n_elems == 0 or msgs.len != n_elems) {
             return BlstError.VerifyFail;
@@ -112,16 +156,23 @@ pub const Signature = extern struct {
             &msgs[0],
             null,
         );
-        for (1..n_elems) |i| {
-            const pk = pks[i];
-            const msg = msgs[i];
 
-            try pairing.aggregate(&pk.point, pks_validate, null, sig_groupcheck, &msg, null);
+        for (1..n_elems) |i| {
+            try pairing.aggregate(
+                &pks[i].point,
+                pks_validate,
+                null,
+                sig_groupcheck,
+                &msgs[i],
+                null,
+            );
         }
 
         pairing.commit();
+        var gtsig = c.blst_fp12{};
+        Pairing.aggregated(&gtsig, &self.point);
 
-        return pairing.finalVerify(null);
+        return pairing.finalVerify(&gtsig);
     }
 
     /// same to fast_aggregate_verify in Rust with extra `pool` parameter
@@ -165,54 +216,6 @@ pub const Signature = extern struct {
             pks[0..],
             false,
         );
-    }
-
-    /// https://ethresear.ch/t/fast-verification-of-multiple-bls-signatures/5407
-    pub fn verifyMultipleAggregateSignatures(
-        pairing_buf: *[pairing_size]u8,
-        msgs: [][]const u8,
-        dst: []const u8,
-        pks: []const *PublicKey,
-        pks_validate: bool,
-        sigs: []const *Self,
-        sigs_groupcheck: bool,
-        rands: [][]const u8,
-        rand_bits: usize,
-    ) BlstError!void {
-        const n_elems = pks.len;
-        if (n_elems == 0 or msgs.len != n_elems or sigs.len != n_elems or rands.len != n_elems) {
-            return BlstError.VerifyFail;
-        }
-
-        var pairing = try Pairing.init(
-            pairing_buf,
-            true,
-            dst,
-        );
-
-        for (0..n_elems) |i| {
-            const msg = msgs[i];
-            const pk = pks[i];
-            const sig = sigs[i];
-            const rand = rands[i];
-
-            try pairing.mulAndAggregate(
-                pk,
-                pks_validate,
-                sig.point,
-                sigs_groupcheck,
-                rand,
-                rand_bits,
-                msg,
-                null,
-            );
-        }
-
-        pairing.commit();
-
-        if (!pairing.finalVerify(null)) {
-            return BlstError.VerifyFail;
-        }
     }
 
     pub fn fromAggregate(agg_sig: *const AggregateSignature) Self {

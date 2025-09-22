@@ -21,8 +21,8 @@ pub const PublicKey = extern struct {
     }
 
     pub fn keyValidate(key: []const u8) BlstError!Self {
-        const pk = PublicKey.fromBytes(key);
-        // const pk = try Self.deserialize(key);
+        // const pk = PublicKey.fromBytes(key);
+        const pk = try Self.deserialize(key);
         try pk.validate();
         return pk;
     }
