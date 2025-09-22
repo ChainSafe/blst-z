@@ -140,7 +140,6 @@ const fns = {
     "args": [
       "ptr",
       "ptr",
-      "ptr",
       "u32",
       "bool"
     ],
@@ -275,9 +274,19 @@ const fns = {
     ],
     "returns": "u32"
   },
+  "signatureVerifyMultipleAggregateSignatures": {
+    "args": [
+      "u32",
+      "ptr",
+      "ptr",
+      "bool",
+      "ptr",
+      "bool"
+    ],
+    "returns": "u32"
+  },
   "signatureAggregateWithRandomness": {
     "args": [
-      "ptr",
       "ptr",
       "ptr",
       "u32",
@@ -309,7 +318,6 @@ const fns = {
   },
   "aggregateSignatureAggregateWithRandomness": {
     "args": [
-      "ptr",
       "ptr",
       "ptr",
       "u32",
