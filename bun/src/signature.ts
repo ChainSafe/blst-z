@@ -26,6 +26,7 @@ export class Signature {
 		sigInfcheck?: boolean | undefined | null
 	): Signature {
 		const buffer = new Uint8Array(SIGNATURE_SIZE);
+		const sig = new Signature(buffer);
 		if (sigValidate) {
 			assertSuccess(
 				binding.signatureValidate(buffer, sigInfcheck ?? true)
@@ -33,11 +34,10 @@ export class Signature {
 		}
 
 		assertSuccess(
-			binding.signatureFromBytes(buffer, bytes, bytes.length)
+			binding.signatureFromBytes(sig.ptr, bytes, bytes.length)
 		);
 
-
-		return new Signature(buffer);
+		return sig;
 	}
 
 	/**
