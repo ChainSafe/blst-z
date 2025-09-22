@@ -31,11 +31,11 @@ pub fn toSignature(self: *const Self) Signature {
 }
 
 pub fn aggregate(sigs: []const Signature, sigs_groupcheck: bool) BlstError!Self {
-    if (sigs.len == 0) return BlstError.AggrTypeMismatch;
+    // if (sigs.len == 0) return BlstError.AggrTypeMismatch;
     if (sigs_groupcheck) {
-        //        for (sigs) |sig| {
-        //            try sig.validate(false);
-        //        }
+        for (sigs) |sig| {
+            try sig.validate(false);
+        }
     }
     var agg_sig = Self{};
     c.blst_p2_from_affine(&agg_sig.point, &sigs[0].point);
@@ -50,14 +50,15 @@ pub fn aggregateWithRandomness(
     sigs: []const Signature,
     randomness: []const u64,
     sigs_groupcheck: bool,
-    scratch: *[SCRATCH_SIZE]u8,
+    _: *[SCRATCH_SIZE]u8,
 ) BlstError!Self {
     if (sigs.len == 0) {
         return BlstError.AggrTypeMismatch;
     }
-    if (randomness.len != sigs.len) {
-        return BlstError.AggrTypeMismatch;
-    }
+
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    const scratch: []u64 = allocator.alloc(u64, SCRATCH_SIZE) catch unreachable;
     if (scratch.len <
         c.blst_p2s_mult_pippenger_scratch_sizeof(sigs.len))
     {
@@ -70,9 +71,10 @@ pub fn aggregateWithRandomness(
         }
     }
     var agg_sig = Self{};
+
     c.blst_p2s_mult_pippenger(
         &agg_sig.point,
-        @ptrCast(sigs.ptr),
+        @ptrCast(&sigs[0].point),
         sigs.len,
         @ptrCast(randomness.ptr),
         64,
@@ -92,3 +94,56 @@ pub fn addSignature(self: *const Self, sig: *const Signature, out: *Self) BlstEr
 pub fn subgroupCheck(self: *const Self) bool {
     return c.blst_p2_in_g2(&self.point);
 }
+
+test aggregateWithRandomness {
+    const ikm: [32]u8 = [_]u8{
+        0x93, 0xad, 0x7e, 0x65, 0xde, 0xad, 0x05, 0x2a, 0x08, 0x3a,
+        0x91, 0x0c, 0x8b, 0x72, 0x85, 0x91, 0x46, 0x4c, 0xca, 0x56,
+        0x60, 0x5b, 0xb0, 0x56, 0xed, 0xfe, 0x2b, 0x60, 0xa6, 0x3c,
+        0x48, 0x99,
+    };
+
+    const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
+    // aug is null
+
+    const num_sigs = 10;
+
+    var msgs: [num_sigs][32]u8 = undefined;
+    var sks: [num_sigs]SecretKey = undefined;
+    var pks: [num_sigs]PublicKey = undefined;
+    var sigs: [num_sigs]Signature = undefined;
+
+    var scratch: [SCRATCH_SIZE]u8 = undefined;
+
+    var prng = std.Random.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
+        break :blk seed;
+    });
+    const rand = prng.random();
+    for (0..num_sigs) |i| {
+        std.Random.bytes(rand, &msgs[i]);
+        const sk = try SecretKey.keyGen(&ikm, null);
+        const pk = sk.toPublicKey();
+        const sig = sk.sign(&msgs[i], dst, null);
+
+        sks[i] = sk;
+        pks[i] = pk;
+        sigs[i] = sig;
+    }
+    var rands: [32 * 128]u64 = undefined;
+    for (0..32 * 128) |i| {
+        rands[i] = std.Random.int(rand, u64);
+    }
+
+    const agg_sig = try aggregateWithRandomness(
+        &sigs,
+        rands[0..num_sigs],
+        true,
+        &scratch,
+    );
+    _ = agg_sig.toSignature();
+}
+
+const SecretKey = @import("secret_key.zig").SecretKey;
+const PublicKey = @import("public_key.zig").PublicKey;
