@@ -1,6 +1,7 @@
 import {JSCallback} from "bun:ffi";
 import {binding} from "./binding.js";
-import {writeNumber, writeReference} from "./writers.ts";
+import {writePublicKeys, pksU8} from "./buffer.ts";
+import {writeReference, writePublicKeysReference, writeSignaturesReference} from "./writers.ts";
 import {MAX_AGGREGATE_WITH_RANDOMNESS_PER_JOB, PUBLIC_KEY_SIZE, SIGNATURE_SIZE} from "./const.js";
 import {PublicKey} from "./publicKey.js";
 import {Signature} from "./signature.js";
@@ -34,14 +35,14 @@ export function aggregateWithRandomness(sets: Array<PkAndSerializedSig>): PkAndS
 		throw new Error("At least one PkAndSerializedSig is required");
 	}
 
-	const refs = pkAndSerializedSigsRefs.subarray(0, sets.length * 2);
-	writePkAndSerializedSigsReference(sets, refs);
+
+	const pksRef = writePublicKeysReference(sets.map(s => s.pk));
+	const sigsRef = writeSignaturesReference(sets.map(s => s.sig));
 	const pkOut = new PublicKey(new Uint8Array(PUBLIC_KEY_SIZE));
 	const sigOut = new Signature(new Uint8Array(SIGNATURE_SIZE));
 
-	// const res = binding.aggregateWithRandomness(refs, sets.length, pkOut.ptr, sigOut.ptr);
-	const resSig = binding.signatureAggregateWithRandomness(sigOut.ptr, sets.map((s) => s.sig), sets.length, true);
-	const resPk = binding.publicKeyAggregateWithRandomness(pkOut.ptr, sets.map((s) => s.pk), sets.length, true);
+	const resSig = binding.signatureAggregateWithRandomness(sigOut.ptr, sigsRef, sets.length, false);
+	const resPk = binding.publicKeyAggregateWithRandomness(pkOut.ptr, pksRef, sets.length, false);
 
 	if (resSig !== 0 || resPk !== 0) {
 		throw new Error("Failed to aggregate with randomness res = " + resSig + resPk);
@@ -159,7 +160,7 @@ function writePkAndSerializedSigsReference(sets: PkAndSerializedSig[], out: Uint
  *
  */
 function writePkAndSerializedSigReference(set: PkAndSerializedSig, out: Uint32Array, offset: number): void {
-	writeReference(out, set.pk, offset);
+	writeReference(set.pk, out, offset);
 	writeReference(set.sig, out, offset + 2);
 	writeNumber(set.sig.length, out, offset + 4);
 }
