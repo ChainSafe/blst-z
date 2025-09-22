@@ -50,15 +50,15 @@ pub fn aggregateWithRandomness(
     sigs: []const Signature,
     randomness: []const u64,
     sigs_groupcheck: bool,
-    _: *[SCRATCH_SIZE]u8,
+    scratch: *[SCRATCH_SIZE]u8,
 ) BlstError!Self {
     if (sigs.len == 0) {
         return BlstError.AggrTypeMismatch;
     }
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    const scratch: []u64 = allocator.alloc(u64, SCRATCH_SIZE) catch unreachable;
+    if (randomness.len != sigs.len) {
+        return BlstError.AggrTypeMismatch;
+    }
     if (scratch.len <
         c.blst_p2s_mult_pippenger_scratch_sizeof(sigs.len))
     {
@@ -74,7 +74,7 @@ pub fn aggregateWithRandomness(
 
     c.blst_p2s_mult_pippenger(
         &agg_sig.point,
-        @ptrCast(&sigs[0].point),
+        @ptrCast(sigs.ptr),
         sigs.len,
         @ptrCast(randomness.ptr),
         64,
