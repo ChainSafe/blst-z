@@ -9,11 +9,6 @@ pub const AggregatePublicKey = @import("AggregatePublicKey.zig");
 pub const AggregateSignature = @import("AggregateSignature.zig");
 
 pub const min_pk = @import("min_pk.zig");
-pub const MIN_PK_COMPRESS_SIZE = min_pk.PK_COMPRESS_SIZE;
-pub const MIN_PK_SERIALIZE_SIZE = min_pk.PK_SERIALIZE_SIZE;
-
-pub const SIGNATURE_LENGTH_COMPRESSED = min_pk.SIGNATURE_LENGTH_COMPRESSED;
-pub const SIGNATURE_LENGTH_UNCOMPRESSED = min_pk.SIGNATURE_LENGTH_UNCOMPRESSED;
 
 test {
     testing.refAllDecls(@This());

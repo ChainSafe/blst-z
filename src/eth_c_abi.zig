@@ -71,7 +71,7 @@ export fn publicKeySizeOf() c_uint {
 }
 
 export fn publicKeyCompressSize() c_uint {
-    return blst.MIN_PK_SERIALIZE_SIZE;
+    return blst.min_pk.PK_SERIALIZE_SIZE;
 }
 
 export fn publicKeyFromBytes(out: *blst.PublicKey, bytes: [*c]const u8, len: c_uint) c_uint {
@@ -80,7 +80,7 @@ export fn publicKeyFromBytes(out: *blst.PublicKey, bytes: [*c]const u8, len: c_u
 }
 
 export fn publicKeyToBytes(out: [*c]u8, pk: *const blst.PublicKey) void {
-    out[0..blst.MIN_PK_COMPRESS_SIZE].* = pk.compress();
+    out[0..blst.min_pk.PK_COMPRESS_SIZE].* = pk.compress();
 }
 
 export fn publicKeyIsEqual(a: *const blst.PublicKey, b: *const blst.PublicKey) bool {
@@ -183,7 +183,7 @@ export fn signatureSizeOf() c_uint {
 }
 
 export fn signatureCompressSize() c_uint {
-    return blst.MIN_PK_COMPRESS_SIZE;
+    return blst.min_pk.SIG_COMPRESS_SIZE;
 }
 
 export fn signatureFromBytes(out: *blst.Signature, bytes: [*c]const u8, bytes_len: c_uint) c_uint {
@@ -192,7 +192,7 @@ export fn signatureFromBytes(out: *blst.Signature, bytes: [*c]const u8, bytes_le
 }
 
 export fn signatureToBytes(out: [*c]u8, sig: *const blst.Signature) void {
-    out[0..blst.SIGNATURE_LENGTH_COMPRESSED].* = sig.compress();
+    out[0..blst.min_pk.SIG_COMPRESS_SIZE].* = sig.compress();
 }
 
 export fn signatureValidate(sig: *const blst.Signature, sig_infcheck: bool) c_uint {

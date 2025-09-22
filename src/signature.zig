@@ -224,21 +224,20 @@ pub const Signature = extern struct {
         return sig;
     }
 
-    pub fn compress(self: *const Self) [min_pk.SIGNATURE_LENGTH_COMPRESSED]u8 {
-        var sig_comp = [_]u8{0} ** min_pk.SIGNATURE_LENGTH_COMPRESSED;
+    pub fn compress(self: *const Self) [min_pk.SIG_COMPRESS_SIZE]u8 {
+        var sig_comp = [_]u8{0} ** min_pk.SIG_COMPRESS_SIZE;
         c.blst_p2_affine_compress(&sig_comp, &self.point);
         return sig_comp;
     }
 
-    pub fn serialize(self: *const Self) [min_pk.PK_SERIALIZE_SIZE]u8 {
-        var sig_out = [_]u8{0} ** min_pk.PK_SERIALIZE_SIZE;
+    pub fn serialize(self: *const Self) [min_pk.SIG_SERIALIZE_SIZE]u8 {
+        var sig_out = [_]u8{0} ** min_pk.SIG_SERIALIZE_SIZE;
         c.blst_p2_affine_serialize(&sig_out, &self.point);
         return sig_out;
     }
 
     pub fn uncompress(sig_comp: []const u8) BlstError!Self {
-        const len = sig_comp.len;
-        if (len == min_pk.SIGNATURE_LENGTH_COMPRESSED and (sig_comp[0] & 0x80) != 0) {
+        if (sig_comp.len == min_pk.SIG_COMPRESS_SIZE and (sig_comp[0] & 0x80) != 0) {
             var sig = Self{};
             try check(c.blst_p2_uncompress(&sig.point, &sig_comp[0]));
             return sig;
@@ -248,8 +247,8 @@ pub const Signature = extern struct {
     }
 
     pub fn deserialize(sig_in: []const u8) BlstError!Self {
-        if ((sig_in.len == min_pk.PK_SERIALIZE_SIZE and (sig_in[0] & 0x80) == 0) or
-            (sig_in.len == min_pk.PK_COMPRESS_SIZE and (sig_in[0] & 0x80) != 0))
+        if ((sig_in.len == min_pk.SIG_SERIALIZE_SIZE and (sig_in[0] & 0x80) == 0) or
+            (sig_in.len == min_pk.SIG_COMPRESS_SIZE and (sig_in[0] & 0x80) != 0))
         {
             var sig = Self{};
             try check(c.blst_p2_deserialize(&sig.point, &sig_in[0]));
