@@ -32,6 +32,7 @@ function writePublicKey(pk: PublicKey, i: number): void {
 	}
 }
 
+
 // Operations involving multiple msgs require msgs in contiguous memory.
 const msgsBuffer = new ArrayBuffer(32 * MAX_AGGREGATE_PER_JOB);
 export const msgsU8 = new Uint8Array(msgsBuffer);

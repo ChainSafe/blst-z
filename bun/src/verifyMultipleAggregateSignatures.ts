@@ -1,5 +1,6 @@
 import {binding} from "./binding.js";
-import {writeReference} from "./writers.ts";
+import {writeReference, writePublicKeysReference, writeSignaturesReference} from "./writers.ts";
+import {msgsU8, writeMessages} from "./buffer.ts";
 import {MAX_SIGNATURE_SETS_PER_JOB} from "./const.js";
 import type {PublicKey} from "./publicKey.js";
 import type {Signature} from "./signature.js";
@@ -33,18 +34,22 @@ export function verifyMultipleAggregateSignatures(
 		throw new Error(`Number of signature sets exceeds the maximum of ${MAX_SIGNATURE_SETS_PER_JOB}`);
 	}
 
-	writeSignatureSetsReference(sets, signatureSetsRef.subarray(0, sets.length * 2));
 	const msgLength = 32;
 	for (const set of sets) {
 		if (set.msg.length !== msgLength) {
 			throw new Error("All messages must be 32 bytes");
 		}
 	}
-	const res = binding.verifyMultipleAggregateSignatures(
-		signatureSetsRef,
+	const pksRef = writePublicKeysReference(sets.map(s => s.pk));
+	const sigsRef = writeSignaturesReference(sets.map(s => s.sig));
+	writeMessages(sets.map(s => s.msg));
+
+	const res = binding.signatureVerifyMultipleAggregateSignatures(
 		sets.length,
-		msgLength,
+		msgsU8,
+		pksRef,
 		pksValidate ?? false,
+		sigsRef,
 		sigsGroupcheck ?? false
 	);
 	return res === 0;
@@ -66,6 +71,6 @@ function writeSignatureSetsReference(sets: SignatureSet[], out: Uint32Array): vo
 // each SignatureSet needs 24 bytes = 6 * uint32 for references
 function writeSignatureSetReference(set: SignatureSet, out: Uint32Array, offset: number): void {
 	writeReference(set.msg, out, offset);
-	writeReference(out, set.pk, offset + 2);
-	writeReference(out, set.sig, offset + 4);
+	writeReference(set.pk, out, offset + 2);
+	writeReference(set.sig, out, offset + 4);
 }

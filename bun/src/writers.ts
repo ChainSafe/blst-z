@@ -74,7 +74,7 @@ export function writePublicKeysReference(pks: PublicKey[]): Uint32Array {
 	}
 
 	for (let i = 0; i < pks.length; i++) {
-		writeReference(publicKeysRefs, pks[i], i * 2);
+		writeReference(pks[i].ptr, publicKeysRefs, i * 2);
 	}
 
 	return publicKeysRefs.subarray(0, pks.length * 2);
@@ -92,7 +92,7 @@ export function writeSignaturesReference(sigs: Signature[]): Uint32Array {
 	}
 
 	for (let i = 0; i < sigs.length; i++) {
-		writeReference(signaturesRefs, sigs[i], i * 2);
+		writeReference(sigs[i].ptr, signaturesRefs, i * 2);
 	}
 
 	return signaturesRefs.subarray(0, sigs.length * 2);
