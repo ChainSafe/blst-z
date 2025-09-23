@@ -37,7 +37,7 @@ export function aggregateWithRandomness(sets: Array<PkAndSerializedSig>): PkAndS
 
 
 	const pksRef = writePublicKeysReference(sets.map(s => s.pk));
-	const sigsRef = writeSignaturesReference(sets.map(s => s.sig));
+	const sigsRef = writeSignaturesReference(sets.map(s => Signature.fromBytes(s.sig, true)));
 	const pkOut = new PublicKey(new Uint8Array(PUBLIC_KEY_SIZE));
 	const sigOut = new Signature(new Uint8Array(SIGNATURE_SIZE));
 

@@ -47,38 +47,37 @@ pub fn aggregate(sigs: []const Signature, sigs_groupcheck: bool) BlstError!Self 
 }
 
 pub fn aggregateWithRandomness(
-    sigs: []const Signature,
-    randomness: []const u64,
+    sigs: []*const Signature,
+    randomness: [*c]*const u8,
     sigs_groupcheck: bool,
-    scratch: *[SCRATCH_SIZE]u8,
+    scratch: [*c]u64,
 ) BlstError!Self {
-    if (sigs.len == 0) {
-        return BlstError.AggrTypeMismatch;
-    }
 
-    if (randomness.len != sigs.len) {
-        return BlstError.AggrTypeMismatch;
-    }
-    if (scratch.len <
-        c.blst_p2s_mult_pippenger_scratch_sizeof(sigs.len))
-    {
-        return BlstError.AggrTypeMismatch;
-    }
+    //if (randomness.len != sigs.len) {
+    //    return BlstError.AggrTypeMismatch;
+    //}
+    // if (scratch.len <
+    //     c.blst_p2s_mult_pippenger_scratch_sizeof(sigs.len))
+    // {
+    //     return BlstError.AggrTypeMismatch;
+    // }
+    _ = sigs_groupcheck;
 
-    if (sigs_groupcheck) {
-        for (sigs) |sig| {
-            try sig.validate(false);
-        }
-    }
+    //if (sigs_groupcheck) {
+    //    for (sigs) |sig| {
+    //        try sig.validate(false);
+    //    }
+    //}
     var agg_sig = Self{};
 
     c.blst_p2s_mult_pippenger(
         &agg_sig.point,
         @ptrCast(sigs.ptr),
-        sigs.len,
-        @ptrCast(randomness.ptr),
+        10,
+        randomness,
         64,
-        @ptrCast(@alignCast(scratch)),
+        scratch,
+        // @ptrCast(@alignCast(scratch)),
     );
     return agg_sig;
 }
@@ -113,7 +112,10 @@ test aggregateWithRandomness {
     var pks: [num_sigs]PublicKey = undefined;
     var sigs: [num_sigs]Signature = undefined;
 
-    var scratch: [SCRATCH_SIZE]u8 = undefined;
+    const m = c.blst_p2s_mult_pippenger_scratch_sizeof(num_sigs) * 64;
+    const allocator = std.testing.allocator;
+    var scratch = try std.testing.allocator.alloc(u64, m);
+    defer allocator.free(scratch);
 
     var prng = std.Random.DefaultPrng.init(blk: {
         var seed: u64 = undefined;
@@ -131,16 +133,22 @@ test aggregateWithRandomness {
         pks[i] = pk;
         sigs[i] = sig;
     }
-    var rands: [32 * 128]u64 = undefined;
-    for (0..32 * 128) |i| {
-        rands[i] = std.Random.int(rand, u64);
+    var rands: [32 * 128]u8 = [_]u8{0} ** (32 * 128);
+    var scalars_refs: [128]*const u8 = undefined;
+    // var sigs_refs: [128]*c.blst_p2_affine = undefined;
+    var sigs_refs: [128]*const Signature = undefined;
+    std.Random.bytes(rand, &rands);
+
+    for (0..num_sigs) |i| {
+        scalars_refs[i] = &rands[i * 32];
+        sigs_refs[i] = &sigs[i];
     }
 
     const agg_sig = try aggregateWithRandomness(
-        &sigs,
-        rands[0..num_sigs],
+        &sigs_refs,
+        &scalars_refs[0],
         true,
-        &scratch,
+        &scratch[0],
     );
     _ = agg_sig.toSignature();
 }

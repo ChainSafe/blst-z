@@ -303,27 +303,29 @@ export fn signatureVerifyMultipleAggregateSignatures(
 
 export fn signatureAggregateWithRandomness(
     out: *blst.Signature,
-    sigs: [*c]const blst.Signature,
+    sigs: [*c]*const blst.Signature,
     len: c_uint,
     sigs_groupcheck: bool,
 ) c_uint {
-    var rands: [32 * 128]u64 = [_]u64{0} ** (32 * 128);
+    var rands: [32 * 128]u8 = [_]u8{0} ** (32 * 128);
     var prng = std.Random.DefaultPrng.init(blk: {
         var seed: u64 = undefined;
         std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
         break :blk seed;
     });
     const rand = prng.random();
+    std.Random.bytes(rand, &rands);
 
-    for (0..32 * 128) |i| {
-        rands[i] = std.Random.int(rand, u64);
+    var scalars_refs: [128]*const u8 = undefined;
+    for (0..len) |i| {
+        scalars_refs[i] = &rands[i * 32];
     }
 
     const agg_sig = blst.AggregateSignature.aggregateWithRandomness(
         sigs[0..len],
-        rands[0..len],
+        &scalars_refs[0],
         sigs_groupcheck,
-        scratch[0..],
+        @ptrCast(@alignCast(&scratch)),
     ) catch |e| return intFromError(e);
 
     out.* = agg_sig.toSignature();
@@ -362,27 +364,29 @@ export fn aggregateSignatureAggregate(
 
 export fn aggregateSignatureAggregateWithRandomness(
     out: *blst.AggregateSignature,
-    sigs: [*c]const blst.Signature,
+    sigs: [*c]*const blst.Signature,
     len: c_uint,
     sigs_groupcheck: bool,
 ) c_uint {
-    var rands: [32 * 128]u64 = [_]u64{0} ** (32 * 128);
+    var rands: [32 * 128]u8 = [_]u8{0} ** (32 * 128);
     var prng = std.Random.DefaultPrng.init(blk: {
         var seed: u64 = undefined;
         std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
         break :blk seed;
     });
     const rand = prng.random();
+    std.Random.bytes(rand, &rands);
 
-    for (0..32 * 128) |i| {
-        rands[i] = std.Random.int(rand, u64);
+    var scalars_refs: [128]*const u8 = undefined;
+    for (0..len) |i| {
+        scalars_refs[i] = &rands[i * 32];
     }
 
     out.* = blst.AggregateSignature.aggregateWithRandomness(
         sigs[0..len],
-        rands[0..len],
+        &scalars_refs[0],
         sigs_groupcheck,
-        &scratch,
+        @ptrCast(@alignCast(&scratch)),
     ) catch |e| return intFromError(e);
 
     return 0;
