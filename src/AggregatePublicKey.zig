@@ -47,10 +47,10 @@ pub fn aggregate(pks: []const PublicKey, pks_validate: bool) BlstError!Self {
 }
 
 pub fn aggregateWithRandomness(
-    pks: []const PublicKey,
+    pks: []*const PublicKey,
     randomness: [*c]*const u8,
     pks_validate: bool,
-    scratch: *[SCRATCH_SIZE]u8,
+    scratch: [*c]u8,
 ) BlstError!Self {
     if (pks.len == 0) {
         return BlstError.AggrTypeMismatch;

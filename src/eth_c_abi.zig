@@ -104,7 +104,7 @@ export fn publicKeyToAggregate(out: *blst.AggregatePublicKey, pk: *const blst.Pu
 
 export fn publicKeyAggregateWithRandomness(
     out: *blst.PublicKey,
-    pks: [*c]const blst.PublicKey,
+    pks: [*c]*const blst.PublicKey,
     len: c_uint,
     pks_validate: bool,
 ) c_uint {
@@ -154,7 +154,7 @@ export fn aggregatePublicKeys(out: *blst.AggregatePublicKey, pks: [*c]const blst
 
 export fn aggregatePublicKeyWithRandomness(
     out: *blst.AggregatePublicKey,
-    pks: [*c]const blst.PublicKey,
+    pks: [*c]*const blst.PublicKey,
     randomness: [*c]*const u8,
     len: c_uint,
     pks_validate: bool,
