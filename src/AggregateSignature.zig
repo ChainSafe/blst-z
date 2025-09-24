@@ -73,7 +73,7 @@ pub fn aggregateWithRandomness(
     c.blst_p2s_mult_pippenger(
         &agg_sig.point,
         @ptrCast(sigs.ptr),
-        10,
+        sigs.len,
         randomness,
         64,
         scratch,
@@ -105,7 +105,7 @@ test aggregateWithRandomness {
     const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
     // aug is null
 
-    const num_sigs = 10;
+    const num_sigs = 128;
 
     var msgs: [num_sigs][32]u8 = undefined;
     var sks: [num_sigs]SecretKey = undefined;
