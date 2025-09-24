@@ -7,6 +7,7 @@ const intFromError = @import("error.zig").intFromError;
 const DST = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
 
 pub const SCRATCH_SIZE: usize = 3192;
+pub const MAX_AGGREGATE_PER_JOB: usize = 128;
 
 /// This is a scratch buffer used for operations that require temporary storage
 threadlocal var scratch: [SCRATCH_SIZE]u8 = undefined;
@@ -87,6 +88,7 @@ export fn publicKeyToBytes(out: [*c]u8, pk: *const blst.PublicKey) void {
 export fn publicKeyIsEqual(a: *const blst.PublicKey, b: *const blst.PublicKey) bool {
     return a.isEqual(b);
 }
+
 export fn publicKeyValidate(a: *const blst.PublicKey) c_uint {
     a.validate() catch |e| return intFromError(e);
     return 0;
@@ -106,7 +108,7 @@ export fn publicKeyAggregateWithRandomness(
     len: c_uint,
     pks_validate: bool,
 ) c_uint {
-    var rands: [32 * 128]u8 = [_]u8{0} ** (32 * 128);
+    var rands: [32 * MAX_AGGREGATE_PER_JOB]u8 = [_]u8{0} ** (32 * MAX_AGGREGATE_PER_JOB);
     var prng = std.Random.DefaultPrng.init(blk: {
         var seed: u64 = undefined;
         std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
@@ -115,7 +117,7 @@ export fn publicKeyAggregateWithRandomness(
     const rand = prng.random();
     std.Random.bytes(rand, &rands);
 
-    var scalars_refs: [128]*const u8 = undefined;
+    var scalars_refs: [MAX_AGGREGATE_PER_JOB]*const u8 = undefined;
     for (0..len) |i| {
         scalars_refs[i] = &rands[i * 32];
     }
@@ -133,7 +135,6 @@ export fn publicKeyAggregateWithRandomness(
 
 export fn publicKeyAggregate(out: *blst.PublicKey, pks: [*c]const blst.PublicKey, len: c_uint, pks_validate: bool) c_uint {
     const agg_pk = blst.AggregatePublicKey.aggregate(pks[0..len], pks_validate) catch |e| return intFromError(e);
-
     out.* = agg_pk.toPublicKey();
 
     return 0;
@@ -275,7 +276,7 @@ export fn signatureVerifyMultipleAggregateSignatures(
     sigs: [*c]const *blst.Signature,
     sig_groupcheck: bool,
 ) c_uint {
-    var rands: [32 * 128][32]u8 = undefined;
+    var rands: [32 * MAX_AGGREGATE_PER_JOB][32]u8 = undefined;
     var prng = std.Random.DefaultPrng.init(blk: {
         var seed: u64 = undefined;
         std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
@@ -283,7 +284,7 @@ export fn signatureVerifyMultipleAggregateSignatures(
     });
     const rand = prng.random();
 
-    for (0..32 * 128) |i| {
+    for (0..32 * MAX_AGGREGATE_PER_JOB) |i| {
         std.Random.bytes(rand, &rands[i]);
     }
     const res = @import("signature.zig").verifyMultipleAggregateSignatures(
@@ -307,7 +308,7 @@ export fn signatureAggregateWithRandomness(
     len: c_uint,
     sigs_groupcheck: bool,
 ) c_uint {
-    var rands: [32 * 128]u8 = [_]u8{0} ** (32 * 128);
+    var rands: [32 * MAX_AGGREGATE_PER_JOB]u8 = [_]u8{0} ** (32 * MAX_AGGREGATE_PER_JOB);
     var prng = std.Random.DefaultPrng.init(blk: {
         var seed: u64 = undefined;
         std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
@@ -316,7 +317,7 @@ export fn signatureAggregateWithRandomness(
     const rand = prng.random();
     std.Random.bytes(rand, &rands);
 
-    var scalars_refs: [128]*const u8 = undefined;
+    var scalars_refs: [MAX_AGGREGATE_PER_JOB]*const u8 = undefined;
     for (0..len) |i| {
         scalars_refs[i] = &rands[i * 32];
     }
@@ -371,7 +372,7 @@ export fn aggregateSignatureAggregateWithRandomness(
     len: c_uint,
     sigs_groupcheck: bool,
 ) c_uint {
-    var rands: [32 * 128]u8 = [_]u8{0} ** (32 * 128);
+    var rands: [32 * MAX_AGGREGATE_PER_JOB]u8 = [_]u8{0} ** (32 * MAX_AGGREGATE_PER_JOB);
     var prng = std.Random.DefaultPrng.init(blk: {
         var seed: u64 = undefined;
         std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
@@ -380,7 +381,7 @@ export fn aggregateSignatureAggregateWithRandomness(
     const rand = prng.random();
     std.Random.bytes(rand, &rands);
 
-    var scalars_refs: [128]*const u8 = undefined;
+    var scalars_refs: [MAX_AGGREGATE_PER_JOB]*const u8 = undefined;
     for (0..len) |i| {
         scalars_refs[i] = &rands[i * 32];
     }
