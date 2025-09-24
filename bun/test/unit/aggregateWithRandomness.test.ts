@@ -12,7 +12,7 @@ import {G1_POINT_AT_INFINITY, G2_POINT_AT_INFINITY} from "../__fixtures__/index.
 import {expectNotEqualHex, getTestSet, getTestSetsSameMessage} from "../utils/index.js";
 
 describe("Aggregate With Randomness", () => {
-	const sameMessageSets = getTestSetsSameMessage(8);
+	const sameMessageSets = getTestSetsSameMessage(10);
 	const msg = sameMessageSets.msg;
 	const sets = sameMessageSets.sets.map((s) => ({
 		msg: msg,
@@ -59,7 +59,7 @@ describe("Aggregate With Randomness", () => {
 			expect(agg.sig).toBeDefined();
 			expect(agg.sig).toBeInstanceOf(Signature);
 			expect(() => agg.sig.sigValidate()).not.toThrow();
-		});
+		;
 		it("should add randomness to aggregated publicKey", () => {
 			const withoutRandomness = aggregatePublicKeys(sets.map(({pk}) => pk));
 			const withRandomness = aggregateWithRandomness(sets).pk;
@@ -72,15 +72,15 @@ describe("Aggregate With Randomness", () => {
 		});
 		it("should produce verifiable set", () => {
 			const {pk, sig} = aggregateWithRandomness(sets);
-			expect(Signature.verify(msg, pk, sig)).toBeTrue();
+			expect(sig.verify(msg, pk)).toBeTrue();
 		});
 		it("should not validate for different message", async () => {
 			const {pk, sig} = aggregateWithRandomness(sets);
-			expect(Signature.verify(randomSet.msg, pk, sig)).toBeFalse();
+			expect(sig.verify(randomSet.msg, pk)).toBeFalse();
 		});
 		it("should not validate included key/sig for different message", async () => {
 			const {pk, sig} = aggregateWithRandomness([...sets, {pk: randomSet.pk, sig: randomSet.sig.toBytes()}]);
-			expect(Signature.verify(msg, pk, sig)).toBeFalse();
+			expect(sig.verify(msg, pk)).toBeFalse();
 		});
 		it("should return different signatures for different sets", () => {
 			const {pk: pk1, sig: sig1} = aggregateWithRandomness(sets);
@@ -129,7 +129,7 @@ describe("Aggregate With Randomness", () => {
 //		//   it("should handle invalid signature property value", () => {
 //		//     expect(() => asyncAggregateWithRandomness([{pk: sets[0].pk, sig: "bar" as any}])).toThrow();
 //		//   });
-//		// });
+		 });
 //		it("should throw for invalid serialized", async () => {
 //			try {
 //				await asyncAggregateWithRandomness(
