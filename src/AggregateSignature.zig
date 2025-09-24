@@ -48,36 +48,32 @@ pub fn aggregate(sigs: []const Signature, sigs_groupcheck: bool) BlstError!Self 
 
 pub fn aggregateWithRandomness(
     sigs: []*const Signature,
-    randomness: [*c]*const u8,
+    randomness: []const u8,
     sigs_groupcheck: bool,
     scratch: [*c]u64,
 ) BlstError!Self {
-
-    //if (randomness.len != sigs.len) {
-    //    return BlstError.AggrTypeMismatch;
-    //}
+    if (randomness.len / 32 != sigs.len) return BlstError.AggrTypeMismatch;
+    if (sigs_groupcheck) for (sigs) |sig| try sig.validate(false);
     // if (scratch.len <
     //     c.blst_p2s_mult_pippenger_scratch_sizeof(sigs.len))
     // {
     //     return BlstError.AggrTypeMismatch;
     // }
-    _ = sigs_groupcheck;
 
-    //if (sigs_groupcheck) {
-    //    for (sigs) |sig| {
-    //        try sig.validate(false);
-    //    }
-    //}
+    var scalars_refs: [128]*const u8 = undefined;
+    for (0..sigs.len) |i| {
+        scalars_refs[i] = &randomness[i * 32];
+    }
+
     var agg_sig = Self{};
 
     c.blst_p2s_mult_pippenger(
         &agg_sig.point,
         @ptrCast(sigs.ptr),
         sigs.len,
-        randomness,
+        @ptrCast(&scalars_refs),
         64,
         scratch,
-        // @ptrCast(@alignCast(scratch)),
     );
     return agg_sig;
 }
@@ -134,19 +130,16 @@ test aggregateWithRandomness {
         sigs[i] = sig;
     }
     var rands: [32 * 128]u8 = [_]u8{0} ** (32 * 128);
-    var scalars_refs: [128]*const u8 = undefined;
-    // var sigs_refs: [128]*c.blst_p2_affine = undefined;
     var sigs_refs: [128]*const Signature = undefined;
     std.Random.bytes(rand, &rands);
 
     for (0..num_sigs) |i| {
-        scalars_refs[i] = &rands[i * 32];
         sigs_refs[i] = &sigs[i];
     }
 
     const agg_sig = try aggregateWithRandomness(
         &sigs_refs,
-        &scalars_refs[0],
+        &rands,
         true,
         &scratch[0],
     );
