@@ -82,12 +82,6 @@ pub const Signature = extern struct {
         }
     }
 
-    pub fn sigValidate(sig_in: []const u8, sig_infcheck: bool) BlstError!Self {
-        var sig = try Self.deserialize(sig_in);
-        try sig.validate(sig_infcheck);
-        return sig;
-    }
-
     // same to non-std verify in Rust
     pub fn verify(
         self: *const Self,
