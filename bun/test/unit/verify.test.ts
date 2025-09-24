@@ -62,9 +62,9 @@ describe("Fast Aggregate Verify", () => {
 				expect(res).toBeFalse();
 			});
 		});
-	//	it("should return true for valid sets", () => {
-	//		expect(testSet.sig.fastAggregateVerify(testSet.msg, [testSet.pk])).toBeTrue();
-	//	});
+		it("should return true for valid sets", () => {
+			expect(testSet.sig.fastAggregateVerify(testSet.msg, [testSet.pk])).toBeTrue();
+		});
 	});
 });
 
