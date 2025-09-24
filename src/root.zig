@@ -79,7 +79,6 @@ test "test aggregateVerify" {
     }
 
     const agg_sig = try AggregateSignature.aggregate(&sigs, false);
-    std.debug.print("{}\n", .{agg_sig.point});
     const sig = Signature.fromAggregate(&agg_sig);
 
     try std.testing.expect(try sig.aggregateVerify(false, &buffer, &msgs, dst, &pks, false));
