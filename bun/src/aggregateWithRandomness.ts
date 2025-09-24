@@ -2,7 +2,7 @@ import {JSCallback} from "bun:ffi";
 import {binding} from "./binding.js";
 import {writePublicKeys, pksU8} from "./buffer.ts";
 import {writeReference, writePublicKeysReference, writeSignaturesReference} from "./writers.ts";
-import {MAX_AGGREGATE_WITH_RANDOMNESS_PER_JOB, PUBLIC_KEY_SIZE, SIGNATURE_SIZE} from "./const.js";
+import {MAX_AGGREGATE_WITH_RANDOMNESS_PER_JOB, PUBLIC_KEY_SIZE, SIGNATURE_LENGTH} from "./const.js";
 import {PublicKey} from "./publicKey.js";
 import {Signature} from "./signature.js";
 
@@ -39,7 +39,7 @@ export function aggregateWithRandomness(sets: Array<PkAndSerializedSig>): PkAndS
 	const pksRef = writePublicKeysReference(sets.map(s => s.pk));
 	const sigsRef = writeSignaturesReference(sets.map(s => Signature.fromBytes(s.sig, true)));
 	const pkOut = new PublicKey(new Uint8Array(PUBLIC_KEY_SIZE));
-	const sigOut = new Signature(new Uint8Array(SIGNATURE_SIZE));
+	const sigOut = new Signature(new Uint8Array(SIGNATURE_LENGTH));
 
 	const resSig = binding.signatureAggregateWithRandomness(sigOut.ptr, sigsRef, sets.length, false);
 	const resPk = binding.publicKeyAggregateWithRandomness(pkOut.ptr, pksRef, sets.length, false);
@@ -74,7 +74,7 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 	// 1s timeout
 	const TIMEOUT_MS = 1_000;
 	const pkOut = new PublicKey(new Uint8Array(PUBLIC_KEY_SIZE));
-	const sigOut = new Signature(new Uint8Array(SIGNATURE_SIZE));
+	const sigOut = new Signature(new Uint8Array(SIGNATURE_LENGTH));
 
 	return new Promise((resolve, reject) => {
 		let jscallback: JSCallback | null = null;

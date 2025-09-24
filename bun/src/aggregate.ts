@@ -1,5 +1,5 @@
 import {binding} from "./binding.js";
-import {MAX_AGGREGATE_PER_JOB, PUBLIC_KEY_SIZE, SIGNATURE_SIZE} from "./const.js";
+import {MAX_AGGREGATE_PER_JOB, PUBLIC_KEY_SIZE, SIGNATURE_LENGTH} from "./const.js";
 import {PublicKey} from "./publicKey.js";
 import {writeSignaturesReference, writePublicKeysReference, writeUint8ArrayArray} from "./writers.ts";
 import {writePublicKeys, pksU8} from "./buffer.ts";
@@ -54,8 +54,7 @@ export function aggregateSignatures(sigs: Array<Signature>, sigsGroupcheck?: boo
 	for (let i = 0; i < sigs.length; i += MAX_AGGREGATE_PER_JOB) {
 		const sigsBatch = sigs.slice(i, Math.min(sigs.length, i + MAX_AGGREGATE_PER_JOB));
 		const sigsRef = writeSignaturesReference(sigsBatch);
-		const sigBuf = new Uint8Array(SIGNATURE_SIZE);
-		const outSig = new Signature(sigBuf);
+		const outSig = new Signature(new Uint8Array(SIGNATURE_LENGTH));
 		const res = binding.signatureAggregate(outSig.ptr, sigsRef, sigsBatch.length, sigsGroupcheck ?? false);
 
 		if (res !== 0) {
@@ -121,7 +120,7 @@ export function aggregateSerializedSignatures(
 	for (let i = 0; i < sigs.length; i += MAX_AGGREGATE_PER_JOB) {
 		const sigsBatch = sigs.slice(i, Math.min(sigs.length, i + MAX_AGGREGATE_PER_JOB));
 		const sigsRef = writeSerializedSignaturesReference(sigsBatch);
-		const outSig = new Signature(new Uint8Array(SIGNATURE_SIZE));
+		const outSig = new Signature(new Uint8Array(SIGNATURE_LENGTH));
 		const res = binding.signatureAggregate(
 			outSig.ptr,
 			sigsRef,

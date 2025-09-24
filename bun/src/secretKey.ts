@@ -1,6 +1,6 @@
 import type {Pointer} from "bun:ffi";
 import {binding} from "./binding.js";
-import {PUBLIC_KEY_SIZE, SECRET_KEY_SIZE, SIGNATURE_SIZE} from "./const.js";
+import {PUBLIC_KEY_SIZE, SECRET_KEY_SIZE, SIGNATURE_LENGTH} from "./const.js";
 import {PublicKey} from "./publicKey.js";
 import {Signature} from "./signature.js";
 import {assertSuccess, fromHex, toHex} from "./util.js";
@@ -95,7 +95,7 @@ export class SecretKey {
 			throw new Error("Message cannot be empty");
 		}
 
-		const sig = new Uint8Array(SIGNATURE_SIZE);
+		const sig = new Uint8Array(SIGNATURE_LENGTH);
 		binding.secretKeySign(sig, this.ptr, msg, msg.length);
 		return new Signature(sig);
 	}
