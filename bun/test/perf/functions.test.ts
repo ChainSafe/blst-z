@@ -31,7 +31,7 @@ describe("functions", () => {
 		// for (const count of [1, 16, 128, 256, 512, 1024]) {
 		// TODO: blst-bun supports up to 128 sets while blst-ts supports unlimited sets
 		// as of Feb 2025, this is enough for lodestar
-		for (const count of [1, 16, 128]) {
+		for (const count of [1, 8, 32, 128]) {
 			bench({
 				id: `aggregateWithRandomness - ${count} sets`,
 				before: () => {
@@ -77,7 +77,7 @@ describe("functions", () => {
 					};
 				},
 				fn: ({messages, publicKeys, signature}) => {
-					blst.aggregateVerify(messages, publicKeys, signature);
+					signature.aggregateVerify(messages, publicKeys);
 				},
 			});
 		}
@@ -97,6 +97,7 @@ describe("functions", () => {
 		}
 	});
 	describe("verifyMultipleAggregateSignatures same message", () => {
+		// for (const count of [1, 8, 32, 128, 256]) {
 		for (const count of [1, 8, 32, 128, 256]) {
 			bench({
 				id: `Same message - ${count} sets`,
@@ -119,7 +120,7 @@ describe("functions", () => {
 							return sig;
 						})
 					);
-					const isValid = blst.verify(sets[0].message, aggregatedPubkey, aggregatedSignature);
+					const isValid = aggregatedSignature.verify(sets[0].message, aggregatedPubkey);
 					if (!isValid) throw Error("Invalid");
 				},
 			});
