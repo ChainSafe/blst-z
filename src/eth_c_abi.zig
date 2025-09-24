@@ -10,6 +10,7 @@ pub const SCRATCH_SIZE: usize = 3192;
 
 /// This is a scratch buffer used for operations that require temporary storage
 threadlocal var scratch: [SCRATCH_SIZE]u8 = undefined;
+threadlocal var sig_scratch: [SCRATCH_SIZE]u64 = undefined;
 
 ////// SecretKey
 
@@ -107,21 +108,22 @@ export fn publicKeyAggregateWithRandomness(
     len: c_uint,
     pks_validate: bool,
 ) c_uint {
-    var rands: [32 * 128]u64 = [_]u64{0} ** (32 * 128);
+    var rands: [32 * 128]u8 = [_]u8{0} ** (32 * 128);
     var prng = std.Random.DefaultPrng.init(blk: {
         var seed: u64 = undefined;
         std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
         break :blk seed;
     });
     const rand = prng.random();
+    std.Random.bytes(rand, &rands);
 
-    for (0..32 * 128) |i| {
-        rands[i] = std.Random.int(rand, u64);
+    var scalars_refs: [128]*const u8 = undefined;
+    for (0..len) |i| {
+        scalars_refs[i] = &rands[i * 32];
     }
-
     const agg_pk = blst.AggregatePublicKey.aggregateWithRandomness(
         pks[0..len],
-        rands[0..len],
+        &scalars_refs[0],
         pks_validate,
         &scratch,
     ) catch |e| return intFromError(e);
@@ -154,13 +156,13 @@ export fn aggregatePublicKeys(out: *blst.AggregatePublicKey, pks: [*c]const blst
 export fn aggregatePublicKeyWithRandomness(
     out: *blst.AggregatePublicKey,
     pks: [*c]const blst.PublicKey,
-    randomness: [*c]const u64,
+    randomness: [*c]*const u8,
     len: c_uint,
     pks_validate: bool,
 ) c_uint {
     out.* = blst.AggregatePublicKey.aggregateWithRandomness(
         pks[0..len],
-        randomness[0..len],
+        randomness,
         pks_validate,
         &scratch,
     ) catch |e| return intFromError(e);
@@ -325,7 +327,7 @@ export fn signatureAggregateWithRandomness(
         sigs[0..len],
         &scalars_refs[0],
         sigs_groupcheck,
-        @ptrCast(@alignCast(&scratch)),
+        @ptrCast(@alignCast(&sig_scratch)),
     ) catch |e| return intFromError(e);
 
     out.* = agg_sig.toSignature();
@@ -339,7 +341,10 @@ export fn signatureAggregate(
     len: c_uint,
     sigs_groupcheck: bool,
 ) c_uint {
-    const agg_sig = blst.AggregateSignature.aggregate(sigs[0..len], sigs_groupcheck) catch |e| return intFromError(e);
+    const agg_sig = blst.AggregateSignature.aggregate(
+        sigs[0..len],
+        sigs_groupcheck,
+    ) catch |e| return intFromError(e);
 
     out.* = agg_sig.toSignature();
 
@@ -386,7 +391,7 @@ export fn aggregateSignatureAggregateWithRandomness(
         sigs[0..len],
         &scalars_refs[0],
         sigs_groupcheck,
-        @ptrCast(@alignCast(&scratch)),
+        @ptrCast(@alignCast(&sig_scratch)),
     ) catch |e| return intFromError(e);
 
     return 0;

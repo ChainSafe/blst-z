@@ -48,16 +48,16 @@ pub fn aggregate(pks: []const PublicKey, pks_validate: bool) BlstError!Self {
 
 pub fn aggregateWithRandomness(
     pks: []const PublicKey,
-    randomness: []const u64,
+    randomness: [*c]*const u8,
     pks_validate: bool,
     scratch: *[SCRATCH_SIZE]u8,
 ) BlstError!Self {
     if (pks.len == 0) {
         return BlstError.AggrTypeMismatch;
     }
-    if (randomness.len != pks.len) {
-        return BlstError.AggrTypeMismatch;
-    }
+    //if (randomness.len != pks.len) {
+    //    return BlstError.AggrTypeMismatch;
+    //}
     if (scratch.len < c.blst_p1s_mult_pippenger_scratch_sizeof(pks.len)) {
         return BlstError.AggrTypeMismatch;
     }
@@ -71,7 +71,7 @@ pub fn aggregateWithRandomness(
         &agg_pk.point,
         @ptrCast(pks.ptr),
         pks.len,
-        @ptrCast(randomness.ptr),
+        randomness,
         64,
         @ptrCast(@alignCast(scratch)),
     );
