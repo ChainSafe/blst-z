@@ -89,10 +89,8 @@ export fn publicKeyIsEqual(a: *const blst.PublicKey, b: *const blst.PublicKey) b
 }
 export fn publicKeyValidate(a: *const blst.PublicKey) c_uint {
     a.validate() catch |e| return intFromError(e);
-    return 0; //export fn publicKeyValidate(a: *const blst.PublicKey) c_uint {
-} //    a.validate() catch |e| return intFromError(e);
-//    return 0;
-//}
+    return 0;
+}
 
 export fn publicKeyFromAggregate(out: *blst.PublicKey, agg_pk: *const blst.AggregatePublicKey) void {
     out.* = agg_pk.toPublicKey();
