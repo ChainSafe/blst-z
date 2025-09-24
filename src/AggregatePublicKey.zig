@@ -89,3 +89,64 @@ pub fn addPublicKey(self: *Self, pk: *const PublicKey, pk_validate: bool) BlstEr
 
     c.blst_p1_add_or_double_affine(&self.point, &self.point, &pk.point);
 }
+
+test aggregateWithRandomness {
+    const ikm: [32]u8 = [_]u8{
+        0x93, 0xad, 0x7e, 0x65, 0xde, 0xad, 0x05, 0x2a, 0x08, 0x3a,
+        0x91, 0x0c, 0x8b, 0x72, 0x85, 0x91, 0x46, 0x4c, 0xca, 0x56,
+        0x60, 0x5b, 0xb0, 0x56, 0xed, 0xfe, 0x2b, 0x60, 0xa6, 0x3c,
+        0x48, 0x99,
+    };
+
+    const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
+    // aug is null
+
+    const num_sigs = 128;
+
+    var msgs: [num_sigs][32]u8 = undefined;
+    var sks: [num_sigs]SecretKey = undefined;
+    var pks: [num_sigs]PublicKey = undefined;
+    var sigs: [num_sigs]Signature = undefined;
+
+    const m = c.blst_p1s_mult_pippenger_scratch_sizeof(num_sigs) * 8;
+    const allocator = std.testing.allocator;
+    var scratch = try std.testing.allocator.alloc(u8, m);
+    defer allocator.free(scratch);
+
+    var prng = std.Random.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
+        break :blk seed;
+    });
+    const rand = prng.random();
+    for (0..num_sigs) |i| {
+        std.Random.bytes(rand, &msgs[i]);
+        const sk = try SecretKey.keyGen(&ikm, null);
+        const pk = sk.toPublicKey();
+        const sig = sk.sign(&msgs[i], dst, null);
+
+        sks[i] = sk;
+        pks[i] = pk;
+        sigs[i] = sig;
+    }
+    var rands: [32 * 128]u8 = [_]u8{0} ** (32 * 128);
+    var scalars_refs: [128]*const u8 = undefined;
+    // var sigs_refs: [128]*c.blst_p2_affine = undefined;
+    var pks_refs: [128]*const PublicKey = undefined;
+    std.Random.bytes(rand, &rands);
+
+    for (0..num_sigs) |i| {
+        scalars_refs[i] = &rands[i * 32];
+        pks_refs[i] = &pks[i];
+    }
+
+    _ = try aggregateWithRandomness(
+        &pks_refs,
+        &scalars_refs[0],
+        true,
+        &scratch[0],
+    );
+}
+
+const SecretKey = @import("secret_key.zig").SecretKey;
+const Signature = @import("signature.zig").Signature;
