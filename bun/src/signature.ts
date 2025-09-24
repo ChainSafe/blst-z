@@ -27,15 +27,16 @@ export class Signature {
 	): Signature {
 		const buffer = new Uint8Array(SIGNATURE_SIZE);
 		const sig = new Signature(buffer);
-		if (sigValidate) {
-			assertSuccess(
-				binding.signatureValidate(buffer, sigInfcheck ?? true)
-			);
-		}
 
 		assertSuccess(
 			binding.signatureFromBytes(sig.ptr, bytes, bytes.length)
 		);
+
+		if (sigValidate) {
+			assertSuccess(
+				binding.signatureValidate(sig.ptr, sigInfcheck ?? true)
+			);
+		}
 
 		return sig;
 	}
