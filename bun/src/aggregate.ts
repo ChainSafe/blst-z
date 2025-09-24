@@ -2,7 +2,7 @@ import {binding} from "./binding.js";
 import {MAX_AGGREGATE_PER_JOB, PUBLIC_KEY_SIZE, SIGNATURE_LENGTH} from "./const.js";
 import {PublicKey} from "./publicKey.js";
 import {writeSignaturesReference, writePublicKeysReference, writeUint8ArrayArray} from "./writers.ts";
-import {writePublicKeys, pksU8} from "./buffer.ts";
+import {writePublicKeys, pksU8, writeSignatures, sigsU8} from "./buffer.ts";
 import {Signature} from "./signature.js";
 
 // global public keys reference to be reused across multiple calls
@@ -25,7 +25,7 @@ export function aggregatePublicKeys(pks: Array<PublicKey>, pksValidate?: boolean
 
 	for (let i = 0; i < pks.length; i += MAX_AGGREGATE_PER_JOB) {
 		const pksBatch = pks.slice(i, Math.min(pks.length, i + MAX_AGGREGATE_PER_JOB));
-		const pksRef = writePublicKeys(pksBatch);
+		writePublicKeys(pksBatch);
 		const outPk = new PublicKey(new Uint8Array(PUBLIC_KEY_SIZE));
 		const res = binding.publicKeyAggregate(outPk.ptr, pksU8, pksBatch.length, pksValidate ?? false);
 
@@ -53,9 +53,9 @@ export function aggregateSignatures(sigs: Array<Signature>, sigsGroupcheck?: boo
 
 	for (let i = 0; i < sigs.length; i += MAX_AGGREGATE_PER_JOB) {
 		const sigsBatch = sigs.slice(i, Math.min(sigs.length, i + MAX_AGGREGATE_PER_JOB));
-		const sigsRef = writeSignaturesReference(sigsBatch);
+		writeSignatures(sigsBatch);
 		const outSig = new Signature(new Uint8Array(SIGNATURE_LENGTH));
-		const res = binding.signatureAggregate(outSig.ptr, sigsRef, sigsBatch.length, sigsGroupcheck ?? false);
+		const res = binding.signatureAggregate(outSig.ptr, sigsU8, sigsBatch.length, sigsGroupcheck ?? false);
 
 		if (res !== 0) {
 			throw new Error(`Failed to aggregate signatures: ${res}`);

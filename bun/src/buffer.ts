@@ -1,5 +1,5 @@
 import {read, type Pointer} from "bun:ffi";
-import { MAX_AGGREGATE_PER_JOB, PUBLIC_KEY_SIZE } from "./const.js";
+import { MAX_AGGREGATE_PER_JOB, PUBLIC_KEY_SIZE, SIGNATURE_LENGTH } from "./const.js";
 import type { PublicKey } from "./publicKey.js";
 
 /**
@@ -15,8 +15,10 @@ function writePtr(ptr: Pointer, size: number, buf: Uint32Array, offset: number):
 // Operations involving multiple pks require pks in contiguous memory.
 // This buffer is (re)used for this purpose.
 const pksBuffer = new ArrayBuffer(PUBLIC_KEY_SIZE * MAX_AGGREGATE_PER_JOB);
+const sigsBuffer = new ArrayBuffer(SIGNATURE_LENGTH * MAX_AGGREGATE_PER_JOB);
 export const pksU8 = new Uint8Array(pksBuffer);
 const pksU32 = new Uint32Array(pksBuffer);
+export const sigsU8 = new Uint8Array(sigsBuffer);
 
 export function writePublicKeys(pks: PublicKey[]): void {
 	for (const [i, pk] of pks.entries()) {
@@ -30,6 +32,16 @@ function writePublicKey(pk: PublicKey, i: number): void {
 	} else {
 		pksU8.set(pk.ptr, i * PUBLIC_KEY_SIZE);
 	}
+}
+
+export function writeSignatures(sigs: Signature[]): void {
+	for (const [i, sig] of sigs.entries()) {
+		writeSignature(sig, i);
+	}
+}
+
+function writeSignature(sig: signature, i: number): void {
+	sigsU8.set(sig.ptr, i * SIGNATURE_LENGTH);
 }
 
 

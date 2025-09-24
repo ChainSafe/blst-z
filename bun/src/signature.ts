@@ -106,7 +106,6 @@ export class Signature {
 			pk.ptr,
 			pkValidate ?? false
 		);
-		console.log(res);
 		return res === 0;
 	}
 
