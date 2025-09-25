@@ -1,4 +1,4 @@
-/// Configuration for minimum pubkey size settings.
+//! Configuration for minimum pubkey size settings.
 const c = @cImport({
     @cInclude("blst.h");
 });
