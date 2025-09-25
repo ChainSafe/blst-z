@@ -2,9 +2,6 @@
 const Self = @This();
 
 /// An aggregate public key that can be used to verify aggregate signatures.
-///
-/// This represents the sum of multiple public keys in the BLS signature scheme.
-/// The key is stored in projective coordinates for efficient aggregation operations.
 point: min_pk.AggPublicKey = min_pk.AggPublicKey{},
 
 /// Converts an aggregate public key back to a regular public key.
