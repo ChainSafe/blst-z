@@ -131,7 +131,6 @@ test aggregateWithRandomness {
     }
     var rands: [32 * 128]u8 = [_]u8{0} ** (32 * 128);
     var scalars_refs: [128]*const u8 = undefined;
-    // var sigs_refs: [128]*c.blst_p2_affine = undefined;
     var pks_refs: [128]*const PublicKey = undefined;
     std.Random.bytes(rand, &rands);
 
