@@ -15,5 +15,5 @@ pub const SIG_COMPRESS_SIZE = 96;
 
 /// The domain separation tag (or DST) for the 'minimum pubkey size' signature variant.
 ///
-/// Source: https://www.ietf.org/archive/id/draft-irtf-cfrg-bls-signature-05.html#section-4.2.1-3
+/// Source: https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#bls-signatures
 pub const DST = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
