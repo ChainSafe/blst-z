@@ -97,7 +97,6 @@ describe("functions", () => {
 		}
 	});
 	describe("verifyMultipleAggregateSignatures same message", () => {
-		// for (const count of [1, 8, 32, 128, 256]) {
 		for (const count of [1, 8, 32, 128, 256]) {
 			bench({
 				id: `Same message - ${count} sets`,
