@@ -49,16 +49,13 @@ pub fn aggregateWithRandomness(
     sigs_groupcheck: bool,
     scratch: *[]u64,
 ) BlstError!Self {
-    if (randomness.len / 32 != sigs.len) return BlstError.AggrTypeMismatch;
     if (sigs_groupcheck) for (sigs) |sig| try sig.validate(false);
     if (scratch.len < c.blst_p2s_mult_pippenger_scratch_sizeof(sigs.len)) {
         return BlstError.AggrTypeMismatch;
     }
 
     var scalars_refs: [128]*const u8 = undefined;
-    for (0..sigs.len) |i| {
-        scalars_refs[i] = &randomness[i * 32];
-    }
+    for (0..sigs.len) |i| scalars_refs[i] = &randomness[i * 32];
 
     var agg_sig = Self{};
 
@@ -66,7 +63,7 @@ pub fn aggregateWithRandomness(
         &agg_sig.point,
         @ptrCast(sigs.ptr),
         sigs.len,
-        @ptrCast(&scalars_refs),
+        @ptrCast(scalars_refs[0..sigs.len]),
         64,
         scratch.ptr,
     );

@@ -53,7 +53,6 @@ pub fn aggregateWithRandomness(
     scratch: *[]u64,
 ) BlstError!Self {
     if (pks.len == 0) return BlstError.AggrTypeMismatch;
-    if (randomness.len != pks.len) return BlstError.AggrTypeMismatch;
     if (scratch.len < c.blst_p1s_mult_pippenger_scratch_sizeof(pks.len)) {
         return BlstError.AggrTypeMismatch;
     }
@@ -64,16 +63,14 @@ pub fn aggregateWithRandomness(
     }
 
     var scalars_refs: [128]*const u8 = undefined;
-    for (0..pks.len) |i| {
-        scalars_refs[i] = &randomness[i * 32];
-    }
+    for (0..pks.len) |i| scalars_refs[i] = &randomness[i * 32];
 
     var agg_pk = Self{};
     c.blst_p1s_mult_pippenger(
         &agg_pk.point,
         @ptrCast(pks.ptr),
         pks.len,
-        @ptrCast(&scalars_refs),
+        @ptrCast(scalars_refs[0..pks.len]),
         64,
         scratch.ptr,
     );
