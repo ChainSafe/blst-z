@@ -1,24 +1,14 @@
-const std = @import("std");
-const BlstError = @import("error.zig").BlstError;
-const check = @import("error.zig").check;
-const PublicKey = @import("public_key.zig").PublicKey;
-const AggregatePublicKey = @import("AggregatePublicKey.zig");
-const AggregateSignature = @import("AggregateSignature.zig");
-const Pairing = @import("pairing.zig").Pairing;
-const PairingError = @import("pairing.zig").Pairing.Error;
-const pairing_size = @import("pairing.zig").pairing_size;
-
-const c = @cImport({
-    @cInclude("blst.h");
-});
-const min_pk = @import("min_pk.zig");
-
+/// Number of random bytes used for verification.
 const RAND_BYTES = 8;
+
+/// Number of random bits used for verification.
 const RAND_BITS = 8 * RAND_BYTES;
 
-/// https://ethresear.ch/t/fast-verification-of-multiple-bls-signatures/5407
+/// Verify multiple aggregate signatures efficiently using random coefficients.
 ///
-/// Returns false if verification fails.
+/// Source: https://ethresear.ch/t/fast-verification-of-multiple-bls-signatures/5407
+///
+/// Returns true if verification succeeds, false if verification fails, `BlstError` on error.
 pub fn verifyMultipleAggregateSignatures(
     pairing_buf: *[pairing_size]u8,
     n_elems: usize,
@@ -57,26 +47,26 @@ pub fn verifyMultipleAggregateSignatures(
     return pairing.finalVerify(null);
 }
 
+/// BLS signature for G2 operations.
 pub const Signature = extern struct {
     point: min_pk.Signature = min_pk.Signature{},
 
     const Self = @This();
 
-    // sig_infcheck, check for infinity, is a way to avoid going
-    // into resource-consuming verification. Passing 'false' is
-    // always cryptographically safe, but application might want
-    // to guard against obviously bogus individual[!] signatures.
+    /// Checks that the signature is not infinity and is in the correct subgroup.
+    /// Validating prior to verification avoids resource-consuming verification process.
+    /// Passing 'false' is always cryptographically safe, but application might want
+    /// to guard against obviously bogus individual signatures.
+    ///
+    /// Returns `BlstError` if validation fails.
     pub fn validate(self: *const Self, sig_infcheck: bool) BlstError!void {
-        if (sig_infcheck and c.blst_p2_affine_is_inf(&self.point)) {
-            return BlstError.PkIsInfinity;
-        }
-
-        if (!c.blst_p2_affine_in_g2(&self.point)) {
-            return BlstError.PointNotInGroup;
-        }
+        if (sig_infcheck and c.blst_p2_affine_is_inf(&self.point)) return BlstError.PkIsInfinity;
+        if (!c.blst_p2_affine_in_g2(&self.point)) return BlstError.PointNotInGroup;
     }
 
-    // same to non-std verify in Rust
+    /// Verify the `Signature` against a `PublicKey` and message.
+    ///
+    /// Returns `BlstError` if verification fails.
     pub fn verify(
         self: *const Self,
         sig_groupcheck: bool,
@@ -109,7 +99,9 @@ pub const Signature = extern struct {
         return chk;
     }
 
-    /// Returns false if verification fails.
+    /// Verify an `AggregateSignature` against a single message and a slice of `PublicKey`.
+    ///
+    /// Returns true if verification succeeds, false if verification fails, `BlstError` on error.
     pub fn aggregateVerify(
         self: *const Self,
         sig_groupcheck: bool,
@@ -163,7 +155,9 @@ pub const Signature = extern struct {
         return pairing.finalVerify(&gtsig);
     }
 
-    /// same to fast_aggregate_verify in Rust with extra `pool` parameter
+    /// Fast verify an `AggregateSignature` against a single message and a slice of `PublicKey`.
+    ///
+    /// Returns true if verification succeeds, false if verification fails, `BlstError` on error.
     pub fn fastAggregateVerify(
         self: *const Self,
         sig_groupcheck: bool,
@@ -185,7 +179,9 @@ pub const Signature = extern struct {
         );
     }
 
-    /// same to fast_aggregate_verify_pre_aggregated in Rust
+    /// Fast verify an `AggregateSignature` against a single message and pre-aggregated `PublicKey`.
+    ///
+    /// Returns `BlstError` if verification fails.
     pub fn fastAggregateVerifyPreAggregated(
         self: *const Self,
         sig_groupcheck: bool,
@@ -206,24 +202,30 @@ pub const Signature = extern struct {
         );
     }
 
+    /// Convert an `AggregateSignature` to a regular `Signature`.
     pub fn fromAggregate(agg_sig: *const AggregateSignature) Self {
         var sig = Self{};
         c.blst_p2_to_affine(&sig.point, &agg_sig.point);
         return sig;
     }
 
+    /// Compress the `Signature` to bytes.
     pub fn compress(self: *const Self) [min_pk.SIG_COMPRESS_SIZE]u8 {
         var sig_comp = [_]u8{0} ** min_pk.SIG_COMPRESS_SIZE;
         c.blst_p2_affine_compress(&sig_comp, &self.point);
         return sig_comp;
     }
 
+    /// Serialize the `Signature` to bytes.
     pub fn serialize(self: *const Self) [min_pk.SIG_SERIALIZE_SIZE]u8 {
         var sig_out = [_]u8{0} ** min_pk.SIG_SERIALIZE_SIZE;
         c.blst_p2_affine_serialize(&sig_out, &self.point);
         return sig_out;
     }
 
+    /// Decompress a `Signature` from compressed bytes.
+    ///
+    /// Returns `Signature` on success, `BlstError` on failure.
     pub fn uncompress(sig_comp: []const u8) BlstError!Self {
         if (sig_comp.len == min_pk.SIG_COMPRESS_SIZE and (sig_comp[0] & 0x80) != 0) {
             var sig = Self{};
@@ -234,6 +236,9 @@ pub const Signature = extern struct {
         return BlstError.BadEncoding;
     }
 
+    /// Deserialize a `Signature` from bytes.
+    ///
+    /// Returns `Signature` on success, `BlstError` on failure.
     pub fn deserialize(sig_in: []const u8) BlstError!Self {
         if ((sig_in.len == min_pk.SIG_SERIALIZE_SIZE and (sig_in[0] & 0x80) == 0) or
             (sig_in.len == min_pk.SIG_COMPRESS_SIZE and (sig_in[0] & 0x80) != 0))
@@ -246,11 +251,26 @@ pub const Signature = extern struct {
         return BlstError.BadEncoding;
     }
 
+    /// Check if the `Signature` is in the correct subgroup.
     pub fn subgroupCheck(self: *const Self) bool {
         return c.blst_p2_affine_in_g2(&self.point);
     }
 
+    /// Check if two signatures are equal.
     pub fn isEqual(self: *const Self, other: *const Self) bool {
         return c.blst_p2_affine_is_equal(&self.point, &other.point);
     }
 };
+
+const std = @import("std");
+const c = @cImport({
+    @cInclude("blst.h");
+});
+const BlstError = @import("error.zig").BlstError;
+const check = @import("error.zig").check;
+const PublicKey = @import("public_key.zig").PublicKey;
+const AggregatePublicKey = @import("AggregatePublicKey.zig");
+const AggregateSignature = @import("AggregateSignature.zig");
+const Pairing = @import("pairing.zig").Pairing;
+const pairing_size = @import("pairing.zig").pairing_size;
+const min_pk = @import("min_pk.zig");
