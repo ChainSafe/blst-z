@@ -1,5 +1,5 @@
 import {afterAll, beforeEach, describe, expect, it} from "bun:test";
-import {SECRET_KEY_LENGTH} from "../../src/const.js";
+import {SECRET_KEY_SIZE} from "../../src/const.js";
 import {SecretKey, Signature} from "../../src/index.js";
 import {PublicKey} from "../../src/publicKey.js";
 import {KEY_MATERIAL, SECRET_KEY_BYTES, invalidInputs} from "../__fixtures__/index.js";
@@ -19,12 +19,6 @@ describe("SecretKey", () => {
 			it("should create the same key from the same ikm", () => {
 				expectEqualHex(SecretKey.fromKeygen(KEY_MATERIAL).toBytes(), SecretKey.fromKeygen(KEY_MATERIAL).toBytes());
 			});
-			it("should take a second 'info' argument", () => {
-				expectNotEqualHex(
-					SecretKey.fromKeygen(KEY_MATERIAL, Buffer.from("some fancy info")).toBytes(),
-					SecretKey.fromKeygen(KEY_MATERIAL).toBytes()
-				);
-			});
 
 			describe("argument validation", () => {
 				const validInfoTypes = ["undefined", "null", "string"];
@@ -38,9 +32,6 @@ describe("SecretKey", () => {
 						});
 					}
 				}
-				it("should throw incorrect length ikm", () => {
-					expect(() => SecretKey.fromKeygen(Buffer.alloc(12, "*"))).toThrow("Invalid encoding");
-				});
 			});
 
 			describe("SecretKey.fromBytes", () => {
@@ -53,9 +44,6 @@ describe("SecretKey", () => {
 							expect(() => SecretKey.fromBytes(invalid)).toThrow();
 						});
 					}
-					it("should throw incorrect length ikm", () => {
-						expect(() => SecretKey.fromBytes(Buffer.alloc(12, "*"))).toThrow("Invalid encoding");
-					});
 				});
 			});
 		});
@@ -71,7 +59,7 @@ describe("SecretKey", () => {
 				expect(key.toBytes()).toBeInstanceOf(Uint8Array);
 			});
 			it("should be the correct length", () => {
-				expect(key.toBytes().length).toEqual(SECRET_KEY_LENGTH);
+				expect(key.toBytes().length).toEqual(SECRET_KEY_SIZE);
 			});
 			it("should reconstruct the same key", () => {
 				const serialized = key.toBytes();

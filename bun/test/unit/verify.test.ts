@@ -1,6 +1,5 @@
 import {afterAll, beforeAll, describe, expect, it} from "bun:test";
 
-import {aggregateVerify, fastAggregateVerify, verify} from "../../src/verify.js";
 import {sullyUint8Array} from "../utils/helpers.js";
 import {getTestSet} from "../utils/testSets.js";
 import type {TestSet} from "../utils/types.js";
@@ -13,15 +12,15 @@ describe("Verify", () => {
 
 	describe("verify", () => {
 		it("should return a boolean", () => {
-			expect(verify(testSet.msg, testSet.pk, testSet.sig)).toBeBoolean();
+			expect(testSet.sig.verify(testSet.msg, testSet.pk)).toBeBoolean();
 		});
 		describe("should default to false", () => {
 			it("should handle invalid message", () => {
-				expect(verify(sullyUint8Array(testSet.msg), testSet.pk, testSet.sig)).toBeFalse();
+				expect(testSet.sig.verify(sullyUint8Array(testSet.msg), testSet.pk)).toBeFalse();
 			});
 		});
 		it("should return true for valid sets", () => {
-			expect(verify(testSet.msg, testSet.pk, testSet.sig)).toBeTrue();
+			expect(testSet.sig.verify(testSet.msg, testSet.pk)).toBeTrue();
 		});
 	});
 });
@@ -33,15 +32,15 @@ describe("Aggregate Verify", () => {
 	});
 	describe("aggregateVerify", () => {
 		it("should return a boolean", () => {
-			expect(aggregateVerify([testSet.msg], [testSet.pk], testSet.sig)).toBeBoolean();
+			expect(testSet.sig.aggregateVerify([testSet.msg], [testSet.pk])).toBeBoolean();
 		});
 		describe("should default to false", () => {
 			it("should handle invalid message", () => {
-				expect(aggregateVerify([sullyUint8Array(testSet.msg)], [testSet.pk], testSet.sig)).toBeFalse();
+				expect(testSet.sig.aggregateVerify([sullyUint8Array(testSet.msg)], [testSet.pk])).toBeFalse();
 			});
 		});
 		it("should return true for valid sets", () => {
-			expect(aggregateVerify([testSet.msg], [testSet.pk], testSet.sig)).toBeTrue();
+			expect(testSet.sig.aggregateVerify([testSet.msg], [testSet.pk])).toBeTrue();
 		});
 	});
 });
@@ -53,15 +52,18 @@ describe("Fast Aggregate Verify", () => {
 	});
 	describe("fastAggregateVerify", () => {
 		it("should return a boolean", () => {
-			expect(fastAggregateVerify(testSet.msg, [testSet.pk], testSet.sig)).toBeBoolean();
+			expect(testSet.sig.fastAggregateVerify(testSet.msg, [testSet.pk])).toBeBoolean();
 		});
 		describe("should default to false", () => {
 			it("should handle invalid message", () => {
-				expect(fastAggregateVerify(sullyUint8Array(testSet.msg), [testSet.pk], testSet.sig)).toBeFalse();
+				const res = testSet.sig.fastAggregateVerify(sullyUint8Array(testSet.msg), [testSet.pk]);
+				console.log(res);
+
+				expect(res).toBeFalse();
 			});
 		});
 		it("should return true for valid sets", () => {
-			expect(fastAggregateVerify(testSet.msg, [testSet.pk], testSet.sig)).toBeTrue();
+			expect(testSet.sig.fastAggregateVerify(testSet.msg, [testSet.pk])).toBeTrue();
 		});
 	});
 });

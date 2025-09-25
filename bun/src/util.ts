@@ -77,12 +77,3 @@ export function blstErrorToCode(blstError: number): string {
 
 import {read, type Pointer} from "bun:ffi";
 
-/**
- * Write a pointer value to a buffer at the specified offset.
- * NOTE: Only works with pointers of size divisible by 4.
- */
-export function writePtr(ptr: Pointer, size: number, buf: Uint32Array, offset: number): void {
-	for (let i = 0; i < size / 4; i++) {
-		buf[offset + i] = read.u32(ptr, i * 4);
-	}
-}

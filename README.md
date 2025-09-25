@@ -1,16 +1,45 @@
 # blst-z
-Zig wrapper for [supranational/blst](https://github.com/supranational/blst) native bindings, a highly performant BLS12-381 signature library.
+Zig bindings for [supranational's blst](https://github.com/supranational/blst) native bindings, a highly performant BLS12-381 signature library.
+
+This set of bindings only support the `min_pk` variant.
 
 ## Installation
-- clone blst to root: `git clone --recurse-submodules https://github.com/supranational/blst.git`
-- `zig build test`
+
+First, clone [blst](https://github.com/supranational/blst.git) to root:
+
+```sh
+git clone --recurse-submodules https://github.com/supranational/blst.git
+```
+
+Run zig tests:
+
+```sh
+zig build test
+```
+
+Install and generate bun bindings:
+
+```console
+cd bun && bun install && bun run build && bun generate
+```
+
+Run bun tests:
+
+```sh
+cd bun && bun test
+```
+
+Run bun benchmarks:
+
+```sh
+cd bun && bun benchmark 
+```
 
 ## Usage
-The below shows how to use min_pk namespace, should be the same for min_sig.
 
 ```zig
-pub const min_pk = @import("blst").min_pk;
-const SecretKey = min_pk.SecretKey;
+pub const blst = @import("blst");
+const SecretKey = blst.SecretKey;
 const ikm: [32]u8 = [_]u8{
     0x93, 0xad, 0x7e, 0x65, 0xde, 0xad, 0x05, 0x2a, 0x08, 0x3a,
     0x91, 0x0c, 0x8b, 0x72, 0x85, 0x91, 0x46, 0x4c, 0xca, 0x56,

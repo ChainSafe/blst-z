@@ -1,114 +1,140 @@
-const std = @import("std");
-const blst = @import("min_pk.zig");
-const intFromError = @import("error.zig").intFromError;
+const DST = blst.min_pk.DST;
 
-/// See https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#bls-signatures
-const DST = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
+/// Maximum number of signatures that can be aggregated in a single job.
+pub const MAX_AGGREGATE_PER_JOB: usize = 128;
 
-/// This is a scratch buffer used for operations that require temporary storage
-threadlocal var scratch: [1024 * 16]u8 = undefined;
+/// Size of the scratch buffer for pairing operations.
+pub const SCRATCH_SIZE_PAIRING: usize = @import("pairing.zig").pairing_size;
+
+/// Scratch buffer used for operations that require temporary storage.
+threadlocal var scratch_pairing: [SCRATCH_SIZE_PAIRING]u8 = undefined;
+
+/// Size of the scratch buffer for aggregation operations.
+pub const SCRATCH_SIZE_AGG: usize = 1024 * 16;
+
+/// Scratch buffer used for operations that require temporary storage.
+threadlocal var scratch_agg: [SCRATCH_SIZE_AGG]u64 = undefined;
 
 ////// SecretKey
 
-export fn secretKeySizeOf() c_uint {
-    return @sizeOf(blst.SecretKey);
-}
-
-export fn secretKeySerializeSize() c_uint {
-    return blst.SecretKey.serialize_size;
-}
-
+/// Deserialize a `blst.SecretKey` from bytes.
+///
+/// Returns 0 on success, error code on failure.
 export fn secretKeyFromBytes(out: *blst.SecretKey, bytes: [*c]const u8, len: c_uint) c_uint {
-    out.* = blst.SecretKey.deserialize(bytes[0..len]) catch |e| return intFromError(e);
+    out.* = blst.SecretKey.deserialize(@ptrCast(bytes[0..len])) catch |e| return intFromError(e);
     return 0;
 }
 
+/// Serialize a `blst.SecretKey` to bytes.
 export fn secretKeyToBytes(out: [*c]u8, sk: *const blst.SecretKey) void {
     out[0..blst.SecretKey.serialize_size].* = sk.serialize();
 }
 
+/// Generate a `blst.SecretKey` from input key material using HKDF.
+///
+/// Returns 0 on success, error code on failure.
 export fn secretKeyKeyGen(out: *blst.SecretKey, ikm: [*c]const u8, ikm_len: c_uint) c_uint {
     out.* = blst.SecretKey.keyGen(ikm[0..ikm_len], null) catch |e| return intFromError(e);
     return 0;
 }
 
+/// Generate a `blst.SecretKey` from input key material using HKDF (version 3).
+///
+/// Returns 0 on success, error code on failure.
 export fn secretKeyKeyGenV3(out: *blst.SecretKey, ikm: [*c]const u8, ikm_len: c_uint) c_uint {
-    out.* = blst.SecretKey.keyGenV3(ikm[0..ikm_len]) catch |e| return intFromError(e);
+    out.* = blst.SecretKey.keyGenV3(ikm[0..ikm_len], null) catch |e| return intFromError(e);
     return 0;
 }
 
-export fn secretKeyKeyGenV45(out: *blst.SecretKey, ikm: [*c]const u8, ikm_len: c_uint, salt: [*c]const u8, salt_len: c_uint) c_uint {
+/// Generate a `blst.SecretKey` from input key material using HKDF (version 4.5).
+///
+/// Returns 0 on success, error code on failure.
+export fn secretKeyKeyGenV45(
+    out: *blst.SecretKey,
+    ikm: [*c]const u8,
+    ikm_len: c_uint,
+    salt: [*c]const u8,
+    salt_len: c_uint,
+) c_uint {
     out.* = blst.SecretKey.keyGenV45(ikm[0..ikm_len], salt[0..salt_len], null) catch |e| return intFromError(e);
     return 0;
 }
 
+/// Derive a master `blst.SecretKey` using EIP-2333 key derivation.
+///
+/// Returns 0 on success, error code on failure.
 export fn secretKeyDeriveMasterEip2333(out: *blst.SecretKey, ikm: [*c]const u8, ikm_len: c_uint) c_uint {
     out.* = blst.SecretKey.deriveMasterEip2333(ikm[0..ikm_len]) catch |e| return intFromError(e);
     return 0;
 }
 
+/// Derive a child `blst.SecretKey` using EIP-2333 key derivation.
+///
+/// Returns 0 on success, error code on failure.
 export fn secretKeyDeriveChildEip2333(out: *blst.SecretKey, sk: *const blst.SecretKey, index: c_uint) c_uint {
     out.* = sk.deriveChildEip2333(index) catch |e| return intFromError(e);
     return 0;
 }
 
+/// Derive a `blst.PublicKey` from a `blst.SecretKey`.
 export fn secretKeyToPublicKey(out: *blst.PublicKey, sk: *const blst.SecretKey) void {
     out.* = sk.toPublicKey();
 }
 
+/// Sign a message with `blst.SecretKey`. and produces a `blst.Signature` in `out`.
+///
+/// Returns 0 on success, error code on failure.
 export fn secretKeySign(out: *blst.Signature, sk: *const blst.SecretKey, msg: [*c]const u8, msg_len: c_uint) c_uint {
-    out.* = sk.sign(msg[0..msg_len], DST, null) catch |e| return intFromError(e);
+    out.* = sk.sign(msg[0..msg_len], DST, null);
     return 0;
 }
 
 ////// PublicKey
 
-export fn publicKeySizeOf() c_uint {
-    return @sizeOf(blst.PublicKey);
-}
-
-export fn publicKeyCompressSize() c_uint {
-    return blst.PublicKey.compress_size;
-}
-
+/// Deserialize a `blst.PublicKey` in `out` from compressed bytes.
+///
+/// Returns 0 on success, error code on failure.
 export fn publicKeyFromBytes(out: *blst.PublicKey, bytes: [*c]const u8, len: c_uint) c_uint {
     out.* = blst.PublicKey.uncompress(bytes[0..len]) catch |e| return intFromError(e);
     return 0;
 }
 
+/// Serialize a `blst.PublicKey` to compressed bytes in `out`.
 export fn publicKeyToBytes(out: [*c]u8, pk: *const blst.PublicKey) void {
-    out[0..blst.PublicKey.compress_size].* = pk.compress();
+    out[0..blst.min_pk.PK_COMPRESS_SIZE].* = pk.compress();
 }
 
-export fn publicKeyIsEqual(a: *const blst.PublicKey, b: *const blst.PublicKey) bool {
-    return a.isEqual(b);
-}
-
+/// Validate a `blst.PublicKey`.
+///
+/// Returns 0 on success, error code on failure.
 export fn publicKeyValidate(a: *const blst.PublicKey) c_uint {
     a.validate() catch |e| return intFromError(e);
     return 0;
 }
 
-export fn publicKeyFromAggregate(out: *blst.PublicKey, agg_pk: *const blst.AggregatePublicKey) void {
-    out.* = agg_pk.toPublicKey();
-}
-
-export fn publicKeyToAggregate(out: *blst.AggregatePublicKey, pk: *const blst.PublicKey) void {
-    out.* = blst.AggregatePublicKey.fromPublicKey(pk);
-}
-
+/// Aggregate multiple `blst.PublicKey`s with randomness for security.
+///
+/// Returns 0 on success, error code on failure.
 export fn publicKeyAggregateWithRandomness(
     out: *blst.PublicKey,
-    pks: [*c]const blst.PublicKey,
-    randomness: [*c]const u64,
+    pks: [*c]*const blst.PublicKey,
     len: c_uint,
     pks_validate: bool,
 ) c_uint {
+    var rands: [32 * MAX_AGGREGATE_PER_JOB]u8 = [_]u8{0} ** (32 * MAX_AGGREGATE_PER_JOB);
+    var prng = std.Random.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
+        break :blk seed;
+    });
+    const rand = prng.random();
+    std.Random.bytes(rand, &rands);
+
     const agg_pk = blst.AggregatePublicKey.aggregateWithRandomness(
         pks[0..len],
-        randomness[0..len],
+        &rands,
         pks_validate,
-        &scratch,
+        scratch_agg[0..],
     ) catch |e| return intFromError(e);
 
     out.* = agg_pk.toPublicKey();
@@ -116,86 +142,42 @@ export fn publicKeyAggregateWithRandomness(
     return 0;
 }
 
+/// Aggregate multiple `blst.PublicKey`s.
+///
+/// Returns 0 on success, error code on failure.
 export fn publicKeyAggregate(out: *blst.PublicKey, pks: [*c]const blst.PublicKey, len: c_uint, pks_validate: bool) c_uint {
     const agg_pk = blst.AggregatePublicKey.aggregate(pks[0..len], pks_validate) catch |e| return intFromError(e);
-
     out.* = agg_pk.toPublicKey();
 
-    return 0;
-}
-
-////// AggregatePublicKey
-
-export fn aggregatePublicKeySizeOf() c_uint {
-    return @sizeOf(blst.AggregatePublicKey);
-}
-
-export fn aggregatePublicKeyAggregate(out: *blst.AggregatePublicKey, pks: [*c]const blst.PublicKey, pks_len: c_uint, pks_validate: bool) c_uint {
-    out.* = blst.AggregatePublicKey.aggregate(pks[0..pks_len], pks_validate) catch |e| return intFromError(e);
-    return 0;
-}
-
-export fn aggregatePublicKeyAggregateWithRandomness(
-    out: *blst.AggregatePublicKey,
-    pks: [*c]const blst.PublicKey,
-    randomness: [*c]const u64,
-    len: c_uint,
-    pks_validate: bool,
-) c_uint {
-    out.* = blst.AggregatePublicKey.aggregateWithRandomness(
-        pks[0..len],
-        randomness[0..len],
-        pks_validate,
-        &scratch,
-    ) catch |e| return intFromError(e);
-    return 0;
-}
-
-export fn aggregatePublicKeyAddAggregate(out: *blst.AggregatePublicKey, other: *const blst.AggregatePublicKey) void {
-    out.addAggregate(other);
-}
-
-export fn aggregatePublicKeyAddPublicKey(out: *blst.AggregatePublicKey, pk: *const blst.PublicKey, pk_validate: bool) c_uint {
-    out.addPublicKey(pk, pk_validate) catch |e| return intFromError(e);
     return 0;
 }
 
 ////// Signature
 
-export fn signatureSizeOf() c_uint {
-    return @sizeOf(blst.Signature);
-}
-
-export fn signatureCompressSize() c_uint {
-    return blst.Signature.compress_size;
-}
-
+/// Deserialize a `blst.Signature` in `out` from compressed bytes.
+///
+/// Returns 0 on success, error code on failure.
 export fn signatureFromBytes(out: *blst.Signature, bytes: [*c]const u8, bytes_len: c_uint) c_uint {
     out.* = blst.Signature.uncompress(bytes[0..bytes_len]) catch |e| return intFromError(e);
     return 0;
 }
 
+/// Serialize a `blst.Signature` to compressed bytes in `out`.
 export fn signatureToBytes(out: [*c]u8, sig: *const blst.Signature) void {
-    out[0..blst.Signature.compress_size].* = sig.compress();
+    out[0..blst.min_pk.SIG_COMPRESS_SIZE].* = sig.compress();
 }
 
+/// Validate a `blst.Signature`.
+///
+/// Returns 0 on success, error code on failure.
 export fn signatureValidate(sig: *const blst.Signature, sig_infcheck: bool) c_uint {
     sig.validate(sig_infcheck) catch |e| return intFromError(e);
     return 0;
 }
 
-export fn signatureGroupCheck(sig: *const blst.Signature) bool {
-    return sig.subgroupCheck();
-}
-
-export fn signatureToAggregate(out: *blst.AggregateSignature, sig: *const blst.Signature) void {
-    out.* = blst.AggregateSignature.fromSignature(sig);
-}
-
-export fn signatureFromAggregate(out: *blst.Signature, agg_sig: *const blst.AggregateSignature) void {
-    out.* = agg_sig.toSignature();
-}
-
+/// Verify a `blst.Signature` against a `blst.PublicKey` and message `msg`.
+///
+/// Returns 0 on success, error code on failure.
 export fn signatureVerify(
     sig: *const blst.Signature,
     sig_groupcheck: bool,
@@ -215,6 +197,9 @@ export fn signatureVerify(
     return 0;
 }
 
+/// Verify an aggregate signature `blst.Signature` against multiple messages and `blst.PublicKey`s.
+///
+/// Returns 0 if verification succeeds, 1 if verification fails, error code on error.
 export fn signatureAggregateVerify(
     sig: *const blst.Signature,
     sig_groupcheck: bool,
@@ -223,46 +208,98 @@ export fn signatureAggregateVerify(
     len: c_uint,
     pks_validate: bool,
 ) c_uint {
-    sig.aggregateVerify(
+    const res = sig.aggregateVerify(
         sig_groupcheck,
-        &scratch,
+        &scratch_pairing,
         msgs[0..len],
         DST,
         pks[0..len],
         pks_validate,
     ) catch |e| return intFromError(e);
-    return 0;
+    return @intFromBool(!res);
 }
 
+/// Faster verify an aggregate signature `blst.Signature` against multiple messages and `blst.PublicKey`s.
+///
+/// Returns 0 if verification succeeds, 1 if verification fails, error code on error.
 export fn signatureFastAggregateVerify(
     sig: *const blst.Signature,
     sig_groupcheck: bool,
-    msg: *const [32]u8,
+    msg: *[32]u8,
     pks: [*c]const blst.PublicKey,
     pks_len: c_uint,
 ) c_uint {
-    sig.fastAggregateVerify(
+    const res = sig.fastAggregateVerify(
         sig_groupcheck,
-        &scratch,
-        msg,
+        &scratch_pairing,
+        msg.*,
         DST,
         pks[0..pks_len],
     ) catch |e| return intFromError(e);
-    return 0;
+    return @intFromBool(!res);
 }
 
+/// Verify multiple aggregate signatures efficiently.
+///
+/// Returns 0 if verification succeeds, 1 if verification fails, error code on error.
+export fn signatureVerifyMultipleAggregateSignatures(
+    n_elems: c_uint,
+    msgs: [*c]const [32]u8,
+    pks: [*c]const *blst.PublicKey,
+    pks_validate: bool,
+    sigs: [*c]const *blst.Signature,
+    sig_groupcheck: bool,
+) c_uint {
+    var rands: [32 * MAX_AGGREGATE_PER_JOB][32]u8 = undefined;
+    var prng = std.Random.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
+        break :blk seed;
+    });
+    const rand = prng.random();
+
+    for (0..32 * MAX_AGGREGATE_PER_JOB) |i| {
+        std.Random.bytes(rand, &rands[i]);
+    }
+
+    const res = @import("signature.zig").verifyMultipleAggregateSignatures(
+        &scratch_pairing,
+        n_elems,
+        msgs,
+        DST,
+        pks,
+        pks_validate,
+        sigs,
+        sig_groupcheck,
+        &rands,
+    ) catch |e| return intFromError(e);
+
+    return @intFromBool(!res);
+}
+
+/// Aggregates a slice of `blst.Signature` with randomness into a single `Signature`.
+///
+/// Returns 0 on success, error code on failure.
 export fn signatureAggregateWithRandomness(
     out: *blst.Signature,
-    sigs: [*c]const blst.Signature,
-    randomness: [*c]const u64,
+    sigs: [*c]*const blst.Signature,
     len: c_uint,
     sigs_groupcheck: bool,
 ) c_uint {
+    var rands: [32 * MAX_AGGREGATE_PER_JOB]u8 = [_]u8{0} ** (32 * MAX_AGGREGATE_PER_JOB);
+    var prng = std.Random.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
+        break :blk seed;
+    });
+    const rand = prng.random();
+    std.Random.bytes(rand, &rands);
+
     const agg_sig = blst.AggregateSignature.aggregateWithRandomness(
         sigs[0..len],
-        randomness[0..len],
+        &rands,
         sigs_groupcheck,
-        &scratch,
+        scratch_agg[0..],
     ) catch |e| return intFromError(e);
 
     out.* = agg_sig.toSignature();
@@ -270,52 +307,26 @@ export fn signatureAggregateWithRandomness(
     return 0;
 }
 
+/// Aggregates a slice of `blst.Signature` into a single `Signature`.
+///
+/// Returns 0 on success, error code on failure.
 export fn signatureAggregate(
     out: *blst.Signature,
     sigs: [*c]const blst.Signature,
     len: c_uint,
     sigs_groupcheck: bool,
 ) c_uint {
-    const agg_sig = blst.AggregateSignature.aggregate(sigs[0..len], sigs_groupcheck) catch |e| return intFromError(e);
+    const agg_sig = blst.AggregateSignature.aggregate(
+        sigs[0..len],
+        sigs_groupcheck,
+    ) catch |e| return intFromError(e);
 
     out.* = agg_sig.toSignature();
 
     return 0;
 }
 
-////// AggregateSignature
-
-export fn aggregateSignatureSizeOf() c_uint {
-    return @sizeOf(blst.AggregateSignature);
-}
-
-export fn aggregateSignatureAggregate(out: *blst.AggregateSignature, sigs: [*c]const blst.Signature, sigs_len: c_uint, sigs_groupcheck: bool) c_uint {
-    out.* = blst.AggregateSignature.aggregate(sigs[0..sigs_len], sigs_groupcheck) catch |e| return intFromError(e);
-    return 0;
-}
-
-export fn aggregateSignatureAggregateWithRandomness(
-    out: *blst.AggregateSignature,
-    sigs: [*c]const blst.Signature,
-    randomness: [*c]const u64,
-    len: c_uint,
-    sigs_groupcheck: bool,
-) c_uint {
-    out.* = blst.AggregateSignature.aggregateWithRandomness(
-        sigs[0..len],
-        randomness[0..len],
-        sigs_groupcheck,
-        &scratch,
-    ) catch |e| return intFromError(e);
-
-    return 0;
-}
-
-export fn aggregateSignatureAddAggregate(out: *blst.AggregateSignature, other: *const blst.AggregateSignature) void {
-    out.addAggregate(other);
-}
-
-export fn aggregateSignatureAddSignature(out: *blst.AggregateSignature, sig: *const blst.Signature, sig_groupcheck: bool) c_uint {
-    out.addSignature(sig, sig_groupcheck) catch |e| return intFromError(e);
-    return 0;
-}
+const std = @import("std");
+const blst = @import("root.zig");
+const signature = @import("signature.zig");
+const intFromError = @import("error.zig").intFromError;

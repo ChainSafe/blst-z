@@ -1,6 +1,6 @@
 import type {Pointer} from "bun:ffi";
 import {binding} from "./binding.js";
-import {SIGNATURE_COMPRESS_SIZE, SIGNATURE_SIZE} from "./const.js";
+import {SIGNATURE_LENGTH_COMPRESSED, SIGNATURE_LENGTH} from "./const.js";
 import {assertSuccess, fromHex, toHex} from "./util.js";
 import type { PublicKey } from "./publicKey.js";
 import { msgsU8, pksU8, writeMessages, writePublicKeys } from "./buffer.js";
@@ -25,18 +25,20 @@ export class Signature {
 		sigValidate?: boolean | undefined | null,
 		sigInfcheck?: boolean | undefined | null
 	): Signature {
-		const buffer = new Uint8Array(SIGNATURE_SIZE);
+		const buffer = new Uint8Array(SIGNATURE_LENGTH);
+		const sig = new Signature(buffer);
+
 		assertSuccess(
-			binding.signatureFromBytes(buffer, bytes, bytes.length)
+			binding.signatureFromBytes(sig.ptr, bytes, bytes.length)
 		);
 
 		if (sigValidate) {
 			assertSuccess(
-				binding.signatureValidate(buffer, sigInfcheck ?? true)
+				binding.signatureValidate(sig.ptr, sigInfcheck ?? true)
 			);
 		}
 
-		return new Signature(buffer);
+		return sig;
 	}
 
 	/**
@@ -57,7 +59,7 @@ export class Signature {
 
 	/** Serialize a signature to a byte array. */
 	toBytes(): Uint8Array {
-		const out = new Uint8Array(SIGNATURE_COMPRESS_SIZE);
+		const out = new Uint8Array(SIGNATURE_LENGTH_COMPRESSED);
 		binding.signatureToBytes(out, this.ptr);
 		return out;
 	}
@@ -124,7 +126,7 @@ export class Signature {
 		}
 
 		writePublicKeys(pks);
-		const res =	binding.signatureFastAggregateVerify(
+		const res = binding.signatureFastAggregateVerify(
 			this.ptr,
 			sigsGroupcheck ?? false,
 			msg,

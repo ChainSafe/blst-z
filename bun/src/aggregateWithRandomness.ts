@@ -1,6 +1,8 @@
 import {JSCallback} from "bun:ffi";
-import {binding, writeNumber, writeReference} from "./binding.js";
-import {MAX_AGGREGATE_WITH_RANDOMNESS_PER_JOB} from "./const.js";
+import {binding} from "./binding.js";
+import {writePublicKeys, pksU8} from "./buffer.ts";
+import {writeReference, writePublicKeysReference, writeSignaturesReference} from "./writers.ts";
+import {MAX_AGGREGATE_WITH_RANDOMNESS_PER_JOB, PUBLIC_KEY_SIZE, SIGNATURE_LENGTH} from "./const.js";
 import {PublicKey} from "./publicKey.js";
 import {Signature} from "./signature.js";
 
@@ -33,15 +35,17 @@ export function aggregateWithRandomness(sets: Array<PkAndSerializedSig>): PkAndS
 		throw new Error("At least one PkAndSerializedSig is required");
 	}
 
-	const refs = pkAndSerializedSigsRefs.subarray(0, sets.length * 2);
-	writePkAndSerializedSigsReference(sets, refs);
-	const pkOut = PublicKey.defaultPublicKey();
-	const sigOut = Signature.defaultSignature();
 
-	const res = binding.aggregateWithRandomness(refs, sets.length, pkOut.ptr, sigOut.ptr);
+	const pksRef = writePublicKeysReference(sets.map(s => s.pk));
+	const sigsRef = writeSignaturesReference(sets.map(s => Signature.fromBytes(s.sig, true)));
+	const pkOut = new PublicKey(new Uint8Array(PUBLIC_KEY_SIZE));
+	const sigOut = new Signature(new Uint8Array(SIGNATURE_LENGTH));
 
-	if (res !== 0) {
-		throw new Error("Failed to aggregate with randomness res = " + res);
+	const resSig = binding.signatureAggregateWithRandomness(sigOut.ptr, sigsRef, sets.length, false);
+	const resPk = binding.publicKeyAggregateWithRandomness(pkOut.ptr, pksRef, sets.length, false);
+
+	if (resSig !== 0 || resPk !== 0) {
+		throw new Error("Failed to aggregate with randomness res = " + resSig + resPk);
 	}
 
 	return {pk: pkOut, sig: sigOut};
@@ -69,8 +73,8 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 
 	// 1s timeout
 	const TIMEOUT_MS = 1_000;
-	const pkOut = PublicKey.defaultPublicKey();
-	const sigOut = Signature.defaultSignature();
+	const pkOut = new PublicKey(new Uint8Array(PUBLIC_KEY_SIZE));
+	const sigOut = new Signature(new Uint8Array(SIGNATURE_LENGTH));
 
 	return new Promise((resolve, reject) => {
 		let jscallback: JSCallback | null = null;
@@ -111,7 +115,7 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 		const refs = new Uint32Array(sets.length * 2);
 		writePkAndSerializedSigsReference(sets, refs);
 
-		const res = binding.asyncAggregateWithRandomness(
+		const res = binding.aggregateWithRandomness(
 			refs,
 			sets.length,
 			pkOut.ptr,
@@ -156,7 +160,7 @@ function writePkAndSerializedSigsReference(sets: PkAndSerializedSig[], out: Uint
  *
  */
 function writePkAndSerializedSigReference(set: PkAndSerializedSig, out: Uint32Array, offset: number): void {
-	set.pk.writeReference(out, offset);
+	writeReference(set.pk, out, offset);
 	writeReference(set.sig, out, offset + 2);
 	writeNumber(set.sig.length, out, offset + 4);
 }
