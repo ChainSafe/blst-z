@@ -25,7 +25,7 @@ test "test_sign_n_verify" {
     const sk = try SecretKey.keyGen(&ikm, null);
     const pk = sk.toPublicKey();
 
-    const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
+    const dst = min_pk.DST;
     const msg = "hello foo";
     // aug is null
     const sig = sk.sign(msg, dst, null);
@@ -49,7 +49,7 @@ test "test aggregateVerify" {
         0x48, 0x99,
     };
 
-    const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
+    const dst = min_pk.DST;
     // aug is null
 
     const num_sigs = 10;

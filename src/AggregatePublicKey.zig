@@ -73,7 +73,7 @@ test aggregateWithRandomness {
         0x48, 0x99,
     };
 
-    const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
+    const dst = min_pk.DST;
     // aug is null
 
     const num_sigs = 128;

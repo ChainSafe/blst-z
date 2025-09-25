@@ -13,7 +13,7 @@ const signature = @import("signature.zig");
 const intFromError = @import("error.zig").intFromError;
 
 /// See https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#bls-signatures
-const DST = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
+const DST = blst.min_pk.DST;
 
 pub const MAX_AGGREGATE_PER_JOB: usize = 128;
 
