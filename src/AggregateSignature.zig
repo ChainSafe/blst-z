@@ -50,15 +50,13 @@ pub fn aggregateWithRandomness(
     sigs: []*const Signature,
     randomness: []const u8,
     sigs_groupcheck: bool,
-    scratch: [*c]u64,
+    scratch: *[]u64,
 ) BlstError!Self {
     if (randomness.len / 32 != sigs.len) return BlstError.AggrTypeMismatch;
     if (sigs_groupcheck) for (sigs) |sig| try sig.validate(false);
-    // if (scratch.len <
-    //     c.blst_p2s_mult_pippenger_scratch_sizeof(sigs.len))
-    // {
-    //     return BlstError.AggrTypeMismatch;
-    // }
+    if (scratch.len < c.blst_p2s_mult_pippenger_scratch_sizeof(sigs.len)) {
+        return BlstError.AggrTypeMismatch;
+    }
 
     var scalars_refs: [128]*const u8 = undefined;
     for (0..sigs.len) |i| {
@@ -73,7 +71,7 @@ pub fn aggregateWithRandomness(
         sigs.len,
         @ptrCast(&scalars_refs),
         64,
-        scratch,
+        scratch.ptr,
     );
     return agg_sig;
 }
@@ -141,7 +139,7 @@ test aggregateWithRandomness {
         &sigs_refs,
         &rands,
         true,
-        &scratch[0],
+        &scratch,
     );
     _ = agg_sig.toSignature();
 }

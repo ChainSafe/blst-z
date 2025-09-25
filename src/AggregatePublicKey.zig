@@ -50,7 +50,7 @@ pub fn aggregateWithRandomness(
     pks: []*const PublicKey,
     randomness: [*c]*const u8,
     pks_validate: bool,
-    scratch: [*c]u8,
+    scratch: *[]u64,
 ) BlstError!Self {
     if (pks.len == 0) {
         return BlstError.AggrTypeMismatch;
@@ -73,7 +73,7 @@ pub fn aggregateWithRandomness(
         pks.len,
         randomness,
         64,
-        @ptrCast(@alignCast(scratch)),
+        scratch.ptr,
     );
     return agg_pk;
 }
@@ -110,7 +110,7 @@ test aggregateWithRandomness {
 
     const m = c.blst_p1s_mult_pippenger_scratch_sizeof(num_sigs) * 8;
     const allocator = std.testing.allocator;
-    var scratch = try std.testing.allocator.alloc(u8, m);
+    var scratch = try std.testing.allocator.alloc(u64, m);
     defer allocator.free(scratch);
 
     var prng = std.Random.DefaultPrng.init(blk: {
@@ -144,7 +144,7 @@ test aggregateWithRandomness {
         &pks_refs,
         &scalars_refs[0],
         true,
-        &scratch[0],
+        &scratch,
     );
 }
 
