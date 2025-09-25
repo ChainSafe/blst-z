@@ -16,12 +16,6 @@ const min_pk = @import("min_pk.zig");
 const RAND_BYTES = 8;
 const RAND_BITS = 8 * RAND_BYTES;
 
-pub const SignatureSet = extern struct {
-    msg: [*c]const u8,
-    pk: *const min_pk.PublicKey,
-    sig: *const min_pk.Signature,
-};
-
 /// https://ethresear.ch/t/fast-verification-of-multiple-bls-signatures/5407
 ///
 /// Returns false if verification fails.
