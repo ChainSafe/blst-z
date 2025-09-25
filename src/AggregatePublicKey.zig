@@ -1,42 +1,27 @@
-const std = @import("std");
-const BlstError = @import("error.zig").BlstError;
-const check = @import("error.zig").check;
-const PublicKey = @import("public_key.zig").PublicKey;
-const Pairing = @import("pairing.zig").Pairing;
-const pairing_size = @import("pairing.zig").pairing_size;
-
-const SCRATCH_SIZE = @import("eth_c_abi.zig").SCRATCH_SIZE;
-const min_pk = @import("min_pk.zig");
-const c = @cImport({
-    @cInclude("blst.h");
-});
-
-point: min_pk.AggPublicKey = min_pk.AggPublicKey{},
-
+//! Aggregate Public Key for BLS signature scheme based on BLS12-381.
 const Self = @This();
 
-pub fn fromPublicKey(pk: *const PublicKey) Self {
-    var agg_pk = Self{};
-    c.blst_p1_from_affine(&agg_pk.point, &pk.point);
-    return agg_pk;
-}
+/// An aggregate public key that can be used to verify aggregate signatures.
+///
+/// This represents the sum of multiple public keys in the BLS signature scheme.
+/// The key is stored in projective coordinates for efficient aggregation operations.
+point: min_pk.AggPublicKey = min_pk.AggPublicKey{},
 
+/// Converts an aggregate public key back to a regular public key.
+/// This converts from projective coordinates back to affine coordinates.
 pub fn toPublicKey(self: *const Self) PublicKey {
     var pk = PublicKey{};
     c.blst_p1_to_affine(&pk.point, &self.point);
     return pk;
 }
 
+/// Aggregates multiple public keys into a single aggregate public key.
+/// If pks_validate is true, validates each public key before aggregation.
+///
+/// Returns an error if the slice is empty or if any public key validation fails.
 pub fn aggregate(pks: []const PublicKey, pks_validate: bool) BlstError!Self {
-    if (pks.len == 0) {
-        return BlstError.AggrTypeMismatch;
-    }
-
-    if (pks_validate) {
-        for (pks) |pk| {
-            try pk.validate();
-        }
-    }
+    if (pks.len == 0) return BlstError.AggrTypeMismatch;
+    if (pks_validate) for (pks) |pk| try pk.validate();
 
     var agg_pk = Self{};
     c.blst_p1_from_affine(&agg_pk.point, &pks[0].point);
@@ -46,6 +31,16 @@ pub fn aggregate(pks: []const PublicKey, pks_validate: bool) BlstError!Self {
     return agg_pk;
 }
 
+/// Aggregates multiple public keys using multi-scalar multiplication with randomness.
+/// This method is more efficient for large numbers of public keys and provides
+/// enhanced security through the use of randomness.
+///
+/// Errors if:
+/// - `pk` slice is empty,
+/// - `scratch` space is insufficient, or
+/// - if any public key validation fails.
+///
+/// Returns the `AggregatePublicKey` on success.
 pub fn aggregateWithRandomness(
     pks: []*const PublicKey,
     randomness: []const u8,
@@ -56,11 +51,7 @@ pub fn aggregateWithRandomness(
     if (scratch.len < c.blst_p1s_mult_pippenger_scratch_sizeof(pks.len)) {
         return BlstError.AggrTypeMismatch;
     }
-    if (pks_validate) {
-        for (pks) |pk| {
-            try pk.validate();
-        }
-    }
+    if (pks_validate) for (pks) |pk| try pk.validate();
 
     var scalars_refs: [128]*const u8 = undefined;
     for (0..pks.len) |i| scalars_refs[i] = &randomness[i * 32];
@@ -75,18 +66,6 @@ pub fn aggregateWithRandomness(
         scratch.ptr,
     );
     return agg_pk;
-}
-
-pub fn addAggregate(self: *Self, other: *const Self) void {
-    c.blst_p1_add_or_double(&self.point, &self.point, &other.point);
-}
-
-pub fn addPublicKey(self: *Self, pk: *const PublicKey, pk_validate: bool) BlstError!void {
-    if (pk_validate) {
-        try pk.validate();
-    }
-
-    c.blst_p1_add_or_double_affine(&self.point, &self.point, &pk.point);
 }
 
 test aggregateWithRandomness {
@@ -146,5 +125,13 @@ test aggregateWithRandomness {
     );
 }
 
+const std = @import("std");
+const c = @cImport({
+    @cInclude("blst.h");
+});
+
+const min_pk = @import("min_pk.zig");
+const BlstError = @import("error.zig").BlstError;
+const PublicKey = @import("public_key.zig").PublicKey;
 const SecretKey = @import("secret_key.zig").SecretKey;
 const Signature = @import("signature.zig").Signature;
