@@ -47,7 +47,7 @@ pub fn aggregateWithRandomness(
     sigs: []*const Signature,
     randomness: []const u8,
     sigs_groupcheck: bool,
-    scratch: *[]u64,
+    scratch: []u64,
 ) BlstError!Self {
     if (sigs_groupcheck) for (sigs) |sig| try sig.validate(false);
     if (scratch.len < c.blst_p2s_mult_pippenger_scratch_sizeof(sigs.len)) {
@@ -133,7 +133,7 @@ test aggregateWithRandomness {
         &sigs_refs,
         &rands,
         true,
-        &scratch,
+        scratch[0..],
     );
     _ = agg_sig.toSignature();
 }

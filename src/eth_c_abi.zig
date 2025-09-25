@@ -6,12 +6,18 @@ const intFromError = @import("error.zig").intFromError;
 /// See https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#bls-signatures
 const DST = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
 
-pub const SCRATCH_SIZE: usize = 3192;
 pub const MAX_AGGREGATE_PER_JOB: usize = 128;
 
-/// This is a scratch buffer used for operations that require temporary storage
-threadlocal var scratch: [SCRATCH_SIZE]u8 = undefined;
-threadlocal var sig_scratch: [SCRATCH_SIZE]u64 = undefined;
+/// Size of the scratch buffer for pairing operations.
+pub const SCRATCH_SIZE_PAIRING: usize = @import("pairing.zig").pairing_size;
+
+/// Scratch buffer used for operations that require temporary storage.
+threadlocal var scratch_pairing: [SCRATCH_SIZE_PAIRING]u8 = undefined;
+
+pub const SCRATCH_SIZE_AGG: usize = 1024 * 16;
+
+/// Scratch buffer used for operations that require temporary storage.
+threadlocal var scratch_agg: [SCRATCH_SIZE_AGG]u64 = undefined;
 
 ////// SecretKey
 
@@ -121,7 +127,7 @@ export fn publicKeyAggregateWithRandomness(
         pks[0..len],
         &rands,
         pks_validate,
-        &scratch,
+        scratch_agg[0..],
     ) catch |e| return intFromError(e);
 
     out.* = agg_pk.toPublicKey();
@@ -167,7 +173,7 @@ export fn aggregatePublicKeyWithRandomness(
         pks[0..len],
         &rands,
         pks_validate,
-        &scratch,
+        scratch_agg[0..],
     ) catch |e| return intFromError(e);
     return 0;
 }
@@ -246,7 +252,7 @@ export fn signatureAggregateVerify(
 ) c_uint {
     const res = sig.aggregateVerify(
         sig_groupcheck,
-        &scratch,
+        &scratch_pairing,
         msgs[0..len],
         DST,
         pks[0..len],
@@ -264,7 +270,7 @@ export fn signatureFastAggregateVerify(
 ) c_uint {
     const res = sig.fastAggregateVerify(
         sig_groupcheck,
-        &scratch,
+        &scratch_pairing,
         msg.*,
         DST,
         pks[0..pks_len],
@@ -292,7 +298,7 @@ export fn signatureVerifyMultipleAggregateSignatures(
         std.Random.bytes(rand, &rands[i]);
     }
     const res = @import("signature.zig").verifyMultipleAggregateSignatures(
-        &scratch,
+        &scratch_pairing,
         n_elems,
         msgs,
         DST,
@@ -325,7 +331,7 @@ export fn signatureAggregateWithRandomness(
         sigs[0..len],
         &rands,
         sigs_groupcheck,
-        @ptrCast(@alignCast(&sig_scratch)),
+        scratch_agg[0..],
     ) catch |e| return intFromError(e);
 
     out.* = agg_sig.toSignature();
@@ -384,7 +390,7 @@ export fn aggregateSignatureAggregateWithRandomness(
         sigs[0..len],
         &rands,
         sigs_groupcheck,
-        @ptrCast(@alignCast(&sig_scratch)),
+        scratch_agg[0..],
     ) catch |e| return intFromError(e);
 
     return 0;

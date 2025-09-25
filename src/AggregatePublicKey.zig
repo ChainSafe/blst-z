@@ -50,7 +50,7 @@ pub fn aggregateWithRandomness(
     pks: []*const PublicKey,
     randomness: []const u8,
     pks_validate: bool,
-    scratch: *[]u64,
+    scratch: []u64,
 ) BlstError!Self {
     if (pks.len == 0) return BlstError.AggrTypeMismatch;
     if (scratch.len < c.blst_p1s_mult_pippenger_scratch_sizeof(pks.len)) {
@@ -142,7 +142,7 @@ test aggregateWithRandomness {
         &pks_refs,
         &rands,
         true,
-        &scratch,
+        scratch[0..],
     );
 }
 

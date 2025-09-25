@@ -171,7 +171,6 @@ const fns = {
     "args": [
       "ptr",
       "ptr",
-      "ptr",
       "u32",
       "bool"
     ],
