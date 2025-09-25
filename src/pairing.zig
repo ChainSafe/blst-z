@@ -1,22 +1,16 @@
-const std = @import("std");
-const Allocator = std.mem.Allocator;
-const BlstError = @import("error.zig").BlstError;
-const check = @import("error.zig").check;
-
-const c = @cImport({
-    @cInclude("blst.h");
-});
-
-const min_pk = @import("min_pk.zig");
-
+/// Calculates the size of a pairing context in bytes, at comptime.
+/// Provides the buffer size needed for pairing operations.
 pub const pairing_size = Pairing.sizeOf();
 
+/// Pairing context for bilinear pairing operations.
 pub const Pairing = extern struct {
     ctx: *c.blst_pairing,
 
     const Self = @This();
 
-    /// Rust always use a heap allocation here, but adding an allocator as param for Zig is too complex
+    /// Initializes a pairing context with the provided `buffer` and other parameters.
+    ///
+    /// Note: Rust always use a heap allocation here, but adding an allocator as param for Zig is too complex
     /// instead of that we provide a buffer that's big enough for the struct to operate on so that:
     /// - it does not have allocator in its api
     /// - can use stack allocation at consumer side
@@ -30,9 +24,9 @@ pub const Pairing = extern struct {
         return obj;
     }
 
-    /// Calculate the size of the internal (opaque) C type here in order to compute the pairing size at comptime
+    /// Calculates the size of the internal (opaque) C type here in order to compute the pairing size at comptime.
     ///
-    /// This is safe because blst is statically linked to this binding
+    /// This is safe because blst is statically linked to this binding.
     pub fn sizeOf() usize {
         const vec384_size = 384 / @sizeOf(usize);
         const vec384fp12_size = vec384_size * 12;
@@ -55,6 +49,7 @@ pub const Pairing = extern struct {
         return (p + 7) & ~@as(usize, 7);
     }
 
+    /// Aggregates a `PublicKey` and `Signature` into the pairing context.
     pub fn aggregate(
         self: *Self,
         pk: *const min_pk.PublicKey,
@@ -81,6 +76,7 @@ pub const Pairing = extern struct {
 
     // TODO: msgs and scalar should have len > 0
     // check for other apis as well
+    /// Multiply by `scalar` and aggregate into the pairing context.
     pub fn mulAndAggregate(
         self: *Self,
         pk: *const min_pk.PublicKey,
@@ -108,26 +104,32 @@ pub const Pairing = extern struct {
         );
     }
 
+    /// Compute the aggregated signature in G2.
     pub fn aggregated(gtsig: *c.blst_fp12, sig: *const min_pk.Signature) void {
         c.blst_aggregated_in_g2(gtsig, sig);
     }
 
+    /// Commit and finalize the aggregation in the pairing context.
     pub fn commit(self: *Self) void {
         c.blst_pairing_commit(self.ctx);
     }
 
+    /// Merge another pairing context into this one.
     pub fn merge(self: *Self, ctx1: *const Self) BlstError!void {
         try check(c.blst_pairing_merge(self.ctx, ctx1.ctx));
     }
 
+    /// Perform final verification of the pairing.
     pub fn finalVerify(self: *const Self, gtsig: ?*const c.blst_fp12) bool {
         return c.blst_pairing_finalverify(self.ctx, gtsig);
     }
 
+    /// Raw aggregation of points into the pairing context.
     pub fn rawAggregate(self: *Self, q: *c.blst_p2_affine, p: *c.blst_p1_affine) void {
         c.blst_pairing_raw_aggregate(self.ctx, q, p);
     }
 
+    /// Get the pairing context as an FP12 element.
     pub fn asFp12(self: *Self) *c.blst_fp12 {
         return c.blst_pairing_as_fp12(self.ctx);
     }
@@ -149,3 +151,11 @@ test "sizeOf Pairing" {
         Pairing.sizeOf(),
     );
 }
+
+const std = @import("std");
+const c = @cImport({
+    @cInclude("blst.h");
+});
+const BlstError = @import("error.zig").BlstError;
+const check = @import("error.zig").check;
+const min_pk = @import("min_pk.zig");
