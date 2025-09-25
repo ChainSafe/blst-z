@@ -58,9 +58,9 @@ pub fn aggregateWithRandomness(
     //if (randomness.len != pks.len) {
     //    return BlstError.AggrTypeMismatch;
     //}
-    //if (scratch.len < c.blst_p1s_mult_pippenger_scratch_sizeof(pks.len)) {
-    //    return BlstError.AggrTypeMismatch;
-    //}
+    if (scratch.len < c.blst_p1s_mult_pippenger_scratch_sizeof(pks.len)) {
+        return BlstError.AggrTypeMismatch;
+    }
     if (pks_validate) {
         for (pks) |pk| {
             try pk.validate();

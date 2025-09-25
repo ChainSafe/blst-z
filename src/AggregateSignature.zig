@@ -31,12 +31,9 @@ pub fn toSignature(self: *const Self) Signature {
 }
 
 pub fn aggregate(sigs: []const Signature, sigs_groupcheck: bool) BlstError!Self {
-    // if (sigs.len == 0) return BlstError.AggrTypeMismatch;
-    if (sigs_groupcheck) {
-        for (sigs) |sig| {
-            try sig.validate(false);
-        }
-    }
+    if (sigs.len == 0) return BlstError.AggrTypeMismatch;
+    if (sigs_groupcheck) for (sigs) |sig| try sig.validate(false);
+
     var agg_sig = Self{};
     c.blst_p2_from_affine(&agg_sig.point, &sigs[0].point);
     for (1..sigs.len) |i| {
