@@ -1,35 +1,27 @@
-const std = @import("std");
-const BlstError = @import("error.zig").BlstError;
-const check = @import("error.zig").check;
-const Signature = @import("signature.zig").Signature;
-const min_pk = @import("min_pk.zig");
-const c = @cImport({
-    @cInclude("blst.h");
-});
-const SCRATCH_SIZE = @import("eth_c_abi.zig").SCRATCH_SIZE;
-
-point: min_pk.AggSignature = min_pk.AggSignature{},
-
+//! AggregateSignature definition for BLS signature scheme using BLS12-381.
 const Self = @This();
 
+/// An aggregate signature that can be used to verify multiple messages
+/// against an aggregate public key.
+point: min_pk.AggSignature = min_pk.AggSignature{},
+
+/// Validates that the aggregate signature is in the correct subgroup (G2).
 pub fn validate(self: *const Self) BlstError!void {
-    if (!c.blst_p2_in_g2(&self.point)) {
-        return BlstError.PointNotInGroup;
-    }
+    if (!c.blst_p2_in_g2(&self.point)) return BlstError.PointNotInGroup;
 }
 
-pub fn fromSignature(sig: *const Signature) Self {
-    var agg_sig = Self{};
-    c.blst_p2_from_affine(&agg_sig.point, &sig.point);
-    return agg_sig;
-}
-
+/// Converts an aggregate signature back to a regular signature.
+/// Converts from projective coordinates back to affine coordinates.
 pub fn toSignature(self: *const Self) Signature {
     var sig = Signature{};
     c.blst_p2_to_affine(&sig.point, &self.point);
     return sig;
 }
 
+/// Aggregates multiple signatures into a single aggregate signature.
+///
+/// Validates each signature before aggregation if `sigs_groupcheck` is true.
+/// Errors if the `sigs` slice is empty or if any signature validation fails.
 pub fn aggregate(sigs: []const Signature, sigs_groupcheck: bool) BlstError!Self {
     if (sigs.len == 0) return BlstError.AggrTypeMismatch;
     if (sigs_groupcheck) for (sigs) |sig| try sig.validate(false);
@@ -43,6 +35,11 @@ pub fn aggregate(sigs: []const Signature, sigs_groupcheck: bool) BlstError!Self 
     return agg_sig;
 }
 
+/// Aggregates multiple signatures using multi-scalar multiplication with randomness.
+///
+/// Errors if scratch space is insufficient, or if any signature validation fails.
+///
+/// Returns the `AggregateSignature` on success.
 pub fn aggregateWithRandomness(
     sigs: []*const Signature,
     randomness: []const u8,
@@ -68,18 +65,6 @@ pub fn aggregateWithRandomness(
         scratch.ptr,
     );
     return agg_sig;
-}
-
-pub fn addAggregate(self: *Self, agg_sig: *const Self) BlstError!void {
-    c.blst_p2_add_or_double(@ptrCast(&self.point), &self.point, &agg_sig.point);
-}
-
-pub fn addSignature(self: *const Self, sig: *const Signature, out: *Self) BlstError!void {
-    c.blst_p2_add_or_double_affine(&out.point, &self.point, &sig.point);
-}
-
-pub fn subgroupCheck(self: *const Self) bool {
-    return c.blst_p2_in_g2(&self.point);
 }
 
 test aggregateWithRandomness {
@@ -137,6 +122,13 @@ test aggregateWithRandomness {
     );
     _ = agg_sig.toSignature();
 }
+const std = @import("std");
+const c = @cImport({
+    @cInclude("blst.h");
+});
 
+const BlstError = @import("error.zig").BlstError;
+const Signature = @import("signature.zig").Signature;
+const min_pk = @import("min_pk.zig");
 const SecretKey = @import("secret_key.zig").SecretKey;
 const PublicKey = @import("public_key.zig").PublicKey;
