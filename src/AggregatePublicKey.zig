@@ -1,4 +1,4 @@
-//! Aggregate Public Key for BLS signature scheme based on BLS12-381.
+//! AggregatePublicKey definition for BLS signature scheme based on BLS12-381.
 const Self = @This();
 
 /// An aggregate public key that can be used to verify aggregate signatures.
