@@ -1,4 +1,4 @@
-import {ptr, type Pointer} from "bun:ffi";
+import type {Pointer} from "bun:ffi";
 import {binding} from "./binding.ts";
 import { PUBLIC_KEY_COMPRESS_SIZE, PUBLIC_KEY_SIZE } from "./const.ts";
 import {assertSuccess, fromHex, toHex} from "./util.ts";
