@@ -5,14 +5,6 @@ import path from "node:path";
 import { openLibrary } from "@chainsafe/bun-ffi-z";
 
 const fns = {
-  "secretKeySizeOf": {
-    "args": [],
-    "returns": "u32"
-  },
-  "secretKeySerializeSize": {
-    "args": [],
-    "returns": "u32"
-  },
   "secretKeyFromBytes": {
     "args": [
       "ptr",
@@ -86,14 +78,6 @@ const fns = {
     ],
     "returns": "u32"
   },
-  "publicKeySizeOf": {
-    "args": [],
-    "returns": "u32"
-  },
-  "publicKeyCompressSize": {
-    "args": [],
-    "returns": "u32"
-  },
   "publicKeyFromBytes": {
     "args": [
       "ptr",
@@ -109,32 +93,11 @@ const fns = {
     ],
     "returns": "void"
   },
-  "publicKeyIsEqual": {
-    "args": [
-      "ptr",
-      "ptr"
-    ],
-    "returns": "bool"
-  },
   "publicKeyValidate": {
     "args": [
       "ptr"
     ],
     "returns": "u32"
-  },
-  "publicKeyFromAggregate": {
-    "args": [
-      "ptr",
-      "ptr"
-    ],
-    "returns": "void"
-  },
-  "publicKeyToAggregate": {
-    "args": [
-      "ptr",
-      "ptr"
-    ],
-    "returns": "void"
   },
   "publicKeyAggregateWithRandomness": {
     "args": [
@@ -152,51 +115,6 @@ const fns = {
       "u32",
       "bool"
     ],
-    "returns": "u32"
-  },
-  "aggregatePublicKeySizeOf": {
-    "args": [],
-    "returns": "u32"
-  },
-  "aggregatePublicKeys": {
-    "args": [
-      "ptr",
-      "ptr",
-      "u32",
-      "bool"
-    ],
-    "returns": "u32"
-  },
-  "aggregatePublicKeyWithRandomness": {
-    "args": [
-      "ptr",
-      "ptr",
-      "u32",
-      "bool"
-    ],
-    "returns": "u32"
-  },
-  "aggregatePublicKeyAddAggregate": {
-    "args": [
-      "ptr",
-      "ptr"
-    ],
-    "returns": "void"
-  },
-  "aggregatePublicKeyAddPublicKey": {
-    "args": [
-      "ptr",
-      "ptr",
-      "bool"
-    ],
-    "returns": "u32"
-  },
-  "signatureSizeOf": {
-    "args": [],
-    "returns": "u32"
-  },
-  "signatureCompressSize": {
-    "args": [],
     "returns": "u32"
   },
   "signatureFromBytes": {
@@ -220,26 +138,6 @@ const fns = {
       "bool"
     ],
     "returns": "u32"
-  },
-  "signatureGroupCheck": {
-    "args": [
-      "ptr"
-    ],
-    "returns": "bool"
-  },
-  "signatureToAggregate": {
-    "args": [
-      "ptr",
-      "ptr"
-    ],
-    "returns": "void"
-  },
-  "signatureFromAggregate": {
-    "args": [
-      "ptr",
-      "ptr"
-    ],
-    "returns": "void"
   },
   "signatureVerify": {
     "args": [
@@ -299,42 +197,6 @@ const fns = {
       "ptr",
       "u32",
       "bool"
-    ],
-    "returns": "u32"
-  },
-  "aggregateSignatureSizeOf": {
-    "args": [],
-    "returns": "u32"
-  },
-  "aggregateSignatureAggregate": {
-    "args": [
-      "ptr",
-      "ptr",
-      "u32",
-      "bool"
-    ],
-    "returns": "u32"
-  },
-  "aggregateSignatureAggregateWithRandomness": {
-    "args": [
-      "ptr",
-      "ptr",
-      "u32",
-      "bool"
-    ],
-    "returns": "u32"
-  },
-  "aggregateSignatureAddAggregate": {
-    "args": [
-      "ptr",
-      "ptr"
-    ],
-    "returns": "u32"
-  },
-  "aggregateSignatureAddSignature": {
-    "args": [
-      "ptr",
-      "ptr"
     ],
     "returns": "u32"
   }
