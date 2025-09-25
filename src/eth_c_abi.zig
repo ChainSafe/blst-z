@@ -117,13 +117,9 @@ export fn publicKeyAggregateWithRandomness(
     const rand = prng.random();
     std.Random.bytes(rand, &rands);
 
-    var scalars_refs: [MAX_AGGREGATE_PER_JOB]*const u8 = undefined;
-    for (0..len) |i| {
-        scalars_refs[i] = &rands[i * 32];
-    }
     const agg_pk = blst.AggregatePublicKey.aggregateWithRandomness(
         pks[0..len],
-        &scalars_refs[0],
+        &rands,
         pks_validate,
         &scratch,
     ) catch |e| return intFromError(e);
@@ -155,13 +151,21 @@ export fn aggregatePublicKeys(out: *blst.AggregatePublicKey, pks: [*c]const blst
 export fn aggregatePublicKeyWithRandomness(
     out: *blst.AggregatePublicKey,
     pks: [*c]*const blst.PublicKey,
-    randomness: [*c]*const u8,
     len: c_uint,
     pks_validate: bool,
 ) c_uint {
+    var rands: [32 * MAX_AGGREGATE_PER_JOB]u8 = [_]u8{0} ** (32 * MAX_AGGREGATE_PER_JOB);
+    var prng = std.Random.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
+        break :blk seed;
+    });
+    const rand = prng.random();
+    std.Random.bytes(rand, &rands);
+
     out.* = blst.AggregatePublicKey.aggregateWithRandomness(
         pks[0..len],
-        randomness,
+        &rands,
         pks_validate,
         &scratch,
     ) catch |e| return intFromError(e);
@@ -317,14 +321,9 @@ export fn signatureAggregateWithRandomness(
     const rand = prng.random();
     std.Random.bytes(rand, &rands);
 
-    var scalars_refs: [MAX_AGGREGATE_PER_JOB]*const u8 = undefined;
-    for (0..len) |i| {
-        scalars_refs[i] = &rands[i * 32];
-    }
-
     const agg_sig = blst.AggregateSignature.aggregateWithRandomness(
         sigs[0..len],
-        &scalars_refs[0],
+        &rands,
         sigs_groupcheck,
         @ptrCast(@alignCast(&sig_scratch)),
     ) catch |e| return intFromError(e);
@@ -381,14 +380,9 @@ export fn aggregateSignatureAggregateWithRandomness(
     const rand = prng.random();
     std.Random.bytes(rand, &rands);
 
-    var scalars_refs: [MAX_AGGREGATE_PER_JOB]*const u8 = undefined;
-    for (0..len) |i| {
-        scalars_refs[i] = &rands[i * 32];
-    }
-
     out.* = blst.AggregateSignature.aggregateWithRandomness(
         sigs[0..len],
-        &scalars_refs[0],
+        &rands,
         sigs_groupcheck,
         @ptrCast(@alignCast(&sig_scratch)),
     ) catch |e| return intFromError(e);
