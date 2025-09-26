@@ -66,7 +66,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.settings.bun-target }}
-          path: 'zig-out/lib/*blst_min_pk.*'
+          path: 'zig-out/lib/*eth_blst.*'
           if-no-files-found: error
 
   bun-benchmark:

@@ -29,7 +29,7 @@
 		"benchmark:files": "bun ./node_modules/.bin/benchmark --config .benchrc.yaml --defaultBranch main"
 	},
 	"bun-ffi-z": {
-		"name": "blst_min_pk",
+		"name": "eth_blst",
 		"targets": [
 			"linux-x64-gnu",
 			"linux-arm64-gnu",
