@@ -16,8 +16,6 @@ pub const Pairing = extern struct {
     /// - can use stack allocation at consumer side
     /// - can reuse memory if it makes sense at consumer side
     pub fn init(buffer: *[Self.sizeOf()]u8, hash_or_encode: bool, dst: []const u8) Self {
-        std.debug.assert(buffer.len == Self.sizeOf());
-
         const obj = Self{ .ctx = @ptrCast(buffer) };
         c.blst_pairing_init(obj.ctx, hash_or_encode, @ptrCast(dst.ptr), dst.len);
 
