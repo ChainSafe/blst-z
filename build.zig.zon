@@ -8,8 +8,8 @@
     .minimum_zig_version = "0.14.0",
 
     .dependencies = .{
-        .blst_zig = .{
-            .url = "git+https://github.com/ChainSafe/blst.zig.git#0c7d233d9910c0fe851c9a7a0addbe6202ff6aac",
+        .blst = .{
+            .url = "git+https://github.com/ChainSafe/blst.git#4d5bbcc0dd06f80b76fb124420c899570a4dd1e4",
             .hash = "blst_zig-0.0.0-cnAxzogIAAB8nH6TSAGbUtZ6scv2F64aVlcuJabg5HWi",
         },
     },

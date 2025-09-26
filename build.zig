@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const blst_c = b.dependency("blst_zig", .{
+    const blst_c = b.dependency("blst", .{
         .portable = b.option(bool, "portable", "turn on portable mode") orelse false,
     });
 
