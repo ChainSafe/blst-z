@@ -9,6 +9,7 @@ pub const Pairing = extern struct {
     const Self = @This();
 
     /// Initializes a pairing context with the provided `buffer` and other parameters.
+    /// This `Pairing` instance owns the given memory.
     ///
     /// Note: Rust always use a heap allocation here, but adding an allocator as param for Zig is too complex
     /// instead of that we provide a buffer that's big enough for the struct to operate on so that:
