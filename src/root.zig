@@ -1,7 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
 
-pub const Pairing = @import("pairing.zig").Pairing;
+pub const Pairing = @import("Pairing.zig");
 pub const SecretKey = @import("secret_key.zig").SecretKey;
 pub const PublicKey = @import("public_key.zig").PublicKey;
 pub const Signature = @import("signature.zig").Signature;

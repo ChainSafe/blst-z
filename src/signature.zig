@@ -10,7 +10,7 @@ const RAND_BITS = 8 * RAND_BYTES;
 ///
 /// Returns true if verification succeeds, false if verification fails, `BlstError` on error.
 pub fn verifyMultipleAggregateSignatures(
-    pairing_buf: *[pairing_size]u8,
+    pairing_buf: *[Pairing.sizeOf()]u8,
     n_elems: usize,
     msgs: []const [32]u8,
     dst: []const u8,
@@ -108,7 +108,7 @@ pub const Signature = extern struct {
     pub fn aggregateVerify(
         self: *const Self,
         sig_groupcheck: bool,
-        buffer: *[pairing_size]u8,
+        buffer: *[Pairing.sizeOf()]u8,
         msgs: []const [32]u8,
         dst: []const u8,
         pks: []const PublicKey,
@@ -164,7 +164,7 @@ pub const Signature = extern struct {
     pub fn fastAggregateVerify(
         self: *const Self,
         sig_groupcheck: bool,
-        buffer: *[pairing_size]u8,
+        buffer: *[Pairing.sizeOf()]u8,
         msg: [32]u8,
         dst: []const u8,
         pks: []const PublicKey,
@@ -188,7 +188,7 @@ pub const Signature = extern struct {
     pub fn fastAggregateVerifyPreAggregated(
         self: *const Self,
         sig_groupcheck: bool,
-        buffer: *[pairing_size]u8,
+        buffer: *[Pairing.sizeOf()]u8,
         msg: *const [32]u8,
         dst: []const u8,
         pk: *const PublicKey,
@@ -274,5 +274,4 @@ const check = @import("error.zig").check;
 const PublicKey = @import("public_key.zig").PublicKey;
 const AggregatePublicKey = @import("AggregatePublicKey.zig");
 const AggregateSignature = @import("AggregateSignature.zig");
-const Pairing = @import("pairing.zig").Pairing;
-const pairing_size = @import("pairing.zig").pairing_size;
+const Pairing = @import("Pairing.zig");
