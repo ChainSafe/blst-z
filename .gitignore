@@ -2,4 +2,3 @@ zig-out/
 .zig-cache/
 bun/node_modules/
 bun/benchmark_data/
-blst/
