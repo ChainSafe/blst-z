@@ -143,13 +143,13 @@ test aggregate {
         pks[i] = pk;
         sigs[i] = sig;
     }
-    var pks_refs: [128]*const PublicKey = undefined;
+    var pk_points: [128]PublicKey.Point = undefined;
 
     for (0..num_sigs) |i| {
-        pks_refs[i] = &pks[i];
+        pk_points[i] = pks[i].point;
     }
 
-    _ = try aggregate(&pks_refs, true);
+    _ = try aggregate(pk_points[0..], true);
 }
 
 const std = @import("std");
