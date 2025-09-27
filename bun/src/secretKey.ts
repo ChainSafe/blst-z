@@ -19,9 +19,7 @@ export class SecretKey {
 	 */
 	static fromKeygen(ikm: Uint8Array): SecretKey {
 		const buffer = new Uint8Array(SECRET_KEY_SIZE);
-		assertSuccess(
-			binding.secretKeyKeyGen(buffer, ikm, ikm.length)
-		);
+		assertSuccess(binding.secretKeyKeyGen(buffer, ikm, ikm.length));
 
 		return new SecretKey(buffer);
 	}
@@ -35,9 +33,7 @@ export class SecretKey {
 	 */
 	static deriveMasterEip2333(ikm: Uint8Array): SecretKey {
 		const buffer = new Uint8Array(SECRET_KEY_SIZE);
-		assertSuccess(
-			binding.secretKeyDeriveMasterEip2333(buffer, ikm, ikm.length)
-		);
+		assertSuccess(binding.secretKeyDeriveMasterEip2333(buffer, ikm, ikm.length));
 
 		return new SecretKey(buffer);
 	}
@@ -56,9 +52,7 @@ export class SecretKey {
 	/** Deserialize a secret key from a byte array. */
 	static fromBytes(bytes: Uint8Array): SecretKey {
 		const buffer = new Uint8Array(SECRET_KEY_SIZE);
-		assertSuccess(
-			binding.secretKeyFromBytes(buffer, bytes, bytes.length)
-		);
+		assertSuccess(binding.secretKeyFromBytes(buffer, bytes, bytes.length));
 
 		return new SecretKey(buffer);
 	}

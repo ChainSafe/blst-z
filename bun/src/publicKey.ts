@@ -1,6 +1,6 @@
 import type {Pointer} from "bun:ffi";
 import {binding} from "./binding.ts";
-import { PUBLIC_KEY_COMPRESS_SIZE, PUBLIC_KEY_SIZE } from "./const.ts";
+import {PUBLIC_KEY_COMPRESS_SIZE, PUBLIC_KEY_SIZE} from "./const.ts";
 import {assertSuccess, fromHex, toHex} from "./util.ts";
 
 export class PublicKey {
@@ -22,14 +22,10 @@ export class PublicKey {
 		}
 
 		const buffer = new Uint8Array(PUBLIC_KEY_SIZE);
-		assertSuccess(
-			binding.publicKeyFromBytes(buffer, bytes, bytes.length)
-		);
+		assertSuccess(binding.publicKeyFromBytes(buffer, bytes, bytes.length));
 
 		if (pkValidate) {
-			assertSuccess(
-				binding.publicKeyValidate(buffer)
-			);
+			assertSuccess(binding.publicKeyValidate(buffer));
 		}
 		return new PublicKey(buffer);
 	}
@@ -59,8 +55,6 @@ export class PublicKey {
 
 	/** Validate a public key with infinity and group check. */
 	keyValidate(): void {
-		assertSuccess(
-			binding.publicKeyValidate(this.ptr)
-		);
+		assertSuccess(binding.publicKeyValidate(this.ptr));
 	}
 }

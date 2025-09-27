@@ -1,6 +1,6 @@
-import { ptr, read, type Pointer } from "bun:ffi";
-import type { PublicKey } from "./publicKey.js";
-import type { Signature } from "./signature.js";
+import {type Pointer, ptr, read} from "bun:ffi";
+import type {PublicKey} from "./publicKey.js";
+import type {Signature} from "./signature.js";
 
 /**
  * Write reference of a data to the provided Uint32Array at offset

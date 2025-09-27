@@ -1,10 +1,10 @@
 import {JSCallback} from "bun:ffi";
 import {binding} from "./binding.js";
-import {writePublicKeys, pksU8} from "./buffer.ts";
-import {writeReference, writePublicKeysReference, writeSignaturesReference} from "./writers.ts";
+import {pksU8, writePublicKeys} from "./buffer.ts";
 import {MAX_AGGREGATE_WITH_RANDOMNESS_PER_JOB, PUBLIC_KEY_SIZE, SIGNATURE_LENGTH} from "./const.js";
 import {PublicKey} from "./publicKey.js";
 import {Signature} from "./signature.js";
+import {writeNumber, writePublicKeysReference, writeReference, writeSignaturesReference} from "./writers.ts";
 
 export interface PkAndSerializedSig {
 	pk: PublicKey;
@@ -15,10 +15,6 @@ export interface PkAndSig {
 	pk: PublicKey;
 	sig: Signature;
 }
-
-// global signature sets reference to be reused across multiple calls
-// each 2 tems are 8 bytes, store the reference of each PkAndSerializedSig
-const pkAndSerializedSigsRefs = new Uint32Array(MAX_AGGREGATE_WITH_RANDOMNESS_PER_JOB * 2);
 
 /**
  * Aggregate multiple public keys and multiple serialized signatures into a single blinded public key and blinded signature.
@@ -35,9 +31,8 @@ export function aggregateWithRandomness(sets: Array<PkAndSerializedSig>): PkAndS
 		throw new Error("At least one PkAndSerializedSig is required");
 	}
 
-
-	const pksRef = writePublicKeysReference(sets.map(s => s.pk));
-	const sigsRef = writeSignaturesReference(sets.map(s => Signature.fromBytes(s.sig, true)));
+	const pksRef = writePublicKeysReference(sets.map((s) => s.pk));
+	const sigsRef = writeSignaturesReference(sets.map((s) => Signature.fromBytes(s.sig, true)));
 	const pkOut = new PublicKey(new Uint8Array(PUBLIC_KEY_SIZE));
 	const sigOut = new Signature(new Uint8Array(SIGNATURE_LENGTH));
 
@@ -111,7 +106,6 @@ export function asyncAggregateWithRandomness(sets: Array<PkAndSerializedSig>): P
 			}
 		);
 
-		// cannot reuse pkAndSerializedSigsRefs() due to async nature
 		const refs = new Uint32Array(sets.length * 2);
 		writePkAndSerializedSigsReference(sets, refs);
 

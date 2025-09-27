@@ -15,11 +15,11 @@ describe("Signature", () => {
 				expectEqualHex(Signature.fromBytes(validSignature.compressed).toBytes(), validSignature.compressed);
 			});
 			describe("argument validation", () => {
-			//	for (const [type, invalid] of invalidInputs) {
-			//		it(`should throw on invalid pkBytes type: ${type}`, () => {
-			//			expect(() => Signature.fromBytes(invalid)).toThrow();
-			//		});
-			//	}
+				//	for (const [type, invalid] of invalidInputs) {
+				//		it(`should throw on invalid pkBytes type: ${type}`, () => {
+				//			expect(() => Signature.fromBytes(invalid)).toThrow();
+				//		});
+				//	}
 				it("should only take 96 or 192 bytes", () => {
 					expect(() => Signature.fromBytes(Buffer.alloc(32, "*"))).toThrow("Invalid encoding");
 				});

@@ -75,5 +75,4 @@ export function blstErrorToCode(blstError: number): string {
 	}
 }
 
-import {read, type Pointer} from "bun:ffi";
-
+import {type Pointer, read} from "bun:ffi";

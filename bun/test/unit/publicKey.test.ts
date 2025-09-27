@@ -1,5 +1,5 @@
 import {afterAll, describe, expect, it} from "bun:test";
-import {PUBLIC_KEY_SIZE, PUBLIC_KEY_COMPRESS_SIZE} from "../../src/const.js";
+import {PUBLIC_KEY_COMPRESS_SIZE, PUBLIC_KEY_SIZE} from "../../src/const.js";
 import {PublicKey} from "../../src/publicKey.js";
 import {SecretKey} from "../../src/secretKey.js";
 import {G1_POINT_AT_INFINITY, SECRET_KEY_BYTES, invalidInputs, validPublicKey} from "../__fixtures__/index.js";

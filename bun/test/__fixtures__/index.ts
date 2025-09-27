@@ -1,27 +1,27 @@
 import {fromHex, getFilledUint8, getTestSet, sullyUint8Array} from "../utils/index.js";
 
 export const invalidInputs: [string, any][] = [
-//	["boolean", true],
-//	["number", 2],
-//	["bigint", BigInt("2")],
-//	["symbol", Symbol("foo")],
-//	["null", null],
-//	["undefined", undefined],
-//	["object", {foo: "bar"}],
-//	["proxy", new Proxy({foo: "bar"}, {})],
-//	["date", new Date("1982-03-24T16:00:00-06:00")],
-//	[
-//		"function",
-//		() => {
-//			/* no-op */
-//		},
-//	],
-//	["NaN", Number.NaN],
-//	["promise", Promise.resolve()],
-//	["Uint16Array", new Uint16Array()],
-//	["Uint32Array", new Uint32Array()],
-//	["Map", new Map()],
-//	["Set", new Set()],
+	//	["boolean", true],
+	//	["number", 2],
+	//	["bigint", BigInt("2")],
+	//	["symbol", Symbol("foo")],
+	//	["null", null],
+	//	["undefined", undefined],
+	//	["object", {foo: "bar"}],
+	//	["proxy", new Proxy({foo: "bar"}, {})],
+	//	["date", new Date("1982-03-24T16:00:00-06:00")],
+	//	[
+	//		"function",
+	//		() => {
+	//			/* no-op */
+	//		},
+	//	],
+	//	["NaN", Number.NaN],
+	//	["promise", Promise.resolve()],
+	//	["Uint16Array", new Uint16Array()],
+	//	["Uint32Array", new Uint32Array()],
+	//	["Map", new Map()],
+	//	["Set", new Set()],
 ];
 
 export const KEY_MATERIAL = getFilledUint8(32, "123");

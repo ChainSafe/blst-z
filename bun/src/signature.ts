@@ -1,9 +1,9 @@
 import type {Pointer} from "bun:ffi";
 import {binding} from "./binding.js";
-import {SIGNATURE_LENGTH_COMPRESSED, SIGNATURE_LENGTH} from "./const.js";
+import {msgsU8, pksU8, writeMessages, writePublicKeys} from "./buffer.js";
+import {SIGNATURE_LENGTH, SIGNATURE_LENGTH_COMPRESSED} from "./const.js";
+import type {PublicKey} from "./publicKey.js";
 import {assertSuccess, fromHex, toHex} from "./util.js";
-import type { PublicKey } from "./publicKey.js";
-import { msgsU8, pksU8, writeMessages, writePublicKeys } from "./buffer.js";
 
 export class Signature {
 	// this is mapped directly to `*const Signature` in Zig
@@ -28,14 +28,10 @@ export class Signature {
 		const buffer = new Uint8Array(SIGNATURE_LENGTH);
 		const sig = new Signature(buffer);
 
-		assertSuccess(
-			binding.signatureFromBytes(sig.ptr, bytes, bytes.length)
-		);
+		assertSuccess(binding.signatureFromBytes(sig.ptr, bytes, bytes.length));
 
 		if (sigValidate) {
-			assertSuccess(
-				binding.signatureValidate(sig.ptr, sigInfcheck ?? true)
-			);
+			assertSuccess(binding.signatureValidate(sig.ptr, sigInfcheck ?? true));
 		}
 
 		return sig;
@@ -76,9 +72,7 @@ export class Signature {
 	 * If `sig_infcheck` is `false`, the infinity check will be skipped.
 	 */
 	sigValidate(sigInfcheck?: boolean | undefined | null): void {
-		assertSuccess(
-			binding.signatureValidate(this.ptr, sigInfcheck ?? true)
-		);
+		assertSuccess(binding.signatureValidate(this.ptr, sigInfcheck ?? true));
 	}
 
 	/**
@@ -98,14 +92,7 @@ export class Signature {
 			throw new Error("Message cannot be empty");
 		}
 
-		const res = binding.signatureVerify(
-			this.ptr,
-			sigGroupcheck ?? false,
-			msg,
-			msg.length,
-			pk.ptr,
-			pkValidate ?? false
-		);
+		const res = binding.signatureVerify(this.ptr, sigGroupcheck ?? false, msg, msg.length, pk.ptr, pkValidate ?? false);
 		return res === 0;
 	}
 
@@ -116,23 +103,13 @@ export class Signature {
 	 *
 	 * If `sigs_groupcheck` is `true`, the signatures will be group checked.
 	 */
-	fastAggregateVerify(
-		msg: Uint8Array,
-		pks: PublicKey[],
-		sigsGroupcheck?: boolean | undefined | null
-	): boolean {
+	fastAggregateVerify(msg: Uint8Array, pks: PublicKey[], sigsGroupcheck?: boolean | undefined | null): boolean {
 		if (msg.length !== 32) {
 			throw new Error("Message must be 32 bytes long");
 		}
 
 		writePublicKeys(pks);
-		const res = binding.signatureFastAggregateVerify(
-			this.ptr,
-			sigsGroupcheck ?? false,
-			msg,
-			pksU8,
-			pks.length,
-		);
+		const res = binding.signatureFastAggregateVerify(this.ptr, sigsGroupcheck ?? false, msg, pksU8, pks.length);
 		return res === 0;
 	}
 
@@ -173,7 +150,7 @@ export class Signature {
 			msgsU8,
 			pksU8,
 			pks.length,
-			pkValidate ?? false,
+			pkValidate ?? false
 		);
 		return res === 0;
 	}

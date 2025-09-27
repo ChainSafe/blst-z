@@ -1,9 +1,9 @@
 import {binding} from "./binding.js";
+import {pksU8, sigsU8, writePublicKeys, writeSignatures} from "./buffer.ts";
 import {MAX_AGGREGATE_PER_JOB, PUBLIC_KEY_SIZE, SIGNATURE_LENGTH} from "./const.js";
 import {PublicKey} from "./publicKey.js";
-import {writeSignaturesReference, writePublicKeysReference, writeUint8ArrayArray} from "./writers.ts";
-import {writePublicKeys, pksU8, writeSignatures, sigsU8} from "./buffer.ts";
 import {Signature} from "./signature.js";
+import {writePublicKeysReference, writeSignaturesReference, writeUint8ArrayArray} from "./writers.ts";
 
 // global public keys reference to be reused across multiple calls
 // each 2 items are 8 bytes, store the reference of each public key
@@ -16,7 +16,6 @@ const signaturesRef = new Uint32Array(MAX_AGGREGATE_PER_JOB * 2);
  * If `pks_validate` is `true`, the public keys will be infinity and group checked.
  */
 export function aggregatePublicKeys(pks: Array<PublicKey>, pksValidate?: boolean | undefined | null): PublicKey {
-
 	if (pks.length === 0) {
 		throw new Error("At least one public key is required");
 	}
@@ -34,7 +33,6 @@ export function aggregatePublicKeys(pks: Array<PublicKey>, pksValidate?: boolean
 		}
 		resultPks.push(outPk);
 	}
-
 
 	return resultPks.length === 1 ? resultPks[0] : aggregatePublicKeys(resultPks, pksValidate);
 }
@@ -85,13 +83,7 @@ export function aggregateSerializedPublicKeys(
 		const pksBatch = pks.slice(i, Math.min(pks.length, i + MAX_AGGREGATE_PER_JOB));
 		const pksRef = writeSerializedPublicKeysReference(pksBatch);
 		const outPk = new PublicKey(new Uint8Array(PUBLIC_KEY_SIZE));
-		const res = binding.aggregatePublicKeys(
-			outPk.ptr,
-			pksRef,
-			pksBatch.length,
-			pks[0].length,
-			pksValidate ?? false
-		);
+		const res = binding.aggregatePublicKeys(outPk.ptr, pksRef, pksBatch.length, pks[0].length, pksValidate ?? false);
 
 		if (res !== 0) {
 			throw new Error(`Failed to aggregate serialized public keys: ${res}`);
@@ -121,12 +113,7 @@ export function aggregateSerializedSignatures(
 		const sigsBatch = sigs.slice(i, Math.min(sigs.length, i + MAX_AGGREGATE_PER_JOB));
 		const sigsRef = writeSerializedSignaturesReference(sigsBatch);
 		const outSig = new Signature(new Uint8Array(SIGNATURE_LENGTH));
-		const res = binding.signatureAggregate(
-			outSig.ptr,
-			sigsRef,
-			sigsBatch.length,
-			sigsGroupcheck ?? false
-		);
+		const res = binding.signatureAggregate(outSig.ptr, sigsRef, sigsBatch.length, sigsGroupcheck ?? false);
 
 		if (res !== 0) {
 			throw new Error(`Failed to aggregate serialized signatures: ${res}`);
@@ -134,7 +121,9 @@ export function aggregateSerializedSignatures(
 		resultSignatures.push(outSig);
 	}
 
-	return resultSignatures.length === 1 ? resultSignatures[0] : aggregateSerializedSignatures(resultSignatures, sigsGroupcheck);
+	return resultSignatures.length === 1
+		? resultSignatures[0]
+		: aggregateSerializedSignatures(resultSignatures, sigsGroupcheck);
 }
 
 function writeSerializedPublicKeysReference(pks: Uint8Array[]): Uint32Array {
