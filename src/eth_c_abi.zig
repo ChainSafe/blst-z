@@ -143,9 +143,9 @@ export fn publicKeyAggregateWithRandomness(
 /// Aggregate multiple `blst.PublicKey`s.
 ///
 /// Returns 0 on success, error code on failure.
-export fn publicKeyAggregate(out: *PublicKey.Point, pks: [*c]const PublicKey.Point, len: c_uint, pks_validate: bool) c_uint {
+export fn publicKeyAggregate(out: *PublicKey, pks: [*c]const PublicKey.Point, len: c_uint, pks_validate: bool) c_uint {
     const agg_pk = blst.AggregatePublicKey.aggregate(@ptrCast(pks[0..len]), pks_validate) catch |e| return intFromError(e);
-    out.* = agg_pk.toPublicKey().point;
+    out.* = agg_pk.toPublicKey();
 
     return 0;
 }
