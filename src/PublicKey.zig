@@ -62,7 +62,7 @@ pub fn serialize(self: *const Self) [SERIALIZE_SIZE]u8 {
 pub fn uncompress(pk_comp: []const u8) BlstError!Self {
     if (pk_comp.len == COMPRESS_SIZE or (pk_comp[0] & 0x80) != 0) {
         var pk = Self{};
-        try check(c.blst_p1_uncompress(&pk.point, pk_comp.ptr));
+        try errorFromInt(c.blst_p1_uncompress(&pk.point, pk_comp.ptr));
         return pk;
     }
     return BlstError.BadEncoding;
@@ -89,7 +89,7 @@ pub fn isEqual(self: *const Self, other: *const Self) bool {
 
 const std = @import("std");
 const BlstError = @import("error.zig").BlstError;
-const check = @import("error.zig").check;
+const errorFromInt = @import("error.zig").errorFromInt;
 const AggregatePublicKey = @import("AggregatePublicKey.zig");
 
 const c = @cImport({

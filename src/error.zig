@@ -24,7 +24,7 @@ pub fn intFromError(e: BlstError) c_uint {
     };
 }
 
-pub fn check(err: c_uint) BlstError!void {
+pub fn errorFromInt(err: c_uint) BlstError!void {
     switch (err) {
         c.BLST_BAD_ENCODING => return BlstError.BadEncoding,
         c.BLST_POINT_NOT_ON_CURVE => return BlstError.PointNotOnCurve,

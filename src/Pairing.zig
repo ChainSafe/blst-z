@@ -53,7 +53,7 @@ pub fn aggregate(
     msg: []const u8,
     aug: ?[]const u8,
 ) BlstError!void {
-    try check(
+    try errorFromInt(
         c.blst_pairing_chk_n_aggr_pk_in_g1(
             self.ctx,
             @ptrCast(&pk.point),
@@ -81,7 +81,7 @@ pub fn mulAndAggregate(
     nbits: usize,
     msg: []const u8,
 ) BlstError!void {
-    try check(
+    try errorFromInt(
         c.blst_pairing_chk_n_mul_n_aggr_pk_in_g1(
             self.ctx,
             @ptrCast(&pk.point),
@@ -110,7 +110,7 @@ pub fn commit(self: *Self) void {
 
 /// Merge another pairing context into this one.
 pub fn merge(self: *Self, ctx1: *const Self) BlstError!void {
-    try check(c.blst_pairing_merge(self.ctx, ctx1.ctx));
+    try errorFromInt(c.blst_pairing_merge(self.ctx, ctx1.ctx));
 }
 
 /// Perform final verification of the pairing.
@@ -149,6 +149,6 @@ const c = @cImport({
     @cInclude("blst.h");
 });
 const BlstError = @import("error.zig").BlstError;
-const check = @import("error.zig").check;
+const errorFromInt = @import("error.zig").errorFromInt;
 const PublicKey = @import("PublicKey.zig");
 const Signature = @import("Signature.zig");

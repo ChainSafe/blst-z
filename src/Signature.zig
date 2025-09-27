@@ -38,7 +38,7 @@ pub fn verify(
         return BlstError.BadEncoding;
     }
 
-    const chk = check(c.blst_core_verify_pk_in_g1(
+    const chk = errorFromInt(c.blst_core_verify_pk_in_g1(
         @ptrCast(&pk.point),
         @ptrCast(&self.point),
         true,
@@ -183,7 +183,7 @@ pub fn serialize(self: *const Self) [SERIALIZE_SIZE]u8 {
 pub fn uncompress(sig_comp: []const u8) BlstError!Self {
     if (sig_comp.len == COMPRESS_SIZE and (sig_comp[0] & 0x80) != 0) {
         var sig = Self{};
-        try check(c.blst_p2_uncompress(&sig.point, &sig_comp[0]));
+        try errorFromInt(c.blst_p2_uncompress(&sig.point, &sig_comp[0]));
         return sig;
     }
 
@@ -198,7 +198,7 @@ pub fn deserialize(sig_in: []const u8) BlstError!Self {
         (sig_in.len == COMPRESS_SIZE and (sig_in[0] & 0x80) != 0))
     {
         var sig = Self{};
-        try check(c.blst_p2_deserialize(&sig.point, &sig_in[0]));
+        try errorFromInt(c.blst_p2_deserialize(&sig.point, &sig_in[0]));
         return sig;
     }
 
@@ -219,8 +219,9 @@ const std = @import("std");
 const c = @cImport({
     @cInclude("blst.h");
 });
+
 const BlstError = @import("error.zig").BlstError;
-const check = @import("error.zig").check;
+const errorFromInt = @import("error.zig").errorFromInt;
 const PublicKey = @import("PublicKey.zig");
 const AggregatePublicKey = @import("AggregatePublicKey.zig");
 const AggregateSignature = @import("AggregateSignature.zig");
