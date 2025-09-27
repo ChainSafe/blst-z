@@ -16,7 +16,7 @@ pub fn toPublicKey(self: *const Self) PublicKey {
 /// If pks_validate is true, validates each public key before aggregation.
 ///
 /// Returns an error if the slice is empty or if any public key validation fails.
-pub fn aggregate(pks: []const PublicKey, pks_validate: bool) BlstError!Self {
+pub fn aggregate(pks: []*const PublicKey, pks_validate: bool) BlstError!Self {
     if (pks.len == 0) return BlstError.AggrTypeMismatch;
     if (pks_validate) for (pks) |pk| try pk.validate();
 
@@ -73,9 +73,6 @@ test aggregateWithRandomness {
         0x48, 0x99,
     };
 
-    const dst = DST;
-    // aug is null
-
     const num_sigs = 128;
 
     var msgs: [num_sigs][32]u8 = undefined;
@@ -98,7 +95,7 @@ test aggregateWithRandomness {
         std.Random.bytes(rand, &msgs[i]);
         const sk = try SecretKey.keyGen(&ikm, null);
         const pk = sk.toPublicKey();
-        const sig = sk.sign(&msgs[i], dst, null);
+        const sig = sk.sign(&msgs[i], DST, null);
 
         sks[i] = sk;
         pks[i] = pk;
@@ -120,6 +117,39 @@ test aggregateWithRandomness {
         true,
         scratch[0..],
     );
+}
+
+test aggregate {
+    const ikm: [32]u8 = [_]u8{
+        0x93, 0xad, 0x7e, 0x65, 0xde, 0xad, 0x05, 0x2a, 0x08, 0x3a,
+        0x91, 0x0c, 0x8b, 0x72, 0x85, 0x91, 0x46, 0x4c, 0xca, 0x56,
+        0x60, 0x5b, 0xb0, 0x56, 0xed, 0xfe, 0x2b, 0x60, 0xa6, 0x3c,
+        0x48, 0x99,
+    };
+
+    const num_sigs = 128;
+
+    var msgs: [num_sigs][32]u8 = undefined;
+    var sks: [num_sigs]SecretKey = undefined;
+    var pks: [num_sigs]PublicKey = undefined;
+    var sigs: [num_sigs]Signature = undefined;
+
+    for (0..num_sigs) |i| {
+        const sk = try SecretKey.keyGen(&ikm, null);
+        const pk = sk.toPublicKey();
+        const sig = sk.sign(&msgs[i], DST, null);
+
+        sks[i] = sk;
+        pks[i] = pk;
+        sigs[i] = sig;
+    }
+    var pks_refs: [128]*const PublicKey = undefined;
+
+    for (0..num_sigs) |i| {
+        pks_refs[i] = &pks[i];
+    }
+
+    _ = try aggregate(&pks_refs, true);
 }
 
 const std = @import("std");
