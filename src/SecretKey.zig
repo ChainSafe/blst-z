@@ -153,7 +153,7 @@ const std = @import("std");
 const BlstError = @import("error.zig").BlstError;
 const check = @import("error.zig").check;
 const PublicKey = @import("PublicKey.zig");
-const Signature = @import("signature.zig").Signature;
+const Signature = @import("Signature.zig");
 
 const c = @cImport({
     @cInclude("blst.h");

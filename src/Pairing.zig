@@ -151,4 +151,4 @@ const c = @cImport({
 const BlstError = @import("error.zig").BlstError;
 const check = @import("error.zig").check;
 const PublicKey = @import("PublicKey.zig");
-const Signature = @import("signature.zig").Signature;
+const Signature = @import("Signature.zig");

@@ -79,10 +79,10 @@ export fn secretKeyToPublicKey(out: *blst.PublicKey, sk: *const blst.SecretKey) 
     out.* = sk.toPublicKey();
 }
 
-/// Sign a message with `blst.SecretKey`. and produces a `blst.Signature` in `out`.
+/// Sign a message with `blst.SecretKey`. and produces a `Signature` in `out`.
 ///
 /// Returns 0 on success, error code on failure.
-export fn secretKeySign(out: *blst.Signature, sk: *const blst.SecretKey, msg: [*c]const u8, msg_len: c_uint) c_uint {
+export fn secretKeySign(out: *Signature, sk: *const blst.SecretKey, msg: [*c]const u8, msg_len: c_uint) c_uint {
     out.* = sk.sign(msg[0..msg_len], DST, null);
     return 0;
 }
@@ -152,32 +152,32 @@ export fn publicKeyAggregate(out: *PublicKey.Point, pks: [*c]const PublicKey.Poi
 
 ////// Signature
 
-/// Deserialize a `blst.Signature` in `out` from compressed bytes.
+/// Deserialize a `Signature` in `out` from compressed bytes.
 ///
 /// Returns 0 on success, error code on failure.
-export fn signatureFromBytes(out: *blst.Signature, bytes: [*c]const u8, bytes_len: c_uint) c_uint {
-    out.* = blst.Signature.uncompress(bytes[0..bytes_len]) catch |e| return intFromError(e);
+export fn signatureFromBytes(out: *Signature, bytes: [*c]const u8, bytes_len: c_uint) c_uint {
+    out.* = (Signature.uncompress(bytes[0..bytes_len]) catch |e| return intFromError(e));
     return 0;
 }
 
-/// Serialize a `blst.Signature` to compressed bytes in `out`.
-export fn signatureToBytes(out: [*c]u8, sig: *const blst.Signature) void {
-    out[0..blst.Signature.COMPRESS_SIZE].* = sig.compress();
+/// Serialize a `Signature` to compressed bytes in `out`.
+export fn signatureToBytes(out: [*c]u8, sig: *const Signature) void {
+    out[0..Signature.COMPRESS_SIZE].* = sig.compress();
 }
 
-/// Validate a `blst.Signature`.
+/// Validate a `Signature`.
 ///
 /// Returns 0 on success, error code on failure.
-export fn signatureValidate(sig: *const blst.Signature, sig_infcheck: bool) c_uint {
+export fn signatureValidate(sig: *const Signature, sig_infcheck: bool) c_uint {
     sig.validate(sig_infcheck) catch |e| return intFromError(e);
     return 0;
 }
 
-/// Verify a `blst.Signature` against a `blst.PublicKey` and message `msg`.
+/// Verify a `Signature` against a `blst.PublicKey` and message `msg`.
 ///
 /// Returns 0 on success, error code on failure.
 export fn signatureVerify(
-    sig: *const blst.Signature,
+    sig: *const Signature,
     sig_groupcheck: bool,
     msg: [*c]const u8,
     msg_len: c_uint,
@@ -195,11 +195,11 @@ export fn signatureVerify(
     return 0;
 }
 
-/// Verify an aggregate signature `blst.Signature` against multiple messages and `blst.PublicKey`s.
+/// Verify an aggregate signature `Signature` against multiple messages and `blst.PublicKey`s.
 ///
 /// Returns 0 if verification succeeds, 1 if verification fails, error code on error.
 export fn signatureAggregateVerify(
-    sig: *const blst.Signature,
+    sig: *const Signature,
     sig_groupcheck: bool,
     msgs: [*c]const [32]u8,
     pks: [*c]const PublicKey.Point,
@@ -217,11 +217,11 @@ export fn signatureAggregateVerify(
     return @intFromBool(!res);
 }
 
-/// Faster verify an aggregate signature `blst.Signature` against multiple messages and `blst.PublicKey`s.
+/// Faster verify an aggregate signature `Signature` against multiple messages and `blst.PublicKey`s.
 ///
 /// Returns 0 if verification succeeds, 1 if verification fails, error code on error.
 export fn signatureFastAggregateVerify(
-    sig: *const blst.Signature,
+    sig: *const Signature,
     sig_groupcheck: bool,
     msg: *[32]u8,
     pks: [*c]const PublicKey.Point,
@@ -245,7 +245,7 @@ export fn signatureVerifyMultipleAggregateSignatures(
     msgs: [*c]const [32]u8,
     pks: [*c]const *blst.PublicKey,
     pks_validate: bool,
-    sigs: [*c]const *blst.Signature,
+    sigs: [*c]const *Signature,
     sig_groupcheck: bool,
 ) c_uint {
     var rands: [32 * MAX_AGGREGATE_PER_JOB][32]u8 = undefined;
@@ -267,7 +267,7 @@ export fn signatureVerifyMultipleAggregateSignatures(
         DST,
         pks[0..n_elems],
         pks_validate,
-        sigs[0..n_elems],
+        @ptrCast(sigs[0..n_elems]),
         sig_groupcheck,
         &rands,
     ) catch |e| return intFromError(e);
@@ -275,12 +275,12 @@ export fn signatureVerifyMultipleAggregateSignatures(
     return @intFromBool(!res);
 }
 
-/// Aggregates a slice of `blst.Signature` with randomness into a single `Signature`.
+/// Aggregates a slice of `Signature` with randomness into a single `Signature`.
 ///
 /// Returns 0 on success, error code on failure.
 export fn signatureAggregateWithRandomness(
-    out: *blst.Signature,
-    sigs: [*c]*const blst.Signature,
+    out: *Signature,
+    sigs: [*c]*const Signature,
     len: c_uint,
     sigs_groupcheck: bool,
 ) c_uint {
@@ -305,17 +305,17 @@ export fn signatureAggregateWithRandomness(
     return 0;
 }
 
-/// Aggregates a slice of `blst.Signature` into a single `Signature`.
+/// Aggregates a slice of `Signature` into a single `Signature`.
 ///
 /// Returns 0 on success, error code on failure.
 export fn signatureAggregate(
-    out: *blst.Signature,
-    sigs: [*c]const blst.Signature,
+    out: *Signature,
+    sigs: [*c]const Signature.Point,
     len: c_uint,
     sigs_groupcheck: bool,
 ) c_uint {
     const agg_sig = blst.AggregateSignature.aggregate(
-        sigs[0..len],
+        @ptrCast(sigs[0..len]),
         sigs_groupcheck,
     ) catch |e| return intFromError(e);
 
@@ -327,8 +327,8 @@ export fn signatureAggregate(
 const std = @import("std");
 const blst = @import("root.zig");
 const PublicKey = blst.PublicKey;
+const Signature = blst.Signature;
 const DST = blst.DST;
-const signature = @import("signature.zig");
 const intFromError = @import("error.zig").intFromError;
 
 const c = @cImport({
