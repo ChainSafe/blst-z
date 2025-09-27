@@ -131,4 +131,4 @@ const BlstError = @import("error.zig").BlstError;
 const Signature = @import("signature.zig").Signature;
 const DST = @import("root.zig").DST;
 const SecretKey = @import("SecretKey.zig");
-const PublicKey = @import("public_key.zig").PublicKey;
+const PublicKey = @import("PublicKey.zig");

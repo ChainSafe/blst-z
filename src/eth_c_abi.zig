@@ -143,9 +143,9 @@ export fn publicKeyAggregateWithRandomness(
 /// Aggregate multiple `blst.PublicKey`s.
 ///
 /// Returns 0 on success, error code on failure.
-export fn publicKeyAggregate(out: *blst.PublicKey, pks: [*c]const blst.PublicKey, len: c_uint, pks_validate: bool) c_uint {
-    const agg_pk = blst.AggregatePublicKey.aggregate(pks[0..len], pks_validate) catch |e| return intFromError(e);
-    out.* = agg_pk.toPublicKey();
+export fn publicKeyAggregate(out: *PublicKey.Point, pks: [*c]const PublicKey.Point, len: c_uint, pks_validate: bool) c_uint {
+    const agg_pk = blst.AggregatePublicKey.aggregate(@ptrCast(pks[0..len]), pks_validate) catch |e| return intFromError(e);
+    out.* = agg_pk.toPublicKey().point;
 
     return 0;
 }
@@ -202,7 +202,7 @@ export fn signatureAggregateVerify(
     sig: *const blst.Signature,
     sig_groupcheck: bool,
     msgs: [*c]const [32]u8,
-    pks: [*c]const blst.PublicKey,
+    pks: [*c]const PublicKey.Point,
     len: c_uint,
     pks_validate: bool,
 ) c_uint {
@@ -211,7 +211,7 @@ export fn signatureAggregateVerify(
         &scratch_pairing,
         msgs[0..len],
         DST,
-        pks[0..len],
+        @ptrCast(pks[0..len]),
         pks_validate,
     ) catch |e| return intFromError(e);
     return @intFromBool(!res);
@@ -224,7 +224,7 @@ export fn signatureFastAggregateVerify(
     sig: *const blst.Signature,
     sig_groupcheck: bool,
     msg: *[32]u8,
-    pks: [*c]const blst.PublicKey,
+    pks: [*c]const PublicKey.Point,
     pks_len: c_uint,
 ) c_uint {
     const res = sig.fastAggregateVerify(
@@ -232,7 +232,7 @@ export fn signatureFastAggregateVerify(
         &scratch_pairing,
         msg.*,
         DST,
-        pks[0..pks_len],
+        @ptrCast(pks[0..pks_len]),
     ) catch |e| return intFromError(e);
     return @intFromBool(!res);
 }
@@ -326,6 +326,11 @@ export fn signatureAggregate(
 
 const std = @import("std");
 const blst = @import("root.zig");
+const PublicKey = blst.PublicKey;
 const DST = blst.DST;
 const signature = @import("signature.zig");
 const intFromError = @import("error.zig").intFromError;
+
+const c = @cImport({
+    @cInclude("blst.h");
+});
