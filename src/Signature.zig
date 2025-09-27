@@ -32,7 +32,7 @@ pub fn verify(
 ) BlstError!void {
     if (sig_groupcheck) try self.validate(false);
 
-    if (pk_validate) try pk.validate();
+    if (pk_validate) try PublicKey.validate(&pk.point);
 
     if (msg.len == 0 or dst.len == 0) {
         return BlstError.BadEncoding;
@@ -118,7 +118,7 @@ pub fn fastAggregateVerify(
     buffer: *[Pairing.sizeOf()]u8,
     msg: [32]u8,
     dst: []const u8,
-    pks: []*const PublicKey,
+    pks: []const PublicKey.Point,
 ) BlstError!bool {
     const agg_pk = try AggregatePublicKey.aggregate(pks, false);
     const pk = agg_pk.toPublicKey();

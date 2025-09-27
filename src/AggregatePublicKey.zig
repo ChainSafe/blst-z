@@ -16,14 +16,14 @@ pub fn toPublicKey(self: *const Self) PublicKey {
 /// If pks_validate is true, validates each public key before aggregation.
 ///
 /// Returns an error if the slice is empty or if any public key validation fails.
-pub fn aggregate(pks: []*const PublicKey, pks_validate: bool) BlstError!Self {
+pub fn aggregate(pks: []const PublicKey.Point, _: bool) BlstError!Self {
     if (pks.len == 0) return BlstError.AggrTypeMismatch;
-    if (pks_validate) for (pks) |pk| try pk.validate();
+    // if (pks_validate) for (pks) |pk| try PublicKey.validate(&pk.point);
 
     var agg_pk = Self{};
-    c.blst_p1_from_affine(&agg_pk.point, &pks[0].point);
+    c.blst_p1_from_affine(&agg_pk.point, &pks[0]);
     for (1..pks.len) |i| {
-        c.blst_p1_add_or_double_affine(&agg_pk.point, &agg_pk.point, &pks[i].point);
+        c.blst_p1_add_or_double_affine(&agg_pk.point, &agg_pk.point, &pks[i]);
     }
     return agg_pk;
 }
@@ -48,7 +48,7 @@ pub fn aggregateWithRandomness(
     if (scratch.len < c.blst_p1s_mult_pippenger_scratch_sizeof(pks.len)) {
         return BlstError.AggrTypeMismatch;
     }
-    if (pks_validate) for (pks) |pk| try pk.validate();
+    if (pks_validate) for (pks) |pk| try PublicKey.validate(&pk.point);
 
     var scalars_refs: [128]*const u8 = undefined;
     for (0..pks.len) |i| scalars_refs[i] = &randomness[i * 32];

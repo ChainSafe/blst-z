@@ -11,12 +11,12 @@ const Self = @This();
 
 // Core operations
 
-/// Checks that the public key is not infinity and is in the correct subgroup.
+/// Checks that a given `Point` is not infinity and is in the correct subgroup.
 ///
 /// Returns a `BlstError` if verification fails.
-pub fn validate(self: *const Self) BlstError!void {
-    if (c.blst_p1_affine_is_inf(&self.point)) return BlstError.PkIsInfinity;
-    if (!c.blst_p1_affine_in_g1(&self.point)) return BlstError.PointNotInGroup;
+pub fn validate(point: *const Point) BlstError!void {
+    if (c.blst_p1_affine_is_inf(point)) return BlstError.PkIsInfinity;
+    if (!c.blst_p1_affine_in_g1(point)) return BlstError.PointNotInGroup;
 }
 
 /// Validate a serialized public key.
@@ -41,8 +41,6 @@ pub fn toAggregate(self: *const Self) AggregatePublicKey {
     c.blst_p1_from_affine(&agg_pk.point, &self.point);
     return agg_pk;
 }
-
-// Serdes
 
 /// Compress the `PublicKey` to bytes.
 pub fn compress(self: *const Self) [COMPRESS_SIZE]u8 {
