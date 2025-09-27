@@ -130,5 +130,5 @@ const c = @cImport({
 const DST = @import("root.zig").DST;
 const BlstError = @import("error.zig").BlstError;
 const PublicKey = @import("public_key.zig").PublicKey;
-const SecretKey = @import("secret_key.zig").SecretKey;
+const SecretKey = @import("SecretKey.zig");
 const Signature = @import("signature.zig").Signature;
