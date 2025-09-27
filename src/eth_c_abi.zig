@@ -260,7 +260,7 @@ export fn signatureVerifyMultipleAggregateSignatures(
         std.Random.bytes(rand, &rands[i]);
     }
 
-    const res = @import("signature.zig").verifyMultipleAggregateSignatures(
+    const res = @import("fast_verify.zig").verifyMultipleAggregateSignatures(
         &scratch_pairing,
         n_elems,
         msgs[0..n_elems],
