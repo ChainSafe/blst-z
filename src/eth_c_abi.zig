@@ -4,13 +4,13 @@ pub const MAX_AGGREGATE_PER_JOB: usize = 128;
 /// Size of the scratch buffer for pairing operations.
 pub const SCRATCH_SIZE_PAIRING: usize = @import("Pairing.zig").sizeOf();
 
-/// Scratch buffer used for operations that require temporary storage.
+/// Scratch buffer used for pairing operations that require temporary storage.
 threadlocal var scratch_pairing: [SCRATCH_SIZE_PAIRING]u8 = undefined;
 
 /// Size of the scratch buffer for aggregation operations.
 pub const SCRATCH_SIZE_AGG: usize = 1024 * 16;
 
-/// Scratch buffer used for operations that require temporary storage.
+/// Scratch buffer used for aggregation operations that require temporary storage.
 threadlocal var scratch_agg: [SCRATCH_SIZE_AGG]u64 = undefined;
 
 ////// SecretKey
