@@ -32,9 +32,9 @@ pub fn verifyMultipleAggregateSignatures(
 
     for (0..n_elems) |i| {
         try pairing.mulAndAggregate(
-            &pks[i].point,
+            pks[i],
             pks_validate,
-            &sigs[i].point,
+            sigs[i],
             sigs_groupcheck,
             &rands[i],
             RAND_BITS,
@@ -49,9 +49,12 @@ pub fn verifyMultipleAggregateSignatures(
 
 /// BLS signature for G2 operations.
 pub const Signature = extern struct {
-    point: min_pk.Signature = min_pk.Signature{},
+    point: c.blst_p2_affine = c.blst_p2_affine{},
 
     const Self = @This();
+
+    pub const SERIALIZE_SIZE = 192;
+    pub const COMPRESS_SIZE = 96;
 
     /// Checks that the signature is not infinity and is in the correct subgroup.
     /// Validating prior to verification avoids resource-consuming verification process.
@@ -129,9 +132,9 @@ pub const Signature = extern struct {
         }
         var pairing = Pairing.init(buffer, true, dst);
         try pairing.aggregate(
-            &pks[0].point,
+            &pks[0],
             pks_validate,
-            &self.point,
+            self,
             sig_groupcheck,
             &msgs[0],
             null,
@@ -139,7 +142,7 @@ pub const Signature = extern struct {
 
         for (1..n_elems) |i| {
             try pairing.aggregate(
-                &pks[i].point,
+                &pks[i],
                 pks_validate,
                 null,
                 sig_groupcheck,
@@ -150,7 +153,7 @@ pub const Signature = extern struct {
 
         pairing.commit();
         var gtsig = c.blst_fp12{};
-        Pairing.aggregated(&gtsig, &self.point);
+        Pairing.aggregated(&gtsig, self);
 
         return pairing.finalVerify(&gtsig);
     }
@@ -210,15 +213,15 @@ pub const Signature = extern struct {
     }
 
     /// Compress the `Signature` to bytes.
-    pub fn compress(self: *const Self) [min_pk.SIG_COMPRESS_SIZE]u8 {
-        var sig_comp = [_]u8{0} ** min_pk.SIG_COMPRESS_SIZE;
+    pub fn compress(self: *const Self) [COMPRESS_SIZE]u8 {
+        var sig_comp = [_]u8{0} ** COMPRESS_SIZE;
         c.blst_p2_affine_compress(&sig_comp, &self.point);
         return sig_comp;
     }
 
     /// Serialize the `Signature` to bytes.
-    pub fn serialize(self: *const Self) [min_pk.SIG_SERIALIZE_SIZE]u8 {
-        var sig_out = [_]u8{0} ** min_pk.SIG_SERIALIZE_SIZE;
+    pub fn serialize(self: *const Self) [SERIALIZE_SIZE]u8 {
+        var sig_out = [_]u8{0} ** SERIALIZE_SIZE;
         c.blst_p2_affine_serialize(&sig_out, &self.point);
         return sig_out;
     }
@@ -227,7 +230,7 @@ pub const Signature = extern struct {
     ///
     /// Returns `Signature` on success, `BlstError` on failure.
     pub fn uncompress(sig_comp: []const u8) BlstError!Self {
-        if (sig_comp.len == min_pk.SIG_COMPRESS_SIZE and (sig_comp[0] & 0x80) != 0) {
+        if (sig_comp.len == COMPRESS_SIZE and (sig_comp[0] & 0x80) != 0) {
             var sig = Self{};
             try check(c.blst_p2_uncompress(&sig.point, &sig_comp[0]));
             return sig;
@@ -240,8 +243,8 @@ pub const Signature = extern struct {
     ///
     /// Returns `Signature` on success, `BlstError` on failure.
     pub fn deserialize(sig_in: []const u8) BlstError!Self {
-        if ((sig_in.len == min_pk.SIG_SERIALIZE_SIZE and (sig_in[0] & 0x80) == 0) or
-            (sig_in.len == min_pk.SIG_COMPRESS_SIZE and (sig_in[0] & 0x80) != 0))
+        if ((sig_in.len == SERIALIZE_SIZE and (sig_in[0] & 0x80) == 0) or
+            (sig_in.len == COMPRESS_SIZE and (sig_in[0] & 0x80) != 0))
         {
             var sig = Self{};
             try check(c.blst_p2_deserialize(&sig.point, &sig_in[0]));
@@ -273,4 +276,3 @@ const AggregatePublicKey = @import("AggregatePublicKey.zig");
 const AggregateSignature = @import("AggregateSignature.zig");
 const Pairing = @import("pairing.zig").Pairing;
 const pairing_size = @import("pairing.zig").pairing_size;
-const min_pk = @import("min_pk.zig");

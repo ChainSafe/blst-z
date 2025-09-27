@@ -120,9 +120,9 @@ pub const SecretKey = extern struct {
     /// Sign a message with this `SecretKey`. Returns the `Signature` for the message.
     pub fn sign(self: *const Self, msg: []const u8, dst: []const u8, aug: ?[]const u8) Signature {
         var sig = Signature{};
-        var q = min_pk.AggSignature{};
+        var q = @import("AggregateSignature.zig"){};
         c.blst_hash_to_g2(
-            &q,
+            &q.point,
             @ptrCast(msg.ptr),
             msg.len,
             @ptrCast(dst.ptr),
@@ -130,7 +130,7 @@ pub const SecretKey = extern struct {
             if (aug) |a| @ptrCast(a.ptr) else null,
             if (aug) |a| a.len else 0,
         );
-        c.blst_sign_pk2_in_g1(null, &sig.point, &q, &self.value);
+        c.blst_sign_pk2_in_g1(null, &sig.point, &q.point, &self.value);
         return sig;
     }
 
@@ -160,7 +160,6 @@ const check = @import("error.zig").check;
 const PublicKey = @import("public_key.zig").PublicKey;
 const Signature = @import("signature.zig").Signature;
 
-const min_pk = @import("min_pk.zig");
 const c = @cImport({
     @cInclude("blst.h");
 });

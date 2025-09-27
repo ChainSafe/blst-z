@@ -1,5 +1,3 @@
-const DST = blst.min_pk.DST;
-
 /// Maximum number of signatures that can be aggregated in a single job.
 pub const MAX_AGGREGATE_PER_JOB: usize = 128;
 
@@ -101,7 +99,7 @@ export fn publicKeyFromBytes(out: *blst.PublicKey, bytes: [*c]const u8, len: c_u
 
 /// Serialize a `blst.PublicKey` to compressed bytes in `out`.
 export fn publicKeyToBytes(out: [*c]u8, pk: *const blst.PublicKey) void {
-    out[0..blst.min_pk.PK_COMPRESS_SIZE].* = pk.compress();
+    out[0..blst.PublicKey.COMPRESS_SIZE].* = pk.compress();
 }
 
 /// Validate a `blst.PublicKey`.
@@ -164,7 +162,7 @@ export fn signatureFromBytes(out: *blst.Signature, bytes: [*c]const u8, bytes_le
 
 /// Serialize a `blst.Signature` to compressed bytes in `out`.
 export fn signatureToBytes(out: [*c]u8, sig: *const blst.Signature) void {
-    out[0..blst.min_pk.SIG_COMPRESS_SIZE].* = sig.compress();
+    out[0..blst.Signature.COMPRESS_SIZE].* = sig.compress();
 }
 
 /// Validate a `blst.Signature`.
@@ -328,5 +326,6 @@ export fn signatureAggregate(
 
 const std = @import("std");
 const blst = @import("root.zig");
+const DST = blst.DST;
 const signature = @import("signature.zig");
 const intFromError = @import("error.zig").intFromError;

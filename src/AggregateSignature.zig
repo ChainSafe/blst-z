@@ -3,7 +3,7 @@ const Self = @This();
 
 /// An aggregate signature that can be used to verify multiple messages
 /// against an aggregate public key.
-point: min_pk.AggSignature = min_pk.AggSignature{},
+point: c.blst_p2 = c.blst_p2{},
 
 /// Validates that the aggregate signature is in the correct subgroup (G2).
 pub fn validate(self: *const Self) BlstError!void {
@@ -75,7 +75,7 @@ test aggregateWithRandomness {
         0x48, 0x99,
     };
 
-    const dst = min_pk.DST;
+    const dst = DST;
     // aug is null
 
     const num_sigs = 128;
@@ -129,6 +129,6 @@ const c = @cImport({
 
 const BlstError = @import("error.zig").BlstError;
 const Signature = @import("signature.zig").Signature;
-const min_pk = @import("min_pk.zig");
+const DST = @import("root.zig").DST;
 const SecretKey = @import("secret_key.zig").SecretKey;
 const PublicKey = @import("public_key.zig").PublicKey;

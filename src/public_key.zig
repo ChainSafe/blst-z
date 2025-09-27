@@ -1,6 +1,9 @@
 /// BLS public key for G1 operations.
 pub const PublicKey = extern struct {
-    point: min_pk.PublicKey = min_pk.PublicKey{},
+    point: c.blst_p1_affine = c.blst_p1_affine{},
+
+    pub const COMPRESS_SIZE = 48;
+    pub const SERIALIZE_SIZE = 96;
 
     const Self = @This();
 
@@ -18,22 +21,21 @@ pub const PublicKey = extern struct {
     ///
     /// Returns the `PublicKey` on success, `BlstError` on failure.
     pub fn keyValidate(key: []const u8) BlstError!Self {
-        // const pk = PublicKey.fromBytes(key);
         const pk = try Self.deserialize(key);
         try pk.validate();
         return pk;
     }
 
-    /// Convert an `AggPublicKey` to a regular `PublicKey`.
-    pub fn fromAggregate(agg_pk: *const min_pk.AggPublicKey) Self {
-        var pk_aff = min_pk.PublicKey{};
+    /// Convert an `AggregatePublicKey` to a regular `PublicKey`.
+    pub fn fromAggregate(agg_pk: *const AggregatePublicKey) Self {
+        var pk_aff = PublicKey{};
         c.blst_p1_to_affine(&pk_aff.point, &agg_pk.point);
         return pk_aff;
     }
 
-    /// Convert a regular `PublicKey` to a `AggPublicKey`.
-    pub fn toAggregate(self: *const Self) min_pk.AggPublicKey {
-        var agg_pk = min_pk.AggPublicKey{};
+    /// Convert a regular `PublicKey` to a `AggregatePublicKey`.
+    pub fn toAggregate(self: *const Self) AggregatePublicKey {
+        var agg_pk = AggregatePublicKey{};
         c.blst_p1_from_affine(&agg_pk.point, &self.point);
         return agg_pk;
     }
@@ -41,15 +43,15 @@ pub const PublicKey = extern struct {
     // Serdes
 
     /// Compress the `PublicKey` to bytes.
-    pub fn compress(self: *const Self) [min_pk.PK_COMPRESS_SIZE]u8 {
-        var pk_comp = [_]u8{0} ** min_pk.PK_COMPRESS_SIZE;
+    pub fn compress(self: *const Self) [COMPRESS_SIZE]u8 {
+        var pk_comp = [_]u8{0} ** COMPRESS_SIZE;
         c.blst_p1_affine_compress(&pk_comp, &self.point);
         return pk_comp;
     }
 
     /// Serialize the `PublicKey` to bytes.
-    pub fn serialize(self: *const Self) [min_pk.PK_SERIALIZE_SIZE]u8 {
-        var pk_out = [_]u8{0} ** min_pk.PK_SERIALIZE_SIZE;
+    pub fn serialize(self: *const Self) [SERIALIZE_SIZE]u8 {
+        var pk_out = [_]u8{0} ** SERIALIZE_SIZE;
         c.blst_p1_affine_serialize(&pk_out, &self.point);
         return pk_out;
     }
@@ -58,7 +60,7 @@ pub const PublicKey = extern struct {
     ///
     /// Returns the `PublicKey` on success, `BlstError` on failure.
     pub fn uncompress(pk_comp: []const u8) BlstError!Self {
-        if (pk_comp.len == min_pk.PK_COMPRESS_SIZE or (pk_comp[0] & 0x80) != 0) {
+        if (pk_comp.len == COMPRESS_SIZE or (pk_comp[0] & 0x80) != 0) {
             var pk = Self{};
             try check(c.blst_p1_uncompress(&pk.point, pk_comp.ptr));
             return pk;
@@ -70,8 +72,8 @@ pub const PublicKey = extern struct {
     ///
     /// Returns a `PublicKey` on success, `BlstError` on failure.
     pub fn deserialize(pk_in: []const u8) BlstError!Self {
-        if ((pk_in.len == min_pk.PK_SERIALIZE_SIZE and (pk_in[0] & 0x80) == 0) or
-            (pk_in.len == min_pk.PK_COMPRESS_SIZE and (pk_in[0] & 0x80) != 0))
+        if ((pk_in.len == SERIALIZE_SIZE and (pk_in[0] & 0x80) == 0) or
+            (pk_in.len == COMPRESS_SIZE and (pk_in[0] & 0x80) != 0))
         {
             var pk = Self{};
             return c.blst_p1_deserialize(&pk.point, &pk_in[0]);
@@ -89,8 +91,8 @@ pub const PublicKey = extern struct {
 const std = @import("std");
 const BlstError = @import("error.zig").BlstError;
 const check = @import("error.zig").check;
+const AggregatePublicKey = @import("AggregatePublicKey.zig");
 
-const min_pk = @import("min_pk.zig");
 const c = @cImport({
     @cInclude("blst.h");
 });

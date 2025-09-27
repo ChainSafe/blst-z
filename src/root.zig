@@ -8,7 +8,10 @@ pub const Signature = @import("signature.zig").Signature;
 pub const AggregatePublicKey = @import("AggregatePublicKey.zig");
 pub const AggregateSignature = @import("AggregateSignature.zig");
 
-pub const min_pk = @import("min_pk.zig");
+/// The domain separation tag (or DST) for the 'minimum pubkey size' signature variant.
+///
+/// Source: https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#bls-signatures
+pub const DST = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
 
 test {
     testing.refAllDecls(@This());
@@ -25,7 +28,7 @@ test "test_sign_n_verify" {
     const sk = try SecretKey.keyGen(&ikm, null);
     const pk = sk.toPublicKey();
 
-    const dst = min_pk.DST;
+    const dst = DST;
     const msg = "hello foo";
     // aug is null
     const sig = sk.sign(msg, dst, null);
@@ -49,7 +52,7 @@ test "test aggregateVerify" {
         0x48, 0x99,
     };
 
-    const dst = min_pk.DST;
+    const dst = DST;
     // aug is null
 
     const num_sigs = 10;

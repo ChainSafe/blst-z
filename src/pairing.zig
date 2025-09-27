@@ -51,9 +51,9 @@ pub const Pairing = extern struct {
     /// Aggregates a `PublicKey` and `Signature` into the pairing context.
     pub fn aggregate(
         self: *Self,
-        pk: *const min_pk.PublicKey,
+        pk: *const PublicKey,
         pk_validate: bool,
-        sig: ?*const min_pk.Signature,
+        sig: ?*const Signature,
         sig_groupcheck: bool,
         msg: []const u8,
         aug: ?[]const u8,
@@ -61,9 +61,9 @@ pub const Pairing = extern struct {
         try check(
             c.blst_pairing_chk_n_aggr_pk_in_g1(
                 self.ctx,
-                pk,
+                @ptrCast(&pk.point),
                 pk_validate,
-                sig,
+                if (sig) |s| @ptrCast(&s.point) else null,
                 sig_groupcheck,
                 @ptrCast(msg),
                 msg.len,
@@ -78,9 +78,9 @@ pub const Pairing = extern struct {
     /// Multiply by `scalar` and aggregate into the pairing context.
     pub fn mulAndAggregate(
         self: *Self,
-        pk: *const min_pk.PublicKey,
+        pk: *const PublicKey,
         pk_validate: bool,
-        sig: *const min_pk.Signature,
+        sig: *const Signature,
         sig_groupcheck: bool,
         scalar: []const u8,
         nbits: usize,
@@ -89,9 +89,9 @@ pub const Pairing = extern struct {
         try check(
             c.blst_pairing_chk_n_mul_n_aggr_pk_in_g1(
                 self.ctx,
-                pk,
+                @ptrCast(&pk.point),
                 pk_validate,
-                sig,
+                @ptrCast(&sig.point),
                 sig_groupcheck,
                 @ptrCast(scalar),
                 nbits,
@@ -104,8 +104,8 @@ pub const Pairing = extern struct {
     }
 
     /// Compute the aggregated signature in G2.
-    pub fn aggregated(gtsig: *c.blst_fp12, sig: *const min_pk.Signature) void {
-        c.blst_aggregated_in_g2(gtsig, sig);
+    pub fn aggregated(gtsig: *c.blst_fp12, sig: *const Signature) void {
+        c.blst_aggregated_in_g2(gtsig, &sig.point);
     }
 
     /// Commit and finalize the aggregation in the pairing context.
@@ -157,4 +157,5 @@ const c = @cImport({
 });
 const BlstError = @import("error.zig").BlstError;
 const check = @import("error.zig").check;
-const min_pk = @import("min_pk.zig");
+const PublicKey = @import("public_key.zig").PublicKey;
+const Signature = @import("signature.zig").Signature;

@@ -2,7 +2,7 @@
 const Self = @This();
 
 /// An aggregate public key that can be used to verify aggregate signatures.
-point: min_pk.AggPublicKey = min_pk.AggPublicKey{},
+point: c.blst_p1 = c.blst_p1{},
 
 /// Converts an aggregate public key back to a regular public key.
 /// This converts from projective coordinates back to affine coordinates.
@@ -73,7 +73,7 @@ test aggregateWithRandomness {
         0x48, 0x99,
     };
 
-    const dst = min_pk.DST;
+    const dst = DST;
     // aug is null
 
     const num_sigs = 128;
@@ -127,7 +127,7 @@ const c = @cImport({
     @cInclude("blst.h");
 });
 
-const min_pk = @import("min_pk.zig");
+const DST = @import("root.zig").DST;
 const BlstError = @import("error.zig").BlstError;
 const PublicKey = @import("public_key.zig").PublicKey;
 const SecretKey = @import("secret_key.zig").SecretKey;
