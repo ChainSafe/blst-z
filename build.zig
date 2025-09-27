@@ -12,7 +12,6 @@ pub fn build(b: *std.Build) !void {
     });
 
     const lib_blst_c = blst_c.artifact("blst");
-    const portable = b.option(bool, "portable", "turn on portable mode") orelse false;
 
     // blst module (for downstream zig consumers)
     const blst_mod = b.addModule("blst", .{
