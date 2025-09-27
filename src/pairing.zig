@@ -82,9 +82,9 @@ pub const Pairing = extern struct {
         pk_validate: bool,
         sig: *const min_pk.Signature,
         sig_groupcheck: bool,
-        scalar: [*c]const u8,
+        scalar: []const u8,
         nbits: usize,
-        msg: [*c]const u8,
+        msg: []const u8,
     ) BlstError!void {
         try check(
             c.blst_pairing_chk_n_mul_n_aggr_pk_in_g1(
@@ -93,9 +93,9 @@ pub const Pairing = extern struct {
                 pk_validate,
                 sig,
                 sig_groupcheck,
-                scalar,
+                @ptrCast(scalar),
                 nbits,
-                msg,
+                @ptrCast(msg),
                 32,
                 null,
                 0,

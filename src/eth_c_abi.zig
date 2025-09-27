@@ -265,11 +265,11 @@ export fn signatureVerifyMultipleAggregateSignatures(
     const res = @import("signature.zig").verifyMultipleAggregateSignatures(
         &scratch_pairing,
         n_elems,
-        msgs,
+        msgs[0..n_elems],
         DST,
-        pks,
+        pks[0..n_elems],
         pks_validate,
-        sigs,
+        sigs[0..n_elems],
         sig_groupcheck,
         &rands,
     ) catch |e| return intFromError(e);

@@ -12,13 +12,13 @@ const RAND_BITS = 8 * RAND_BYTES;
 pub fn verifyMultipleAggregateSignatures(
     pairing_buf: *[pairing_size]u8,
     n_elems: usize,
-    msgs: [*c]const [32]u8,
+    msgs: []const [32]u8,
     dst: []const u8,
-    pks: [*c]const *PublicKey,
+    pks: []const *PublicKey,
     pks_validate: bool,
-    sigs: [*c]const *Signature,
+    sigs: []const *Signature,
     sigs_groupcheck: bool,
-    rands: [*c]const [32]u8,
+    rands: []const [32]u8,
 ) BlstError!bool {
     if (n_elems == 0) {
         return BlstError.VerifyFail;
