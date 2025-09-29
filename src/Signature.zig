@@ -65,18 +65,6 @@ pub fn aggregateVerify(
     pks: []const PublicKey,
     pks_validate: bool,
 ) BlstError!bool {
-    var rands: [32 * 128][32]u8 = undefined;
-    var prng = std.Random.DefaultPrng.init(blk: {
-        var seed: u64 = undefined;
-        std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
-        break :blk seed;
-    });
-    const rand = prng.random();
-
-    for (0..32 * 128) |i| {
-        std.Random.bytes(rand, &rands[i]);
-    }
-
     const n_elems = pks.len;
     if (n_elems == 0 or msgs.len != n_elems) {
         return BlstError.VerifyFail;
@@ -278,14 +266,7 @@ test aggregateVerify {
     var pks: [num_sigs]PublicKey = undefined;
     var sigs: [num_sigs]Signature = undefined;
 
-    var prng = std.Random.DefaultPrng.init(blk: {
-        var seed: u64 = undefined;
-        std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
-        break :blk seed;
-    });
-    const rand = prng.random();
     for (0..num_sigs) |i| {
-        std.Random.bytes(rand, &msgs[i]);
         const sk = try SecretKey.keyGen(&ikm, null);
         const pk = sk.toPublicKey();
         const sig = sk.sign(&msgs[i], dst, null);
