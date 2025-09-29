@@ -49,5 +49,5 @@ pub fn verifyMultipleAggregateSignatures(
 
 const BlstError = @import("error.zig").BlstError;
 const Pairing = @import("Pairing.zig");
-const PublicKey = @import("PublicKey.zig");
+const PublicKey = @import("root.zig").PublicKey;
 const Signature = @import("Signature.zig");

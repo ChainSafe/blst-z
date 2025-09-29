@@ -31,7 +31,7 @@ pub fn verify(
     pk_validate: bool,
 ) BlstError!void {
     if (sig_groupcheck) try self.validate(false);
-    if (pk_validate) try PublicKey.validate(&pk.point);
+    if (pk_validate) try pk.validate();
 
     if (msg.len == 0 or dst.len == 0) {
         return BlstError.BadEncoding;
@@ -105,7 +105,7 @@ pub fn fastAggregateVerify(
     buffer: *[Pairing.sizeOf()]u8,
     msg: [32]u8,
     dst: []const u8,
-    pks: []const PublicKey.Point,
+    pks: []const PublicKey,
 ) BlstError!bool {
     const agg_pk = try AggregatePublicKey.aggregate(pks, false);
     const pk = agg_pk.toPublicKey();
@@ -209,7 +209,7 @@ const c = @cImport({
 
 const BlstError = @import("error.zig").BlstError;
 const errorFromInt = @import("error.zig").errorFromInt;
-const PublicKey = @import("PublicKey.zig");
+const PublicKey = @import("root.zig").PublicKey;
 const AggregatePublicKey = @import("AggregatePublicKey.zig");
 const AggregateSignature = @import("AggregateSignature.zig");
 const Pairing = @import("Pairing.zig");

@@ -16,14 +16,14 @@ pub fn toPublicKey(self: *const Self) PublicKey {
 /// If pks_validate is true, validates each public key before aggregation.
 ///
 /// Returns an error if the slice is empty or if any public key validation fails.
-pub fn aggregate(pks: []const PublicKey.Point, pks_validate: bool) BlstError!Self {
+pub fn aggregate(pks: []const PublicKey, pks_validate: bool) BlstError!Self {
     if (pks.len == 0) return BlstError.AggrTypeMismatch;
-    if (pks_validate) for (pks) |pk| try PublicKey.validate(&pk);
+    if (pks_validate) for (pks) |pk| try pk.validate();
 
     var agg_pk = Self{};
-    c.blst_p1_from_affine(&agg_pk.point, &pks[0]);
+    c.blst_p1_from_affine(&agg_pk.point, &pks[0].point);
     for (1..pks.len) |i| {
-        c.blst_p1_add_or_double_affine(&agg_pk.point, &agg_pk.point, &pks[i]);
+        c.blst_p1_add_or_double_affine(&agg_pk.point, &agg_pk.point, &pks[i].point);
     }
     return agg_pk;
 }
@@ -48,7 +48,7 @@ pub fn aggregateWithRandomness(
     if (scratch.len < c.blst_p1s_mult_pippenger_scratch_sizeof(pks.len)) {
         return BlstError.AggrTypeMismatch;
     }
-    if (pks_validate) for (pks) |pk| try PublicKey.validate(&pk.point);
+    if (pks_validate) for (pks) |pk| try pk.validate();
 
     var scalars_refs: [MAX_AGGREGATE_PER_JOB]*const u8 = undefined;
     var pk_points: [MAX_AGGREGATE_PER_JOB]*const PublicKey.Point = undefined;
@@ -147,13 +147,8 @@ test aggregate {
         pks[i] = pk;
         sigs[i] = sig;
     }
-    var pk_points: [MAX_AGGREGATE_PER_JOB]PublicKey.Point = undefined;
 
-    for (0..num_sigs) |i| {
-        pk_points[i] = pks[i].point;
-    }
-
-    _ = try aggregate(pk_points[0..], true);
+    _ = try aggregate(pks[0..], true);
 }
 
 const std = @import("std");
@@ -165,6 +160,6 @@ const blst = @import("root.zig");
 const DST = blst.DST;
 const MAX_AGGREGATE_PER_JOB = blst.MAX_AGGREGATE_PER_JOB;
 const BlstError = @import("error.zig").BlstError;
-const PublicKey = @import("PublicKey.zig");
+const PublicKey = @import("root.zig").PublicKey;
 const SecretKey = @import("SecretKey.zig");
 const Signature = @import("Signature.zig");

@@ -103,7 +103,7 @@ export fn publicKeyToBytes(out: [*c]u8, pk: *const blst.PublicKey) void {
 ///
 /// Returns 0 on success, error code on failure.
 export fn publicKeyValidate(a: *const blst.PublicKey) c_uint {
-    PublicKey.validate(&a.point) catch |e| return intFromError(e);
+    a.validate() catch |e| return intFromError(e);
     return 0;
 }
 /// Aggregate multiple `blst.Signature`s and `blst.PublicKey`s with randomness for security.
@@ -176,7 +176,7 @@ export fn publicKeyAggregateWithRandomness(
 /// Aggregate multiple `blst.PublicKey`s.
 ///
 /// Returns 0 on success, error code on failure.
-export fn publicKeyAggregate(out: *PublicKey, pks: [*c]const PublicKey.Point, len: c_uint, pks_validate: bool) c_uint {
+export fn publicKeyAggregate(out: *PublicKey, pks: [*c]const PublicKey, len: c_uint, pks_validate: bool) c_uint {
     const agg_pk = blst.AggregatePublicKey.aggregate(pks[0..len], pks_validate) catch |e| return intFromError(e);
     out.* = agg_pk.toPublicKey();
 
@@ -235,7 +235,7 @@ export fn signatureAggregateVerify(
     sig: *const Signature,
     sig_groupcheck: bool,
     msgs: [*c]const [32]u8,
-    pks: [*c]const PublicKey.Point,
+    pks: [*c]const PublicKey,
     len: c_uint,
     pks_validate: bool,
 ) c_uint {
@@ -244,7 +244,7 @@ export fn signatureAggregateVerify(
         &scratch_pairing,
         msgs[0..len],
         DST,
-        @ptrCast(pks[0..len]),
+        pks[0..len],
         pks_validate,
     ) catch |e| return intFromError(e);
     return @intFromBool(!res);
@@ -257,7 +257,7 @@ export fn signatureFastAggregateVerify(
     sig: *const Signature,
     sig_groupcheck: bool,
     msg: *[32]u8,
-    pks: [*c]const PublicKey.Point,
+    pks: [*c]const PublicKey,
     pks_len: c_uint,
 ) c_uint {
     const res = sig.fastAggregateVerify(
