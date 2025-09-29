@@ -106,10 +106,46 @@ export fn publicKeyValidate(a: *const blst.PublicKey) c_uint {
     PublicKey.validate(&a.point) catch |e| return intFromError(e);
     return 0;
 }
-
-/// Aggregate multiple `blst.PublicKey`s with randomness for security.
+/// Aggregate multiple `blst.Signature`s and `blst.PublicKey`s with randomness for security.
 ///
 /// Returns 0 on success, error code on failure.
+export fn aggregateWithRandomness(
+    pk_out: *blst.PublicKey,
+    sig_out: *blst.Signature,
+    len: c_uint,
+    pks: [*c]*const PublicKey,
+    sigs: [*c]*const Signature,
+    pks_validate: bool,
+    sigs_groupcheck: bool,
+) c_uint {
+    var rands: [32 * MAX_AGGREGATE_PER_JOB]u8 = [_]u8{0} ** (32 * MAX_AGGREGATE_PER_JOB);
+    var prng = std.Random.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        std.posix.getrandom(std.mem.asBytes(&seed)) catch unreachable;
+        break :blk seed;
+    });
+    const rand = prng.random();
+    std.Random.bytes(rand, &rands);
+
+    const agg_sig = blst.AggregateSignature.aggregateWithRandomness(
+        sigs[0..len],
+        &rands,
+        sigs_groupcheck,
+        scratch_agg[0..],
+    ) catch |e| return intFromError(e);
+    sig_out.* = agg_sig.toSignature();
+
+    const agg_pk = blst.AggregatePublicKey.aggregateWithRandomness(
+        pks[0..len],
+        &rands,
+        pks_validate,
+        scratch_agg[0..],
+    ) catch |e| return intFromError(e);
+    pk_out.* = agg_pk.toPublicKey();
+
+    return 0;
+}
+
 export fn publicKeyAggregateWithRandomness(
     out: *blst.PublicKey,
     pks: [*c]*const blst.PublicKey,

@@ -99,6 +99,18 @@ const fns = {
     ],
     "returns": "u32"
   },
+  "aggregateWithRandomness": {
+    "args": [
+      "ptr",
+      "ptr",
+      "u32",
+      "ptr",
+      "ptr",
+      "bool",
+      "bool"
+    ],
+    "returns": "u32"
+  },
   "publicKeyAggregateWithRandomness": {
     "args": [
       "ptr",
