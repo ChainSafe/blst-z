@@ -59,43 +59,40 @@ describe("Aggregate With Randomness", () => {
 			expect(agg.sig).toBeDefined();
 			expect(agg.sig).toBeInstanceOf(Signature);
 			expect(() => agg.sig.sigValidate()).not.toThrow();
-			it("should add randomness to aggregated publicKey", () => {
-				const withoutRandomness = aggregatePublicKeys(sets.map(({pk}) => pk));
-				const withRandomness = aggregateWithRandomness(sets).pk;
-				expectNotEqualHex(withRandomness.toBytes(), withoutRandomness.toBytes());
-			});
-			it("should add randomness to aggregated signature", () => {
-				const withoutRandomness = aggregateSerializedSignatures(sets.map(({sig}) => sig));
-				const withRandomness = aggregateWithRandomness(sets).sig;
-				expectNotEqualHex(withRandomness.toBytes(), withoutRandomness.toBytes());
-			});
-			it("should produce verifiable set", () => {
-				const {pk, sig} = aggregateWithRandomness(sets);
-				expect(sig.verify(msg, pk)).toBeTrue();
-			});
-			it("should not validate for different message", async () => {
-				const {pk, sig} = aggregateWithRandomness(sets);
-				expect(sig.verify(randomSet.msg, pk)).toBeFalse();
-			});
-			it("should not validate included key/sig for different message", async () => {
-				const {pk, sig} = aggregateWithRandomness([...sets, {pk: randomSet.pk, sig: randomSet.sig.toBytes()}]);
-				expect(sig.verify(msg, pk)).toBeFalse();
-			});
-			it("should return different signatures for different sets", () => {
-				const {pk: pk1, sig: sig1} = aggregateWithRandomness(sets);
-				const {pk: pk2, sig: sig2} = aggregateWithRandomness([
-					...sets,
-					{pk: randomSet.pk, sig: randomSet.sig.toBytes()},
-				]);
-				expectNotEqualHex(pk1.toBytes(), pk2.toBytes());
-				expectNotEqualHex(sig1.toBytes(), sig2.toBytes());
-			});
-			it("should return different signatures for different times", () => {
-				const {pk: pk1, sig: sig1} = aggregateWithRandomness(sets);
-				const {pk: pk2, sig: sig2} = aggregateWithRandomness(sets);
-				expectNotEqualHex(pk1.toBytes(), pk2.toBytes());
-				expectNotEqualHex(sig1.toBytes(), sig2.toBytes());
-			});
+		});
+		it("should add randomness to aggregated publicKey", () => {
+			const withoutRandomness = aggregatePublicKeys(sets.map(({pk}) => pk));
+			const withRandomness = aggregateWithRandomness(sets).pk;
+			expectNotEqualHex(withRandomness.toBytes(), withoutRandomness.toBytes());
+		});
+		it("should add randomness to aggregated signature", () => {
+			const withoutRandomness = aggregateSerializedSignatures(sets.map(({sig}) => sig));
+			const withRandomness = aggregateWithRandomness(sets).sig;
+			expectNotEqualHex(withRandomness.toBytes(), withoutRandomness.toBytes());
+		});
+		it("should produce verifiable set", () => {
+			const {pk, sig} = aggregateWithRandomness(sets);
+			expect(sig.verify(msg, pk)).toBeTrue();
+		});
+		it("should not validate for different message", async () => {
+			const {pk, sig} = aggregateWithRandomness(sets);
+			expect(sig.verify(randomSet.msg, pk)).toBeFalse();
+		});
+		it("should not validate included key/sig for different message", async () => {
+			const {pk, sig} = aggregateWithRandomness([...sets, {pk: randomSet.pk, sig: randomSet.sig.toBytes()}]);
+			expect(sig.verify(msg, pk)).toBeFalse();
+		});
+		it("should return different signatures for different sets", () => {
+			const {pk: pk1, sig: sig1} = aggregateWithRandomness(sets);
+			const {pk: pk2, sig: sig2} = aggregateWithRandomness([...sets, {pk: randomSet.pk, sig: randomSet.sig.toBytes()}]);
+			expectNotEqualHex(pk1.toBytes(), pk2.toBytes());
+			expectNotEqualHex(sig1.toBytes(), sig2.toBytes());
+		});
+		it("should return different signatures for different times", () => {
+			const {pk: pk1, sig: sig1} = aggregateWithRandomness(sets);
+			const {pk: pk2, sig: sig2} = aggregateWithRandomness(sets);
+			expectNotEqualHex(pk1.toBytes(), pk2.toBytes());
+			expectNotEqualHex(sig1.toBytes(), sig2.toBytes());
 		});
 
 		// this api only works on MacOS not Linux
