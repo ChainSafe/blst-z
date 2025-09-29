@@ -16,9 +16,9 @@ pub fn toPublicKey(self: *const Self) PublicKey {
 /// If pks_validate is true, validates each public key before aggregation.
 ///
 /// Returns an error if the slice is empty or if any public key validation fails.
-pub fn aggregate(pks: []const PublicKey.Point, _: bool) BlstError!Self {
+pub fn aggregate(pks: []const PublicKey.Point, pks_validate: bool) BlstError!Self {
     if (pks.len == 0) return BlstError.AggrTypeMismatch;
-    // if (pks_validate) for (pks) |pk| try PublicKey.validate(&pk.point);
+    if (pks_validate) for (pks) |pk| try PublicKey.validate(&pk);
 
     var agg_pk = Self{};
     c.blst_p1_from_affine(&agg_pk.point, &pks[0]);
