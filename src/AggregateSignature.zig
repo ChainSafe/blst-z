@@ -46,8 +46,7 @@ pub fn aggregateWithRandomness(
     sigs_groupcheck: bool,
     scratch: []u64,
 ) BlstError!Self {
-    _ = sigs_groupcheck;
-    // if (sigs_groupcheck) for (sigs) |sig| try sig.validate(false);
+    if (sigs_groupcheck) for (sigs) |sig| try sig.validate(false);
     if (scratch.len < c.blst_p2s_mult_pippenger_scratch_sizeof(sigs.len)) {
         return BlstError.AggrTypeMismatch;
     }
@@ -55,9 +54,7 @@ pub fn aggregateWithRandomness(
     var scalars_refs: [MAX_AGGREGATE_PER_JOB]*const u8 = undefined;
     for (0..sigs.len) |i| scalars_refs[i] = &randomness[i * 32];
 
-    var agg_sig = Self{
-        .point = undefined,
-    };
+    var agg_sig = Self{};
 
     c.blst_p2s_mult_pippenger(
         &agg_sig.point,
