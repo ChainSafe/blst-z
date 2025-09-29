@@ -51,14 +51,18 @@ pub fn aggregateWithRandomness(
     if (pks_validate) for (pks) |pk| try PublicKey.validate(&pk.point);
 
     var scalars_refs: [MAX_AGGREGATE_PER_JOB]*const u8 = undefined;
-    for (0..pks.len) |i| scalars_refs[i] = &randomness[i * 32];
+    var pk_points: [MAX_AGGREGATE_PER_JOB]*const PublicKey.Point = undefined;
+    for (0..pks.len) |i| {
+        scalars_refs[i] = &randomness[i * 32];
+        pk_points[i] = &pks[i].point;
+    }
 
     var agg_pk = Self{};
     c.blst_p1s_mult_pippenger(
         &agg_pk.point,
-        @ptrCast(pks.ptr),
+        pk_points[0..pks.len].ptr,
         pks.len,
-        @ptrCast(scalars_refs[0..pks.len]),
+        scalars_refs[0..pks.len].ptr,
         64,
         scratch.ptr,
     );

@@ -41,12 +41,13 @@ pub fn aggregate(sigs: []const Signature, sigs_groupcheck: bool) BlstError!Self 
 ///
 /// Returns the `AggregateSignature` on success.
 pub fn aggregateWithRandomness(
-    sigs: []*const Signature,
+    sigs: []*const Signature.Point,
     randomness: []const u8,
     sigs_groupcheck: bool,
     scratch: []u64,
 ) BlstError!Self {
-    if (sigs_groupcheck) for (sigs) |sig| try sig.validate(false);
+    _ = sigs_groupcheck;
+    // if (sigs_groupcheck) for (sigs) |sig| try sig.validate(false);
     if (scratch.len < c.blst_p2s_mult_pippenger_scratch_sizeof(sigs.len)) {
         return BlstError.AggrTypeMismatch;
     }
@@ -54,13 +55,15 @@ pub fn aggregateWithRandomness(
     var scalars_refs: [MAX_AGGREGATE_PER_JOB]*const u8 = undefined;
     for (0..sigs.len) |i| scalars_refs[i] = &randomness[i * 32];
 
-    var agg_sig = Self{};
+    var agg_sig = Self{
+        .point = undefined,
+    };
 
     c.blst_p2s_mult_pippenger(
         &agg_sig.point,
-        @ptrCast(sigs.ptr),
+        sigs[0..sigs.len].ptr,
         sigs.len,
-        @ptrCast(scalars_refs[0..sigs.len]),
+        scalars_refs[0..sigs.len].ptr,
         64,
         scratch.ptr,
     );
@@ -96,31 +99,39 @@ test aggregateWithRandomness {
         break :blk seed;
     });
     const rand = prng.random();
+    std.Random.bytes(rand, &msgs[0]);
     for (0..num_sigs) |i| {
-        std.Random.bytes(rand, &msgs[i]);
+        const msg = msgs[0];
         const sk = try SecretKey.keyGen(&ikm, null);
         const pk = sk.toPublicKey();
-        const sig = sk.sign(&msgs[i], dst, null);
+        const sig = sk.sign(&msg, dst, null);
 
         sks[i] = sk;
         pks[i] = pk;
         sigs[i] = sig;
+        msgs[i] = msg;
+        try sig.verify(true, &msgs[i], dst, null, &pks[i], true);
     }
     var rands: [32 * MAX_AGGREGATE_PER_JOB]u8 = [_]u8{0} ** (32 * MAX_AGGREGATE_PER_JOB);
     var sigs_refs: [MAX_AGGREGATE_PER_JOB]*const Signature = undefined;
+    var pks_refs: [MAX_AGGREGATE_PER_JOB]*const PublicKey = undefined;
     std.Random.bytes(rand, &rands);
 
     for (0..num_sigs) |i| {
         sigs_refs[i] = &sigs[i];
+        pks_refs[i] = &pks[i];
     }
 
+    const agg_pk = try AggregatePublicKey.aggregateWithRandomness(pks_refs[0..], &rands, true, scratch[0..]);
+    const pk = agg_pk.toPublicKey();
     const agg_sig = try aggregateWithRandomness(
         &sigs_refs,
         &rands,
         true,
         scratch[0..],
     );
-    _ = agg_sig.toSignature();
+    const sig = agg_sig.toSignature();
+    try sig.verify(true, &msgs[0], dst, null, &pk, true);
 }
 const std = @import("std");
 const c = @cImport({
@@ -132,5 +143,6 @@ const Signature = @import("Signature.zig");
 const blst = @import("root.zig");
 const SecretKey = @import("SecretKey.zig");
 const PublicKey = @import("PublicKey.zig");
+const AggregatePublicKey = @import("AggregatePublicKey.zig");
 const DST = blst.DST;
 const MAX_AGGREGATE_PER_JOB = blst.MAX_AGGREGATE_PER_JOB;

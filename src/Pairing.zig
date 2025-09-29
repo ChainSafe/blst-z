@@ -56,13 +56,13 @@ pub fn aggregate(
     try errorFromInt(
         c.blst_pairing_chk_n_aggr_pk_in_g1(
             self.ctx,
-            @ptrCast(&pk.point),
+            &pk.point,
             pk_validate,
-            if (sig) |s| @ptrCast(&s.point) else null,
+            if (sig) |s| &s.point else null,
             sig_groupcheck,
-            @ptrCast(msg),
+            msg.ptr,
             msg.len,
-            @ptrCast(aug),
+            if (aug) |a| a.ptr else null,
             if (aug) |a| a.len else 0,
         ),
     );
@@ -84,13 +84,13 @@ pub fn mulAndAggregate(
     try errorFromInt(
         c.blst_pairing_chk_n_mul_n_aggr_pk_in_g1(
             self.ctx,
-            @ptrCast(&pk.point),
+            &pk.point,
             pk_validate,
-            @ptrCast(&sig.point),
+            &sig.point,
             sig_groupcheck,
-            @ptrCast(scalar),
+            scalar.ptr,
             nbits,
-            @ptrCast(msg),
+            msg.ptr,
             32,
             null,
             0,

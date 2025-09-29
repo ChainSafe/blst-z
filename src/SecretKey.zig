@@ -19,7 +19,7 @@ pub fn keyGen(ikm: []const u8, key_info: ?[]const u8) BlstError!Self {
         &sk.value,
         &ikm[0],
         ikm.len,
-        @ptrCast(&key_info),
+        if (key_info) |info| info.ptr else null,
         if (key_info) |info| info.len else 0,
     );
     return sk;
@@ -38,7 +38,7 @@ pub fn keyGenV3(ikm: []const u8, info: ?[]const u8) BlstError!Self {
         &sk.value,
         &ikm[0],
         ikm.len,
-        @ptrCast(&info),
+        if (info) |i| i.ptr else null,
         if (info) |i| i.len else 0,
     );
     return sk;
@@ -119,11 +119,11 @@ pub fn sign(self: *const Self, msg: []const u8, dst: []const u8, aug: ?[]const u
     var q = @import("AggregateSignature.zig"){};
     c.blst_hash_to_g2(
         &q.point,
-        @ptrCast(msg.ptr),
+        msg.ptr,
         msg.len,
-        @ptrCast(dst.ptr),
+        dst.ptr,
         dst.len,
-        if (aug) |a| @ptrCast(a.ptr) else null,
+        if (aug) |a| a.ptr else null,
         if (aug) |a| a.len else 0,
     );
     c.blst_sign_pk2_in_g1(null, &sig.point, &q.point, &self.value);

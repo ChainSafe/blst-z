@@ -31,7 +31,6 @@ pub fn verify(
     pk_validate: bool,
 ) BlstError!void {
     if (sig_groupcheck) try self.validate(false);
-
     if (pk_validate) try PublicKey.validate(&pk.point);
 
     if (msg.len == 0 or dst.len == 0) {
@@ -39,14 +38,14 @@ pub fn verify(
     }
 
     const chk = errorFromInt(c.blst_core_verify_pk_in_g1(
-        @ptrCast(&pk.point),
-        @ptrCast(&self.point),
+        &pk.point,
+        &self.point,
         true,
-        @ptrCast(msg),
+        msg.ptr,
         msg.len,
-        @ptrCast(dst),
+        dst.ptr,
         dst.len,
-        @ptrCast(aug),
+        if (aug) |a| a.ptr else null,
         if (aug) |a| a.len else 0,
     ));
 
