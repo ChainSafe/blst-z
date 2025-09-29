@@ -176,8 +176,8 @@ export fn publicKeyAggregateWithRandomness(
 /// Aggregate multiple `blst.PublicKey`s.
 ///
 /// Returns 0 on success, error code on failure.
-export fn publicKeyAggregate(out: *PublicKey, pks: [*c]const PublicKey, len: c_uint, pks_validate: bool) c_uint {
-    const agg_pk = blst.AggregatePublicKey.aggregate(pks[0..len], pks_validate) catch |e| return intFromError(e);
+export fn publicKeyAggregate(out: *PublicKey, pks: [*c]const PublicKey.Point, len: c_uint, pks_validate: bool) c_uint {
+    const agg_pk = blst.AggregatePublicKey.aggregate(@ptrCast(pks[0..len]), pks_validate) catch |e| return intFromError(e);
     out.* = agg_pk.toPublicKey();
 
     return 0;
@@ -232,19 +232,20 @@ export fn signatureVerify(
 ///
 /// Returns 0 if verification succeeds, 1 if verification fails, error code on error.
 export fn signatureAggregateVerify(
-    sig: *const Signature,
+    sig: *const Signature.Point,
     sig_groupcheck: bool,
     msgs: [*c]const [32]u8,
-    pks: [*c]const PublicKey,
+    pks: [*c]const PublicKey.Point,
     len: c_uint,
     pks_validate: bool,
 ) c_uint {
-    const res = sig.aggregateVerify(
+    const sig_ptr: *const Signature = @ptrCast(sig);
+    const res = sig_ptr.aggregateVerify(
         sig_groupcheck,
         &scratch_pairing,
         msgs[0..len],
         DST,
-        pks[0..len],
+        @ptrCast(pks[0..len]),
         pks_validate,
     ) catch |e| return intFromError(e);
     return @intFromBool(!res);
@@ -257,7 +258,7 @@ export fn signatureFastAggregateVerify(
     sig: *const Signature,
     sig_groupcheck: bool,
     msg: *[32]u8,
-    pks: [*c]const PublicKey,
+    pks: [*c]const PublicKey.Point,
     pks_len: c_uint,
 ) c_uint {
     const res = sig.fastAggregateVerify(
@@ -265,7 +266,7 @@ export fn signatureFastAggregateVerify(
         &scratch_pairing,
         msg.*,
         DST,
-        pks[0..pks_len],
+        @ptrCast(pks[0..pks_len]),
     ) catch |e| return intFromError(e);
     return @intFromBool(!res);
 }
@@ -276,7 +277,7 @@ export fn signatureFastAggregateVerify(
 export fn signatureVerifyMultipleAggregateSignatures(
     n_elems: c_uint,
     msgs: [*c]const [32]u8,
-    pks: [*c]const *blst.PublicKey,
+    pks: [*c]const *blst.PublicKey.Point,
     pks_validate: bool,
     sigs: [*c]const *Signature,
     sig_groupcheck: bool,
@@ -298,7 +299,7 @@ export fn signatureVerifyMultipleAggregateSignatures(
         n_elems,
         msgs[0..n_elems],
         DST,
-        pks[0..n_elems],
+        @ptrCast(pks[0..n_elems]),
         pks_validate,
         @ptrCast(sigs[0..n_elems]),
         sig_groupcheck,
@@ -343,12 +344,12 @@ export fn signatureAggregateWithRandomness(
 /// Returns 0 on success, error code on failure.
 export fn signatureAggregate(
     out: *Signature,
-    sigs: [*c]const Signature,
+    sigs: [*c]const Signature.Point,
     len: c_uint,
     sigs_groupcheck: bool,
 ) c_uint {
     const agg_sig = blst.AggregateSignature.aggregate(
-        sigs[0..len],
+        @ptrCast(sigs[0..len]),
         sigs_groupcheck,
     ) catch |e| return intFromError(e);
 
