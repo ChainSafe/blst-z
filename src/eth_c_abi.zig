@@ -1,6 +1,3 @@
-/// Maximum number of signatures that can be aggregated in a single job.
-pub const MAX_AGGREGATE_PER_JOB: usize = 128;
-
 /// Size of the scratch buffer for pairing operations.
 pub const SCRATCH_SIZE_PAIRING: usize = @import("Pairing.zig").sizeOf();
 
@@ -329,6 +326,7 @@ const blst = @import("root.zig");
 const PublicKey = blst.PublicKey;
 const Signature = blst.Signature;
 const DST = blst.DST;
+const MAX_AGGREGATE_PER_JOB = blst.MAX_AGGREGATE_PER_JOB;
 const intFromError = @import("error.zig").intFromError;
 
 const c = @cImport({

@@ -50,7 +50,7 @@ pub fn aggregateWithRandomness(
     }
     if (pks_validate) for (pks) |pk| try PublicKey.validate(&pk.point);
 
-    var scalars_refs: [128]*const u8 = undefined;
+    var scalars_refs: [MAX_AGGREGATE_PER_JOB]*const u8 = undefined;
     for (0..pks.len) |i| scalars_refs[i] = &randomness[i * 32];
 
     var agg_pk = Self{};
@@ -73,7 +73,7 @@ test aggregateWithRandomness {
         0x48, 0x99,
     };
 
-    const num_sigs = 128;
+    const num_sigs = MAX_AGGREGATE_PER_JOB;
 
     var msgs: [num_sigs][32]u8 = undefined;
     var sks: [num_sigs]SecretKey = undefined;
@@ -101,9 +101,9 @@ test aggregateWithRandomness {
         pks[i] = pk;
         sigs[i] = sig;
     }
-    var rands: [32 * 128]u8 = [_]u8{0} ** (32 * 128);
-    var scalars_refs: [128]*const u8 = undefined;
-    var pks_refs: [128]*const PublicKey = undefined;
+    var rands: [32 * MAX_AGGREGATE_PER_JOB]u8 = [_]u8{0} ** (32 * MAX_AGGREGATE_PER_JOB);
+    var scalars_refs: [MAX_AGGREGATE_PER_JOB]*const u8 = undefined;
+    var pks_refs: [MAX_AGGREGATE_PER_JOB]*const PublicKey = undefined;
     std.Random.bytes(rand, &rands);
 
     for (0..num_sigs) |i| {
@@ -127,7 +127,7 @@ test aggregate {
         0x48, 0x99,
     };
 
-    const num_sigs = 128;
+    const num_sigs = MAX_AGGREGATE_PER_JOB;
 
     var msgs: [num_sigs][32]u8 = undefined;
     var sks: [num_sigs]SecretKey = undefined;
@@ -143,7 +143,7 @@ test aggregate {
         pks[i] = pk;
         sigs[i] = sig;
     }
-    var pk_points: [128]PublicKey.Point = undefined;
+    var pk_points: [MAX_AGGREGATE_PER_JOB]PublicKey.Point = undefined;
 
     for (0..num_sigs) |i| {
         pk_points[i] = pks[i].point;
@@ -157,7 +157,9 @@ const c = @cImport({
     @cInclude("blst.h");
 });
 
-const DST = @import("root.zig").DST;
+const blst = @import("root.zig");
+const DST = blst.DST;
+const MAX_AGGREGATE_PER_JOB = blst.MAX_AGGREGATE_PER_JOB;
 const BlstError = @import("error.zig").BlstError;
 const PublicKey = @import("PublicKey.zig");
 const SecretKey = @import("SecretKey.zig");

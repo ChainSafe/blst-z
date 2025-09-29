@@ -10,6 +10,9 @@ pub const AggregateSignature = @import("AggregateSignature.zig");
 
 pub const verifyMultipleAggregateSignatures = @import("fast_verify.zig").verifyMultipleAggregateSignatures;
 
+/// Maximum number of signatures that can be aggregated in a single job.
+pub const MAX_AGGREGATE_PER_JOB: usize = 128;
+
 /// The domain separation tag (or DST) for the 'minimum pubkey size' signature variant.
 ///
 /// Source: https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#bls-signatures

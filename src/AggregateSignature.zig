@@ -51,7 +51,7 @@ pub fn aggregateWithRandomness(
         return BlstError.AggrTypeMismatch;
     }
 
-    var scalars_refs: [128]*const u8 = undefined;
+    var scalars_refs: [MAX_AGGREGATE_PER_JOB]*const u8 = undefined;
     for (0..sigs.len) |i| scalars_refs[i] = &randomness[i * 32];
 
     var agg_sig = Self{};
@@ -78,7 +78,7 @@ test aggregateWithRandomness {
     const dst = DST;
     // aug is null
 
-    const num_sigs = 128;
+    const num_sigs = MAX_AGGREGATE_PER_JOB;
 
     var msgs: [num_sigs][32]u8 = undefined;
     var sks: [num_sigs]SecretKey = undefined;
@@ -106,8 +106,8 @@ test aggregateWithRandomness {
         pks[i] = pk;
         sigs[i] = sig;
     }
-    var rands: [32 * 128]u8 = [_]u8{0} ** (32 * 128);
-    var sigs_refs: [128]*const Signature = undefined;
+    var rands: [32 * MAX_AGGREGATE_PER_JOB]u8 = [_]u8{0} ** (32 * MAX_AGGREGATE_PER_JOB);
+    var sigs_refs: [MAX_AGGREGATE_PER_JOB]*const Signature = undefined;
     std.Random.bytes(rand, &rands);
 
     for (0..num_sigs) |i| {
@@ -129,6 +129,8 @@ const c = @cImport({
 
 const BlstError = @import("error.zig").BlstError;
 const Signature = @import("Signature.zig");
-const DST = @import("root.zig").DST;
+const blst = @import("root.zig");
 const SecretKey = @import("SecretKey.zig");
 const PublicKey = @import("PublicKey.zig");
+const DST = blst.DST;
+const MAX_AGGREGATE_PER_JOB = blst.MAX_AGGREGATE_PER_JOB;
