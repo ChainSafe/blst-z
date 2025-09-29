@@ -36,7 +36,6 @@ export function aggregateWithRandomness(sets: Array<PkAndSerializedSig>): PkAndS
 	const pkOut = new PublicKey(new Uint8Array(PUBLIC_KEY_SIZE));
 	const sigOut = new Signature(new Uint8Array(SIGNATURE_LENGTH));
 
-
 	const res = binding.aggregateWithRandomness(pkOut.ptr, sigOut.ptr, sets.length, pksRef, sigsRef, false, false);
 
 	if (res) {
