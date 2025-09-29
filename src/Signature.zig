@@ -1,6 +1,9 @@
-pub const Point = c.blst_p2_affine;
+//! BLS signatures in the 'minimal-pubkey-size' setting.
+//!
+//! In this setting, a `Signature` is `p2_affine` point.
+//! Source: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bls-signature-00#section-2.1
 
-point: Point = Point{},
+point: c.blst_p2_affine = c.blst_p2_affine{},
 
 const Self = @This();
 

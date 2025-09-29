@@ -176,7 +176,7 @@ export fn publicKeyAggregateWithRandomness(
 /// Aggregate multiple `blst.PublicKey`s.
 ///
 /// Returns 0 on success, error code on failure.
-export fn publicKeyAggregate(out: *PublicKey, pks: [*c]const PublicKey.Point, len: c_uint, pks_validate: bool) c_uint {
+export fn publicKeyAggregate(out: *PublicKey, pks: [*c]const c.blst_p1_affine, len: c_uint, pks_validate: bool) c_uint {
     const agg_pk = blst.AggregatePublicKey.aggregate(@ptrCast(pks[0..len]), pks_validate) catch |e| return intFromError(e);
     out.* = agg_pk.toPublicKey();
 
@@ -232,10 +232,10 @@ export fn signatureVerify(
 ///
 /// Returns 0 if verification succeeds, 1 if verification fails, error code on error.
 export fn signatureAggregateVerify(
-    sig: *const Signature.Point,
+    sig: *const c.blst_p2_affine,
     sig_groupcheck: bool,
     msgs: [*c]const [32]u8,
-    pks: [*c]const PublicKey.Point,
+    pks: [*c]const c.blst_p1_affine,
     len: c_uint,
     pks_validate: bool,
 ) c_uint {
@@ -258,7 +258,7 @@ export fn signatureFastAggregateVerify(
     sig: *const Signature,
     sig_groupcheck: bool,
     msg: *[32]u8,
-    pks: [*c]const PublicKey.Point,
+    pks: [*c]const c.blst_p1_affine,
     pks_len: c_uint,
 ) c_uint {
     const res = sig.fastAggregateVerify(
@@ -277,7 +277,7 @@ export fn signatureFastAggregateVerify(
 export fn signatureVerifyMultipleAggregateSignatures(
     n_elems: c_uint,
     msgs: [*c]const [32]u8,
-    pks: [*c]const *blst.PublicKey.Point,
+    pks: [*c]const *c.blst_p1_affine,
     pks_validate: bool,
     sigs: [*c]const *Signature,
     sig_groupcheck: bool,
@@ -344,7 +344,7 @@ export fn signatureAggregateWithRandomness(
 /// Returns 0 on success, error code on failure.
 export fn signatureAggregate(
     out: *Signature,
-    sigs: [*c]const Signature.Point,
+    sigs: [*c]const c.blst_p2_affine,
     len: c_uint,
     sigs_groupcheck: bool,
 ) c_uint {

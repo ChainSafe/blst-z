@@ -1,8 +1,9 @@
-//! BLS public key for G1 operations.
+//! BLS public key in the 'minimal-pubkey-size' setting.
+//!
+//! In this setting, a `PublicKey` is `p1_affine` point.
+//! Source: https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-bls-signature-00#section-2.1
 
-pub const Point = c.blst_p1_affine;
-
-point: Point = Point{},
+point: c.blst_p1_affine = c.blst_p1_affine{},
 
 pub const COMPRESS_SIZE = 48;
 pub const SERIALIZE_SIZE = 96;
