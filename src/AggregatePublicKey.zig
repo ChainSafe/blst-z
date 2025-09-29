@@ -162,4 +162,4 @@ const MAX_AGGREGATE_PER_JOB = blst.MAX_AGGREGATE_PER_JOB;
 const BlstError = @import("error.zig").BlstError;
 const PublicKey = @import("root.zig").PublicKey;
 const SecretKey = @import("SecretKey.zig");
-const Signature = @import("Signature.zig");
+const Signature = blst.Signature;

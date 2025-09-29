@@ -41,7 +41,7 @@ pub fn aggregate(sigs: []const Signature, sigs_groupcheck: bool) BlstError!Self 
 ///
 /// Returns the `AggregateSignature` on success.
 pub fn aggregateWithRandomness(
-    sigs: []*const Signature.Point,
+    sigs: []*const Signature,
     randomness: []const u8,
     sigs_groupcheck: bool,
     scratch: []u64,
@@ -61,7 +61,7 @@ pub fn aggregateWithRandomness(
 
     c.blst_p2s_mult_pippenger(
         &agg_sig.point,
-        sigs[0..sigs.len].ptr,
+        @ptrCast(sigs[0..sigs.len].ptr),
         sigs.len,
         scalars_refs[0..sigs.len].ptr,
         64,
@@ -139,8 +139,8 @@ const c = @cImport({
 });
 
 const BlstError = @import("error.zig").BlstError;
-const Signature = @import("Signature.zig");
 const blst = @import("root.zig");
+const Signature = blst.Signature;
 const SecretKey = @import("SecretKey.zig");
 const PublicKey = @import("root.zig").PublicKey;
 const AggregatePublicKey = @import("AggregatePublicKey.zig");

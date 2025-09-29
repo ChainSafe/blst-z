@@ -343,12 +343,12 @@ export fn signatureAggregateWithRandomness(
 /// Returns 0 on success, error code on failure.
 export fn signatureAggregate(
     out: *Signature,
-    sigs: [*c]const Signature.Point,
+    sigs: [*c]const Signature,
     len: c_uint,
     sigs_groupcheck: bool,
 ) c_uint {
     const agg_sig = blst.AggregateSignature.aggregate(
-        @ptrCast(sigs[0..len]),
+        sigs[0..len],
         sigs_groupcheck,
     ) catch |e| return intFromError(e);
 

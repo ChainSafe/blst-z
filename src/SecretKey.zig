@@ -152,8 +152,9 @@ pub fn deserialize(sk_in: *const [32]u8) BlstError!Self {
 const std = @import("std");
 const BlstError = @import("error.zig").BlstError;
 const check = @import("error.zig").check;
-const PublicKey = @import("root.zig").PublicKey;
-const Signature = @import("Signature.zig");
+const blst = @import("root.zig");
+const PublicKey = blst.PublicKey;
+const Signature = blst.Signature;
 
 const c = @cImport({
     @cInclude("blst.h");
