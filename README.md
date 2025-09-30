@@ -5,21 +5,21 @@ This set of bindings only support the `min_pk` variant.
 
 ## Installation
 
-First, clone [blst](https://github.com/supranational/blst.git) to root:
-
-```sh
-git clone --recurse-submodules https://github.com/supranational/blst.git
-```
-
 Run zig tests:
 
 ```sh
 zig build test
 ```
 
+Build zig library:
+
+```sh
+zig build -Doptimize=ReleaseSafe
+```
+
 Install and generate bun bindings:
 
-```console
+```sh
 cd bun && bun install && bun run build && bun generate
 ```
 
