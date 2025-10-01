@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ "**" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-ci
+  cancel-in-progress: true
+
+env:
+  ZIG_VERSION: 0.14.1
+
+jobs:
+  build-test:
+    name: build & test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+          cache-key: ${{ matrix.os }}-${{ env.ZIG_VERSION }}
+
+      # Zig fmt is failing on windows and is redundant to run all platforms. So we run only on linux.
+      - name: Check formatting
+        if: matrix.os == 'ubuntu-latest'
+        run: zig fmt --check .
+
+      - name: zig build
+        run: zig build
+
+      - name: Test
+        run: zig build test
+
