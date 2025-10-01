@@ -1,42 +1,18 @@
 # blst-z
 Zig bindings for [supranational's blst](https://github.com/supranational/blst) native bindings, a highly performant BLS12-381 signature library.
 
-This set of bindings only support the `min_pk` variant.
+These bindings are tailored for Ethereum use and only support the `min_pk` variant.
 
-## Installation
+## Quickstart
 
-Run zig tests:
-
-```sh
-zig build test
+- `zig fetch --save=blst git+https://github.com/chainsafe/blst-z`
+- in `build.zig`:
+```zig
+const blst_dep = b.dependency("blst", .{});
+const blst_mod = blst_dep.module("blst");
+const blst_lib = blst_dep.artifact("blst");
 ```
-
-Build zig library:
-
-```sh
-zig build -Doptimize=ReleaseSafe
-```
-
-Install and generate bun bindings:
-
-```sh
-cd bun && bun install && bun run build && bun generate
-```
-
-Run bun tests:
-
-```sh
-cd bun && bun test
-```
-
-Run bun benchmarks:
-
-```sh
-cd bun && bun benchmark 
-```
-
-## Usage
-
+- module usage:
 ```zig
 pub const blst = @import("blst");
 const SecretKey = blst.SecretKey;
@@ -57,3 +33,7 @@ const sig = sk.sign(msg[0..], dst[0..], null);
 // aug is null
 try sig.verify(true, msg[0..], dst[0..], null, &pk, true);
 ```
+
+## License
+
+MIT
