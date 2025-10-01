@@ -23,23 +23,7 @@ pub fn build(b: *std.Build) !void {
     blst_mod.linkLibrary(lib_blst_c);
     blst_mod.addIncludePath(blst_c.path("include"));
 
-    // blst dynamic library (for bun consumers)
-    const blst_dylib = b.addLibrary(.{
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/eth_c_abi.zig"),
-            .target = target,
-            .optimize = optimize,
-            // blst does not need libc, however we need to link it to enable threading
-            // see https://github.com/ChainSafe/blst-bun/issues/4
-            .link_libc = true,
-            .pic = true,
-        }),
-        .name = "eth_blst",
-        .linkage = .dynamic,
-    });
-    blst_dylib.linkLibrary(lib_blst_c);
-
-    b.installArtifact(blst_dylib);
+    b.installArtifact(lib_blst_c);
 
     const lib_unit_tests = b.addTest(.{
         .root_source_file = b.path("src/root.zig"),
