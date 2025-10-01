@@ -1,12 +1,12 @@
 import crypto from "node:crypto";
-import {SECRET_KEY_LENGTH, SecretKey, type Signature} from "../../src/index.js";
+import {SECRET_KEY_SIZE, SecretKey, type Signature} from "../../src/index.js";
 import {arrayOfIndexes} from "./helpers.js";
 import type {SameMessageTestSets, SerializedSet, TestSet} from "./types.js";
 
 const DEFAULT_TEST_MESSAGE = Uint8Array.from(Buffer.from("test-message"));
 
 export function buildTestSetFromMessage(msg: Uint8Array = DEFAULT_TEST_MESSAGE): TestSet {
-	const sk = SecretKey.fromKeygen(crypto.randomBytes(SECRET_KEY_LENGTH));
+	const sk = SecretKey.fromKeygen(crypto.randomBytes(SECRET_KEY_SIZE));
 	const pk = sk.toPublicKey();
 	const sig = sk.sign(msg);
 	try {

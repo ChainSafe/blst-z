@@ -1,5 +1,5 @@
 import {afterAll, describe, expect, it} from "bun:test";
-import {PUBLIC_KEY_LENGTH_COMPRESSED, PUBLIC_KEY_LENGTH_UNCOMPRESSED} from "../../src/const.js";
+import {PUBLIC_KEY_COMPRESS_SIZE, PUBLIC_KEY_SIZE} from "../../src/const.js";
 import {PublicKey} from "../../src/publicKey.js";
 import {SecretKey} from "../../src/secretKey.js";
 import {G1_POINT_AT_INFINITY, SECRET_KEY_BYTES, invalidInputs, validPublicKey} from "../__fixtures__/index.js";
@@ -18,11 +18,6 @@ describe("PublicKey", () => {
 			it("should only take 48 or 96 bytes", () => {
 				expect(() => PublicKey.fromBytes(Buffer.alloc(32, "*"))).toThrow("Invalid encoding");
 			});
-
-			it("should take uncompressed byte arrays", () => {
-				expectEqualHex(PublicKey.fromBytes(validPublicKey.uncompressed).toBytes(), validPublicKey.compressed);
-			});
-
 			it("should take compressed byte arrays", () => {
 				expectEqualHex(PublicKey.fromBytes(validPublicKey.compressed).toBytes(), validPublicKey.compressed);
 			});
@@ -60,15 +55,8 @@ describe("PublicKey", () => {
 			it("should toBytes the key to Uint8Array", () => {
 				expect(pk.toBytes()).toBeInstanceOf(Uint8Array);
 			});
-			it("should default to compressed serialization", () => {
-				expectEqualHex(pk.toBytes(), pk.toBytes(true));
-				expectNotEqualHex(pk.toBytes(), pk.toBytes(false));
-			});
-			it("should serialize compressed to the correct length", () => {
-				expect(pk.toBytes(true)).toHaveLength(PUBLIC_KEY_LENGTH_COMPRESSED);
-			});
 			it("should serialize uncompressed to the correct length", () => {
-				expect(pk.toBytes(false)).toHaveLength(PUBLIC_KEY_LENGTH_UNCOMPRESSED);
+				expect(pk.toBytes()).toHaveLength(PUBLIC_KEY_COMPRESS_SIZE);
 			});
 		});
 		describe("toHex", () => {
@@ -79,7 +67,7 @@ describe("PublicKey", () => {
 		});
 		describe("keyValidate()", () => {
 			it("should not throw on valid public key", () => {
-				const pk = PublicKey.fromBytes(validPublicKey.uncompressed);
+				const pk = PublicKey.fromBytes(validPublicKey.compressed, true);
 				expect(pk.keyValidate()).toBeUndefined();
 			});
 		});

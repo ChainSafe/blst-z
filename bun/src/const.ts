@@ -1,8 +1,12 @@
-export const PUBLIC_KEY_LENGTH_UNCOMPRESSED = 96;
-export const PUBLIC_KEY_LENGTH_COMPRESSED = 48;
-export const SECRET_KEY_LENGTH = 32;
+import {binding} from "./binding.js";
+
+export const SECRET_KEY_SIZE = 32;
+export const PUBLIC_KEY_SIZE = 96;
+export const PUBLIC_KEY_COMPRESS_SIZE = 48;
+
+export const SIGNATURE_LENGTH = 192;
 export const SIGNATURE_LENGTH_COMPRESSED = 96;
-export const SIGNATURE_LENGTH_UNCOMPRESSED = 192;
+
 export const MESSAGE_LENGTH = 32;
 export const MAX_SIGNATURE_SETS_PER_JOB = 128;
 export const MAX_AGGREGATE_WITH_RANDOMNESS_PER_JOB = 128;

@@ -1,49 +1,29 @@
 const std = @import("std");
 const testing = std.testing;
-pub const min_pk_sig_variant = @import("./root_c_abi_min_pk.zig");
-pub const min_sig_sig_variant = @import("./root_c_abi_min_sig.zig");
-pub const createMemoryPool = @import("./memory_pool.zig").createMemoryPool;
-pub const initializeThreadPool = @import("./thread_pool.zig").initializeThreadPool;
 
-pub const min_pk = struct {
-    pub const PublicKey = min_pk_sig_variant.PublicKey;
-    pub const AggregatePublicKey = min_pk_sig_variant.AggregatePublicKey;
-    pub const Signature = min_pk_sig_variant.Signature;
-    pub const AggregateSignature = min_pk_sig_variant.AggregateSignature;
-    pub const SecretKey = min_pk_sig_variant.SecretKey;
-    pub const aggregateWithRandomness = min_pk_sig_variant.aggregateWithRandomness;
-};
+/// Expose c types for lodestar-bun bindings
+pub const c = @cImport({
+    @cInclude("blst.h");
+});
 
-pub const min_sig = struct {
-    pub const PublicKey = min_sig_sig_variant.PublicKey;
-    pub const AggregatePublicKey = min_sig_sig_variant.AggregatePublicKey;
-    pub const Signature = min_sig_sig_variant.Signature;
-    pub const AggregateSignature = min_sig_sig_variant.AggregateSignature;
-    pub const SecretKey = min_sig_sig_variant.SecretKey;
-    pub const aggregateWithRandomness = min_sig_sig_variant.aggregateWithRandomness;
-};
+// blst Zig native types
+pub const Pairing = @import("Pairing.zig");
+pub const SecretKey = @import("SecretKey.zig");
+pub const PublicKey = @import("PublicKey.zig");
+pub const Signature = @import("Signature.zig");
+pub const AggregatePublicKey = @import("AggregatePublicKey.zig");
+pub const AggregateSignature = @import("AggregateSignature.zig");
+
+pub const verifyMultipleAggregateSignatures = @import("fast_verify.zig").verifyMultipleAggregateSignatures;
+
+/// Maximum number of signatures that can be aggregated in a single job.
+pub const MAX_AGGREGATE_PER_JOB: usize = 128;
+
+/// The domain separation tag (or DST) for the 'minimum pubkey size' signature variant.
+///
+/// Source: https://github.com/ethereum/consensus-specs/blob/v1.4.0/specs/phase0/beacon-chain.md#bls-signatures
+pub const DST = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
 
 test {
     testing.refAllDecls(@This());
-}
-
-test "test_sign_n_verify" {
-    // sample code for consumer like on Readme
-    const SecretKey = min_pk.SecretKey;
-    const ikm: [32]u8 = [_]u8{
-        0x93, 0xad, 0x7e, 0x65, 0xde, 0xad, 0x05, 0x2a, 0x08, 0x3a,
-        0x91, 0x0c, 0x8b, 0x72, 0x85, 0x91, 0x46, 0x4c, 0xca, 0x56,
-        0x60, 0x5b, 0xb0, 0x56, 0xed, 0xfe, 0x2b, 0x60, 0xa6, 0x3c,
-        0x48, 0x99,
-    };
-    const sk = try SecretKey.keyGen(ikm[0..], null);
-    const pk = sk.skToPk();
-
-    const dst = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
-    const msg = "hello foo";
-    // aug is null
-    const sig = sk.sign(msg[0..], dst[0..], null);
-
-    // aug is null
-    try sig.verify(true, msg[0..], dst[0..], null, &pk, true);
 }
