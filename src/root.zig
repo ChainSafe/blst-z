@@ -13,6 +13,7 @@ pub const PublicKey = @import("PublicKey.zig");
 pub const Signature = @import("Signature.zig");
 pub const AggregatePublicKey = @import("AggregatePublicKey.zig");
 pub const AggregateSignature = @import("AggregateSignature.zig");
+pub const BlstError = @import("error.zig").BlstError;
 
 pub const verifyMultipleAggregateSignatures = @import("fast_verify.zig").verifyMultipleAggregateSignatures;
 
