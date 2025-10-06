@@ -77,7 +77,8 @@ pub fn deserialize(pk_in: []const u8) BlstError!Self {
         (pk_in.len == COMPRESS_SIZE and (pk_in[0] & 0x80) != 0))
     {
         var pk = Self{};
-        return c.blst_p1_deserialize(&pk.point, &pk_in[0]);
+        try errorFromInt(c.blst_p1_deserialize(&pk.point, &pk_in[0]));
+        return pk;
     }
 
     return BlstError.BadEncoding;

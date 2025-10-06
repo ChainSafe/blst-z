@@ -106,7 +106,7 @@ pub fn fastAggregateVerify(
     self: *const Self,
     sig_groupcheck: bool,
     buffer: *[Pairing.sizeOf()]u8,
-    msg: [32]u8,
+    msg: *const [32]u8,
     dst: []const u8,
     pks: []const PublicKey,
 ) BlstError!bool {
@@ -116,7 +116,7 @@ pub fn fastAggregateVerify(
     return try self.aggregateVerify(
         sig_groupcheck,
         buffer,
-        &[_][32]u8{msg},
+        @ptrCast(msg),
         dst,
         &[_]PublicKey{pk},
         false,
@@ -133,15 +133,14 @@ pub fn fastAggregateVerifyPreAggregated(
     msg: *const [32]u8,
     dst: []const u8,
     pk: *const PublicKey,
-) BlstError!void {
-    var msgs = [_][]const u8{msg};
-    var pks = [_]*const PublicKey{pk};
-    try self.aggregateVerify(
+) BlstError!bool {
+    const pks: [*]const PublicKey = @ptrCast(pk);
+    return try self.aggregateVerify(
         sig_groupcheck,
         buffer,
-        msgs[0..],
+        @ptrCast(msg),
         dst,
-        pks[0..],
+        pks[0..1],
         false,
     );
 }

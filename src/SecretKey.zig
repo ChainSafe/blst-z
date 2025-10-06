@@ -80,7 +80,7 @@ pub fn keyGenV5(ikm: []const u8, salt: []const u8, info: ?[]const u8) BlstError!
         ikm.len,
         &salt[0],
         salt.len,
-        &info,
+        if (info) |i| i.ptr else null,
         if (info) |i| i.len else 0,
     );
     return sk;
