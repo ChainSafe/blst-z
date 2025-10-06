@@ -26,4 +26,10 @@ pub const DST = "BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_POP_";
 
 test {
     testing.refAllDecls(@This());
+    testing.refAllDecls(Pairing);
+    testing.refAllDecls(SecretKey);
+    testing.refAllDecls(PublicKey);
+    testing.refAllDecls(Signature);
+    testing.refAllDecls(AggregatePublicKey);
+    testing.refAllDecls(AggregateSignature);
 }
