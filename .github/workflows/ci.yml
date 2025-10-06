@@ -38,9 +38,38 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: zig fmt --check .
 
+  spec-tests:
+    name: spec tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+          cache-key: ubuntu-latest-${{ env.ZIG_VERSION }}
+
       - name: zig build
         run: zig build
 
-      - name: Test
-        run: zig build test
+      - name: Cache spec tests
+        id: spec-tests
+        uses: actions/cache@v4
+        with:
+          path: test/spec/spec_tests
+          key: ${{ hashFiles('test/spec/version.txt') }}
 
+      - name: Download spec tests
+        run: |
+          zig build download_spec_tests
+
+      - name: Write spec tests
+        run: |
+          zig build write_spec_tests
+
+      - name: Run spec tests
+        run: |
+          zig build run_spec_tests

@@ -12,6 +12,10 @@
             .url = "git+https://github.com/ChainSafe/blst.git#4d5bbcc0dd06f80b76fb124420c899570a4dd1e4",
             .hash = "blst_zig-0.0.0-cnAxzogIAAB8nH6TSAGbUtZ6scv2F64aVlcuJabg5HWi",
         },
+        .yaml = .{
+            .url = "git+https://github.com/chainsafe/zig-yaml#e0e5962579e990a66c21424416c7ac092b20b772",
+            .hash = "zig_yaml-0.1.0-C1161m2NAgDhth5OvjG1o1UNKcdo-XNfO82m10J1g4Cl",
+        },
     },
     .paths = .{
         "build.zig",
