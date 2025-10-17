@@ -99,6 +99,132 @@ pub fn aggregateVerify(
     return pairing.finalVerify(&gtsig);
 }
 
+/// C-ABI version of aggregateVerify()
+/// - extra msg_len parameter, all messages should have the same length
+pub fn aggregateVerifyTwo(
+    sig: *const Self,
+    sig_groupcheck: bool,
+    msgs: []const [32]u8,
+    msg_len: usize,
+    dst: []const u8,
+    pks: []const PublicKey,
+    pks_validate: bool,
+    P: type,
+) c_uint {
+    const msgs_len = msgs.len;
+    const pks_len = pks.len;
+    if (msgs_len == 0 or msgs_len != pks_len) {
+        return c.BLST_VERIFY_FAIL;
+    }
+
+    const AtomicCounter = std.atomic.Value(usize);
+    // donot use AtomicBoolean because we want error code to return
+    const AtomicError = std.atomic.Value(c_uint);
+    var atomic_counter = AtomicCounter.init(0);
+    // 0 = BLST_SUCCESS
+    var atomic_valid = AtomicError.init(c.BLST_SUCCESS);
+    var wg = std.Thread.WaitGroup{};
+
+    const cpu_count = @max(1, std.Thread.getCpuCount() catch 1);
+    const n_workers = @min(cpu_count, msgs_len);
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+
+    var pool = P.init(allocator) catch {
+        return intFromError(BlstError.PairingFailed);
+    };
+    defer pool.deinit();
+    const buffer = pool.getPairingBuffer() catch unreachable;
+    defer pool.returnPairingBuffer(buffer) catch unreachable;
+    var acc = Pairing.init(buffer[0..3192], true, dst);
+
+    var thread_pool: std.Thread.Pool = undefined;
+    defer thread_pool.deinit();
+
+    std.Thread.Pool.init(&thread_pool, .{ .allocator = allocator, .n_jobs = n_workers }) catch @panic("");
+
+    for (0..n_workers) |_| {
+        thread_pool.spawnWg(&wg, struct {
+            fn run(
+                _msgs: []const [32]u8,
+                _msg_len: usize,
+                _dst: []const u8,
+                _pks: []const PublicKey,
+                _pks_validate: bool,
+                _pool: *MemoryPoolMinPk,
+                _atomic_counter: *AtomicCounter,
+                _atomic_valid: *AtomicError,
+                _acc: *Pairing,
+            ) void {
+                const _msgs_len = _msgs.len;
+
+                const buffer_ = _pool.getPairingBuffer() catch unreachable;
+                defer _pool.returnPairingBuffer(buffer_) catch unreachable;
+                var pairing = Pairing.init(buffer_[0..3192], true, _dst);
+
+                // the most relaxed atomic ordering
+                var local_count: usize = 0;
+                while (_atomic_valid.load(.monotonic) == c.BLST_SUCCESS) {
+                    // this uses @atomicRmw internally and returns the previous value
+                    // acquired then release which publish value to other thread
+                    const counter = _atomic_counter.fetchAdd(1, std.builtin.AtomicOrder.acq_rel);
+                    if (counter >= _msgs_len) {
+                        break;
+                    }
+                    pairing.aggregate(
+                        &_pks[counter],
+                        _pks_validate,
+                        null,
+                        false,
+                        _msgs[counter][0.._msg_len],
+                        null,
+                    ) catch {
+                        // .release will publish the value to other threads
+                        _atomic_valid.store(c.BLST_VERIFY_FAIL, std.builtin.AtomicOrder.release);
+                        return;
+                    };
+                    local_count += 1;
+                }
+
+                if (local_count > 0 and _atomic_valid.load(.monotonic) == c.BLST_SUCCESS) {
+                    pairing.commit();
+                    _acc.merge(&pairing) catch {
+                        // .release will publish the value to other threads
+                        _atomic_valid.store(intFromError(BlstError.PairingFailed), std.builtin.AtomicOrder.release);
+                    };
+                }
+            }
+        }.run, .{
+            msgs,
+            msg_len,
+            dst,
+            pks,
+            pks_validate,
+            &pool,
+            &atomic_counter,
+            &atomic_valid,
+            &acc,
+        });
+    }
+
+    thread_pool.waitAndWork(&wg);
+    acc.commit();
+
+    // all threads finished, load atomic_valid once
+    const valid = atomic_valid.load(.monotonic);
+
+    var gtsig = c.blst_fp12{};
+    if (valid == c.BLST_SUCCESS) {
+        if (sig_groupcheck) sig.validate(false) catch |e| return intFromError(e);
+
+        Pairing.aggregated(&gtsig, sig);
+
+        if (!acc.finalVerify(&gtsig)) return c.BLST_VERIFY_FAIL;
+    }
+
+    return valid;
+}
+
 /// Fast verify an `AggregateSignature` against a single message and a slice of `PublicKey`.
 ///
 /// Returns true if verification succeeds, false if verification fails, `BlstError` on error.
@@ -215,6 +341,8 @@ const PublicKey = @import("root.zig").PublicKey;
 const AggregatePublicKey = @import("AggregatePublicKey.zig");
 const AggregateSignature = @import("AggregateSignature.zig");
 const Pairing = @import("Pairing.zig");
+const MemoryPoolMinPk = @import("memory_pool.zig").MemoryPoolMinPk;
+const MemoryPool = @import("memory_pool.zig").MemoryPool;
 
 const SecretKey = @import("SecretKey.zig");
 const DST = @import("root.zig").DST;
@@ -280,3 +408,48 @@ test aggregateVerify {
 
     try std.testing.expect(try sig.aggregateVerify(false, &buffer, &msgs, dst, &pks, false));
 }
+
+test aggregateVerifyTwo {
+    const ikm: [32]u8 = [_]u8{
+        0x93, 0xad, 0x7e, 0x65, 0xde, 0xad, 0x05, 0x2a, 0x08, 0x3a,
+        0x91, 0x0c, 0x8b, 0x72, 0x85, 0x91, 0x46, 0x4c, 0xca, 0x56,
+        0x60, 0x5b, 0xb0, 0x56, 0xed, 0xfe, 0x2b, 0x60, 0xa6, 0x3c,
+        0x48, 0x99,
+    };
+
+    const dst = DST;
+    // aug is null
+
+    const num_sigs = 10;
+
+    var msgs: [num_sigs][32]u8 = undefined;
+    var sks: [num_sigs]SecretKey = undefined;
+    var pks: [num_sigs]PublicKey = undefined;
+    var sigs: [num_sigs]@This() = undefined;
+
+    for (0..num_sigs) |i| {
+        const sk = try SecretKey.keyGen(&ikm, null);
+        const pk = sk.toPublicKey();
+        const sig = sk.sign(&msgs[i], dst, null);
+
+        sks[i] = sk;
+        pks[i] = pk;
+        sigs[i] = sig;
+    }
+
+    const agg_sig = try AggregateSignature.aggregate(&sigs, false);
+    const sig = @This().fromAggregate(&agg_sig);
+
+    const res = sig.aggregateVerifyTwo(
+        false,
+        &msgs,
+        32,
+        dst,
+        &pks,
+        false,
+        MemoryPoolMinPk,
+    );
+    try std.testing.expect(res == 0);
+}
+
+const intFromError = @import("error.zig").intFromError;
