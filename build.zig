@@ -85,7 +85,7 @@ pub fn build(b: *std.Build) !void {
         .root_source_file = b.path("test/spec/spec_tests.zig"),
         .target = target,
         .optimize = optimize,
-        .filter = b.option([]const u8, "spec_test_filter", "Spec test filter"),
+        .filters = b.option([]const []const u8, "spec_test_filters", "Spec test filters") orelse &[_][]const u8{},
     });
     spec_tests.root_module.addImport("spec_test_options", options_module_spec_test_options);
     spec_tests.root_module.addImport("blst", blst_mod);
