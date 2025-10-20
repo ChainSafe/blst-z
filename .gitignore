@@ -1,4 +1,4 @@
 zig-out/
 .zig-cache/
-bun/node_modules/
-bun/benchmark_data/
+test/spec/spec_tests
+test/spec/spec_tests.zig

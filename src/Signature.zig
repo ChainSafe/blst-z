@@ -109,8 +109,9 @@ pub fn fastAggregateVerify(
     msg: *const [32]u8,
     dst: []const u8,
     pks: []const PublicKey,
+    pks_validate: bool,
 ) BlstError!bool {
-    const agg_pk = try AggregatePublicKey.aggregate(pks, false);
+    const agg_pk = try AggregatePublicKey.aggregate(pks, pks_validate);
     const pk = agg_pk.toPublicKey();
 
     return try self.aggregateVerify(
@@ -197,6 +198,11 @@ pub fn deserialize(sig_in: []const u8) BlstError!Self {
 /// Check if the `Signature` is in the correct subgroup.
 pub fn subgroupCheck(self: *const Self) bool {
     return c.blst_p2_affine_in_g2(&self.point);
+}
+
+/// Check if the `Signature` is the point at infinity.
+pub fn isInfinity(self: *const Self) bool {
+    return c.blst_p2_affine_is_inf(&self.point);
 }
 
 /// Check if two signatures are equal.
