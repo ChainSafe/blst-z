@@ -10,6 +10,7 @@ pub const BlstError = error{
     VerifyFail,
     PkIsInfinity,
     BadScalar,
+    PairingFailed,
 };
 
 pub fn intFromError(e: BlstError) c_uint {
@@ -21,6 +22,7 @@ pub fn intFromError(e: BlstError) c_uint {
         BlstError.VerifyFail => c.BLST_VERIFY_FAIL,
         BlstError.PkIsInfinity => c.BLST_PK_IS_INFINITY,
         BlstError.BadScalar => c.BLST_BAD_SCALAR,
+        BlstError.PairingFailed => c.BLST_BAD_SCALAR + 1,
     };
 }
 

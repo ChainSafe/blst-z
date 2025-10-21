@@ -115,7 +115,7 @@ pub fn merge(self: *Self, ctx1: *const Self) BlstError!void {
 
 /// Perform final verification of the pairing.
 pub fn finalVerify(self: *const Self, gtsig: ?*const c.blst_fp12) bool {
-    return c.blst_pairing_finalverify(self.ctx, gtsig);
+    return c.blst_pairing_finalverify(self.ctx, if (gtsig) |g| g else null);
 }
 
 /// Raw aggregation of points into the pairing context.

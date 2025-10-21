@@ -15,6 +15,9 @@ pub const AggregatePublicKey = @import("AggregatePublicKey.zig");
 pub const AggregateSignature = @import("AggregateSignature.zig");
 pub const BlstError = @import("error.zig").BlstError;
 
+const memory_pool = @import("memory_pool.zig");
+pub const MemoryPoolMinPk = memory_pool.MemoryPoolMinPk;
+
 pub const verifyMultipleAggregateSignatures = @import("fast_verify.zig").verifyMultipleAggregateSignatures;
 
 /// Maximum number of signatures that can be aggregated in a single job.
@@ -33,4 +36,5 @@ test {
     testing.refAllDecls(Signature);
     testing.refAllDecls(AggregatePublicKey);
     testing.refAllDecls(AggregateSignature);
+    testing.refAllDecls(memory_pool);
 }

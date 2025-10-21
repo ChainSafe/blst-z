@@ -9,8 +9,8 @@
 
     .dependencies = .{
         .blst = .{
-            .url = "git+https://github.com/ChainSafe/blst.git#4d5bbcc0dd06f80b76fb124420c899570a4dd1e4",
-            .hash = "blst_zig-0.0.0-cnAxzogIAAB8nH6TSAGbUtZ6scv2F64aVlcuJabg5HWi",
+            .url = "git+https://github.com/ChainSafe/blst.zig.git#5dbbe28ff7b93447766daae9fb082cf5c5ea0fc5",
+            .hash = "blst_zig-0.0.0-cnAxzgwJAABlnv34YIGOic2C3MEcK9Ms7tGyQ4iMZX1e",
         },
         .yaml = .{
             .url = "git+https://github.com/chainsafe/zig-yaml#e0e5962579e990a66c21424416c7ac092b20b772",
