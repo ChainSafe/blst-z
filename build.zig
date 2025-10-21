@@ -8,6 +8,8 @@ pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
 
     const blst_c = b.dependency("blst", .{
+        .target = target,
+        .optimize = optimize,
         .portable = b.option(bool, "portable", "turn on portable mode") orelse false,
     });
 
