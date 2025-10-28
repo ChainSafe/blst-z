@@ -39,10 +39,10 @@ pub fn MemoryPool(
         allocator: Allocator,
 
         // inspired by thread pool implementation, consumer need to do the allocator.create() before this calls
-        pub fn init(allocator: Allocator) !Self {
+        pub fn init(self: *@This(), allocator: Allocator) !void {
             const pk_scratch_size_u64 = pk_scratch_sizeof_fn(scratch_in_batch) / 8;
             const sig_scratch_size_u64 = sig_scratch_sizeof_fn(scratch_in_batch) / 8;
-            return .{
+            self.* = .{
                 .pk_scratch_size_u64 = pk_scratch_size_u64,
                 .sig_scratch_size_u64 = sig_scratch_size_u64,
                 .pairing_size_u8 = pairing_sizeof_fn(),
@@ -193,8 +193,12 @@ test "memory pool - public key scratch" {
         }
     }.pairingSizeOfFn);
     const allocator = std.testing.allocator;
-    var pool = try Pool.init(allocator);
-    defer pool.deinit();
+    var pool = try allocator.create(Pool);
+    try pool.init(allocator);
+    defer {
+        pool.deinit();
+        allocator.destroy(pool);
+    }
     try std.testing.expect(pool.pk_scratch_arr.items.len == 0);
     // allocate new
     var pk_scratch_0 = try pool.getPublicKeyScratch();
@@ -217,8 +221,14 @@ test "memory pool - signature scratch" {
         }
     }.pairingSizeOfFn);
     const allocator = std.testing.allocator;
-    var pool = try Pool.init(allocator);
-    defer pool.deinit();
+
+    var pool = try allocator.create(Pool);
+    try pool.init(allocator);
+
+    defer {
+        pool.deinit();
+        allocator.destroy(pool);
+    }
 
     try std.testing.expect(pool.sig_scratch_arr.items.len == 0);
     // allocate new
@@ -242,8 +252,13 @@ test "memory pool - pairing buffer" {
         }
     }.pairingSizeOfFn);
     const allocator = std.testing.allocator;
-    var pool = try Pool.init(allocator);
-    defer pool.deinit();
+    var pool = try allocator.create(Pool);
+    try pool.init(allocator);
+
+    defer {
+        pool.deinit();
+        allocator.destroy(pool);
+    }
 
     try std.testing.expect(pool.pairing_buffer_arr.items.len == 0);
     // allocate new
@@ -267,16 +282,18 @@ test "memory pool - multi thread" {
         }
     }.pairingSizeOfFn);
     const allocator = std.testing.allocator;
-    var pool = try Pool.init(allocator);
-    const task_count = 64;
+    var pool = try allocator.create(Pool);
+    try pool.init(allocator);
 
+    const task_count: usize = 64;
     var thread_pool = try allocator.create(std.Thread.Pool);
     // only max 8 jobs in thread pool but task_count is 64
-    try thread_pool.init(.{ .allocator = allocator, .n_jobs = 8 });
+    try thread_pool.init(.{ .allocator = allocator, .n_jobs = task_count / 8 });
     defer {
         thread_pool.deinit();
         allocator.destroy(thread_pool);
         pool.deinit();
+        allocator.destroy(pool);
     }
 
     var wg = std.Thread.WaitGroup{};
@@ -299,7 +316,7 @@ test "memory pool - multi thread" {
                 defer m.unlock();
                 done.* += 1;
             }
-        }.run, .{ &pool, &done_count, &mutex });
+        }.run, .{ pool, &done_count, &mutex });
     }
 
     thread_pool.waitAndWork(&wg);

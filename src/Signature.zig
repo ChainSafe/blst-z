@@ -55,6 +55,17 @@ pub fn verify(
     return chk;
 }
 
+const PairingShared = struct {
+    p: Pairing,
+    mutex: std.Thread.Mutex,
+
+    pub fn merge(self: *@This(), other: *const @This()) !void {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        try self.p.merge(&other.p);
+    }
+};
+
 /// Verify an `AggregateSignature` against a single message and a slice of `PublicKey`.
 ///
 /// Returns true if verification succeeds, false if verification fails, `BlstError` on error.
@@ -109,7 +120,7 @@ pub fn aggregateVerifyTwo(
     dst: []const u8,
     pks: []const PublicKey,
     pks_validate: bool,
-    P: type,
+    pool: *MemoryPoolMinPk,
 ) c_uint {
     const msgs_len = msgs.len;
     const pks_len = pks.len;
@@ -127,24 +138,15 @@ pub fn aggregateVerifyTwo(
 
     const cpu_count = @max(1, std.Thread.getCpuCount() catch 1);
     const n_workers = @min(cpu_count, msgs_len);
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-
-    var pool = P.init(allocator) catch {
-        return intFromError(BlstError.PairingFailed);
-    };
-    defer pool.deinit();
     const buffer = pool.getPairingBuffer() catch unreachable;
     defer pool.returnPairingBuffer(buffer) catch unreachable;
-    var acc = Pairing.init(buffer[0..3192], true, dst);
-
-    var thread_pool: std.Thread.Pool = undefined;
-    defer thread_pool.deinit();
-
-    std.Thread.Pool.init(&thread_pool, .{ .allocator = allocator, .n_jobs = n_workers }) catch @panic("");
+    var acc = PairingShared{
+        .p = Pairing.init(buffer[0..3192], true, dst),
+        .mutex = std.Thread.Mutex{},
+    };
 
     for (0..n_workers) |_| {
-        thread_pool.spawnWg(&wg, struct {
+        tp.spawnTaskWg(&wg, struct {
             fn run(
                 _msgs: []const [32]u8,
                 _msg_len: usize,
@@ -154,13 +156,16 @@ pub fn aggregateVerifyTwo(
                 _pool: *MemoryPoolMinPk,
                 _atomic_counter: *AtomicCounter,
                 _atomic_valid: *AtomicError,
-                _acc: *Pairing,
+                _acc: *PairingShared,
             ) void {
                 const _msgs_len = _msgs.len;
 
                 const buffer_ = _pool.getPairingBuffer() catch unreachable;
                 defer _pool.returnPairingBuffer(buffer_) catch unreachable;
-                var pairing = Pairing.init(buffer_[0..3192], true, _dst);
+                var pairing = PairingShared{
+                    .p = Pairing.init(buffer_[0..3192], true, _dst),
+                    .mutex = std.Thread.Mutex{},
+                };
 
                 // the most relaxed atomic ordering
                 var local_count: usize = 0;
@@ -171,7 +176,7 @@ pub fn aggregateVerifyTwo(
                     if (counter >= _msgs_len) {
                         break;
                     }
-                    pairing.aggregate(
+                    pairing.p.aggregate(
                         &_pks[counter],
                         _pks_validate,
                         null,
@@ -187,7 +192,7 @@ pub fn aggregateVerifyTwo(
                 }
 
                 if (local_count > 0 and _atomic_valid.load(.monotonic) == c.BLST_SUCCESS) {
-                    pairing.commit();
+                    pairing.p.commit();
                     _acc.merge(&pairing) catch {
                         // .release will publish the value to other threads
                         _atomic_valid.store(intFromError(BlstError.PairingFailed), std.builtin.AtomicOrder.release);
@@ -200,15 +205,15 @@ pub fn aggregateVerifyTwo(
             dst,
             pks,
             pks_validate,
-            &pool,
+            pool,
             &atomic_counter,
             &atomic_valid,
             &acc,
         });
     }
 
-    thread_pool.waitAndWork(&wg);
-    acc.commit();
+    tp.waitAndWork(&wg);
+    acc.p.commit();
 
     // all threads finished, load atomic_valid once
     const valid = atomic_valid.load(.monotonic);
@@ -219,7 +224,7 @@ pub fn aggregateVerifyTwo(
 
         Pairing.aggregated(&gtsig, sig);
 
-        if (!acc.finalVerify(&gtsig)) return c.BLST_VERIFY_FAIL;
+        if (!acc.p.finalVerify(&gtsig)) return c.BLST_VERIFY_FAIL;
     }
 
     return valid;
@@ -343,6 +348,7 @@ const AggregateSignature = @import("AggregateSignature.zig");
 const Pairing = @import("Pairing.zig");
 const MemoryPoolMinPk = @import("memory_pool.zig").MemoryPoolMinPk;
 const MemoryPool = @import("memory_pool.zig").MemoryPool;
+const tp = @import("thread_pool.zig");
 
 const SecretKey = @import("SecretKey.zig");
 const DST = @import("root.zig").DST;
@@ -436,9 +442,18 @@ test aggregateVerifyTwo {
         pks[i] = pk;
         sigs[i] = sig;
     }
+    const allocator = std.testing.allocator;
 
     const agg_sig = try AggregateSignature.aggregate(&sigs, false);
     const sig = @This().fromAggregate(&agg_sig);
+    try tp.initializeThreadPool(allocator);
+    defer tp.deinitializeThreadPool();
+    const pool = try allocator.create(MemoryPoolMinPk);
+    try pool.init(allocator);
+    defer {
+        pool.deinit();
+        allocator.destroy(pool);
+    }
 
     const res = sig.aggregateVerifyTwo(
         false,
@@ -447,7 +462,7 @@ test aggregateVerifyTwo {
         dst,
         &pks,
         false,
-        MemoryPoolMinPk,
+        pool,
     );
     try std.testing.expect(res == 0);
 }

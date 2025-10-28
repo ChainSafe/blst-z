@@ -15,6 +15,7 @@ pub const AggregatePublicKey = @import("AggregatePublicKey.zig");
 pub const AggregateSignature = @import("AggregateSignature.zig");
 
 const memory_pool = @import("memory_pool.zig");
+pub const tp = @import("thread_pool.zig");
 pub const MemoryPoolMinPk = memory_pool.MemoryPoolMinPk;
 
 pub const verifyMultipleAggregateSignatures = @import("fast_verify.zig").verifyMultipleAggregateSignatures;
@@ -36,4 +37,5 @@ test {
     testing.refAllDecls(AggregatePublicKey);
     testing.refAllDecls(AggregateSignature);
     testing.refAllDecls(memory_pool);
+    testing.refAllDecls(@import("thread_pool.zig"));
 }
