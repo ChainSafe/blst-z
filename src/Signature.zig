@@ -115,10 +115,10 @@ pub fn aggregateVerify(
 pub fn aggregateVerifyTwo(
     sig: *const Self,
     sig_groupcheck: bool,
-    msgs: []const [32]u8,
+    msgs: []const *[32]u8,
     msg_len: usize,
     dst: []const u8,
-    pks: []const PublicKey,
+    pks: []const *const PublicKey,
     pks_validate: bool,
     pool: *MemoryPoolMinPk,
 ) c_uint {
@@ -148,10 +148,10 @@ pub fn aggregateVerifyTwo(
     for (0..n_workers) |_| {
         tp.spawnTaskWg(&wg, struct {
             fn run(
-                _msgs: []const [32]u8,
+                _msgs: []const *[32]u8,
                 _msg_len: usize,
                 _dst: []const u8,
-                _pks: []const PublicKey,
+                _pks: []const *const PublicKey,
                 _pks_validate: bool,
                 _pool: *MemoryPoolMinPk,
                 _atomic_counter: *AtomicCounter,
@@ -177,7 +177,7 @@ pub fn aggregateVerifyTwo(
                         break;
                     }
                     pairing.p.aggregate(
-                        &_pks[counter],
+                        _pks[counter],
                         _pks_validate,
                         null,
                         false,
@@ -428,19 +428,21 @@ test aggregateVerifyTwo {
 
     const num_sigs = 10;
 
-    var msgs: [num_sigs][32]u8 = undefined;
+    var msgs: [num_sigs]*[32]u8 = undefined;
     var sks: [num_sigs]SecretKey = undefined;
-    var pks: [num_sigs]PublicKey = undefined;
+    var pks: [num_sigs]*const PublicKey = undefined;
     var sigs: [num_sigs]@This() = undefined;
 
     for (0..num_sigs) |i| {
         const sk = try SecretKey.keyGen(&ikm, null);
+        var msg: [32]u8 = [_]u8{0} ** 32;
         const pk = sk.toPublicKey();
-        const sig = sk.sign(&msgs[i], dst, null);
+        const sig = sk.sign(&msg, dst, null);
 
         sks[i] = sk;
-        pks[i] = pk;
+        pks[i] = &pk;
         sigs[i] = sig;
+        msgs[i] = &msg;
     }
     const allocator = std.testing.allocator;
 
