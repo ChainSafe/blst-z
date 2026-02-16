@@ -180,15 +180,20 @@ pub fn uncompress(sig_comp: []const u8) BlstError!Self {
     return BlstError.BadEncoding;
 }
 
-/// Deserialize a `Signature` from bytes.
+/// Deserialize a `Signature` from bytes with possible validation.
 ///
 /// Returns `Signature` on success, `BlstError` on failure.
-pub fn deserialize(sig_in: []const u8) BlstError!Self {
+pub fn deserialize(
+    sig_in: []const u8,
+    sig_validate: bool,
+    sig_infcheck: bool,
+) BlstError!Self {
     if ((sig_in.len == SERIALIZE_SIZE and (sig_in[0] & 0x80) == 0) or
         (sig_in.len == COMPRESS_SIZE and (sig_in[0] & 0x80) != 0))
     {
         var sig = Self{};
         try errorFromInt(c.blst_p2_deserialize(&sig.point, &sig_in[0]));
+        if (sig_validate) try validate(&sig, sig_infcheck);
         return sig;
     }
 
