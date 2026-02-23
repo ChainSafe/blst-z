@@ -33,7 +33,7 @@ pub fn aggregate(gpa: Allocator, path: std.fs.Dir) !void {
                 &sig_buf,
                 sig_hex_bytes[2..], // skip "0x" prefix
             );
-            signatures[i] = try blst.Signature.deserialize(sig_bytes);
+            signatures[i] = try blst.Signature.deserialize(sig_bytes, false, false);
         }
 
         // yaml library parses `null` as a string
@@ -106,7 +106,7 @@ pub fn aggregate_verify(gpa: Allocator, path: std.fs.Dir) !void {
             &sig_buf,
             aggregate_verify_test_data.input.signature[2..], // skip "0x" prefix
         );
-        const signature = blst.Signature.deserialize(sig_bytes) catch {
+        const signature = blst.Signature.deserialize(sig_bytes, false, false) catch {
             // if signature is invalid, expect false
             try std.testing.expect(!aggregate_verify_test_data.output);
             return;
@@ -174,7 +174,7 @@ pub fn fast_aggregate_verify(gpa: Allocator, path: std.fs.Dir) !void {
             &sig_buf,
             fast_aggregate_verify_test_data.input.signature[2..], // skip "0x" prefix
         );
-        const signature = blst.Signature.deserialize(sig_bytes) catch {
+        const signature = blst.Signature.deserialize(sig_bytes, false, false) catch {
             // if signature is invalid, expect false
             try std.testing.expect(!fast_aggregate_verify_test_data.output);
             return;
@@ -273,7 +273,7 @@ pub fn verify(gpa: Allocator, path: std.fs.Dir) !void {
         _ = try std.fmt.hexToBytes(&msg_bytes, verify_test_data.input.message[2..]); // skip "0x" prefix
 
         const sig_bytes = try std.fmt.hexToBytes(&sig_buf, verify_test_data.input.signature[2..]); // skip "0x" prefix
-        const signature = blst.Signature.deserialize(sig_bytes) catch {
+        const signature = blst.Signature.deserialize(sig_bytes, false, false) catch {
             // if signature is invalid, expect false
             try std.testing.expectEqual(verify_test_data.output, false);
             return;
@@ -404,7 +404,7 @@ pub fn eth_fast_aggregate_verify(gpa: Allocator, path: std.fs.Dir) !void {
             &sig_buf,
             eth_fast_aggregate_verify_test_data.input.signature[2..], // skip "0x" prefix
         );
-        const signature = blst.Signature.deserialize(sig_bytes) catch {
+        const signature = blst.Signature.deserialize(sig_bytes, false, false) catch {
             // if signature is invalid, expect false
             try std.testing.expect(!eth_fast_aggregate_verify_test_data.output);
             return;
