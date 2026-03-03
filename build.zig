@@ -35,8 +35,24 @@ pub fn build(b: *std.Build) !void {
 
     lib_unit_tests.linkLibrary(lib_blst_c);
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
+
+    const fuzz_test_main_entry = b.addTest(.{
+        .root_source_file = b.path("test/fuzz/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    fuzz_test_main_entry.linkLibrary(lib_blst_c);
+    fuzz_test_main_entry.root_module.addImport("blst", blst_mod);
+    fuzz_test_main_entry.root_module.addImport("fuzzUtils", b.createModule(.{
+        .root_source_file = b.path("test/fuzz/fuzzUtils.zig"),
+        .target = target,
+        .optimize = optimize,
+    }));
+    const run_fuzz_test_main_entry = b.addRunArtifact(fuzz_test_main_entry);
+
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_lib_unit_tests.step);
+    test_step.dependOn(&run_fuzz_test_main_entry.step);
 
     // download spec tests
 
