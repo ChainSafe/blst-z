@@ -10,7 +10,7 @@ pub fn build(b: *std.Build) !void {
     const blst_c = b.dependency("blst", .{
         .target = target,
         .optimize = optimize,
-        .portable = b.option(bool, "portable", "turn on portable mode") orelse false,
+        .portable = b.option(bool, "portable", "turn on portable mode") orelse true,
     });
 
     const lib_blst_c = blst_c.artifact("blst");
