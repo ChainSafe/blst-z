@@ -7,10 +7,12 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const portable = b.option(bool, "portable", "turn on portable mode") orelse true;
+
     const blst_c = b.dependency("blst", .{
         .target = target,
         .optimize = optimize,
-        .portable = b.option(bool, "portable", "turn on portable mode") orelse true,
+        .portable = portable,
     });
 
     const lib_blst_c = blst_c.artifact("blst");
@@ -97,4 +99,44 @@ pub fn build(b: *std.Build) !void {
     if (b.args) |args| run_spec_tests.addArgs(args);
     const tls_run_spec_tests = b.step("run_spec_tests", "Run the spec tests");
     tls_run_spec_tests.dependOn(&run_spec_tests.step);
+
+    // benchmarks
+
+    const bench_optimize = .ReleaseFast;
+
+    const bench_blst_c = b.dependency("blst", .{
+        .target = target,
+        .optimize = bench_optimize,
+        .portable = portable,
+    });
+
+    const bench_blst_mod = b.addModule("blst_bench", .{
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+        .optimize = bench_optimize,
+    });
+    bench_blst_mod.linkLibrary(bench_blst_c.artifact("blst"));
+    bench_blst_mod.addIncludePath(bench_blst_c.path("include"));
+
+    const dep_zbench = b.dependency("zbench", .{
+        .optimize = bench_optimize,
+        .target = target,
+    });
+
+    const bench_verify_multiple = b.addExecutable(.{
+        .name = "bench_verify_multiple",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("bench/verify_multiple.zig"),
+            .target = target,
+            .optimize = bench_optimize,
+        }),
+    });
+    bench_verify_multiple.root_module.addImport("blst", bench_blst_mod);
+    bench_verify_multiple.root_module.addImport("zbench", dep_zbench.module("zbench"));
+
+    b.installArtifact(bench_verify_multiple);
+
+    const run_bench_verify_multiple = b.addRunArtifact(bench_verify_multiple);
+    const bench_step = b.step("bench", "Run benchmarks");
+    bench_step.dependOn(&run_bench_verify_multiple.step);
 }
