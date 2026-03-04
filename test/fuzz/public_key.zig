@@ -35,13 +35,13 @@ fn encodePublicKeyToWriter(writer: anytype, pk: PublicKey) !void {
 }
 
 test "fuzz public key deserialize" {
-    const Cxt = struct {
+    const Ctx = struct {
         fn testOne(_: @This(), input: []const u8) !void {
             if (input.len > PublicKey.SERIALIZE_SIZE) return;
             try deserializePublicKey(input);
         }
     };
-    try std.testing.fuzz(Cxt{}, Cxt.testOne, .{});
+    try std.testing.fuzz(Ctx{}, Ctx.testOne, .{});
 }
 
 test "fuzz public key roundtrip" {

@@ -39,13 +39,13 @@ fn ignoreDecodeError(err: anyerror) bool {
 }
 
 test "fuzz signature deserialize" {
-    const Cxt = struct {
+    const Ctx = struct {
         fn testOne(_: @This(), input: []const u8) !void {
             if (input.len > Signature.SERIALIZE_SIZE) return;
             try deserializeSignature(input);
         }
     };
-    try std.testing.fuzz(Cxt{}, Cxt.testOne, .{});
+    try std.testing.fuzz(Ctx{}, Ctx.testOne, .{});
 }
 
 test "fuzz signature roundtrip" {
