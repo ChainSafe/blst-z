@@ -118,19 +118,18 @@ pub fn verifyMultipleAggregateSignatures(
         offset += count;
     }
 
-    // Spawn n_workers - 1 threads (main thread handles worker 0)
+    // Spawn n_workers - 1 threads, then do worker 0 on the main thread
     const threads = allocator.alloc(std.Thread, n_workers - 1) catch return BlstError.VerifyFail;
     defer allocator.free(threads);
 
     var spawned: usize = 0;
-    errdefer for (threads[0..spawned]) |t| t.join();
-
-    // Main thread does worker 0's work
-    workerFn(&contexts[0]);
     for (0..n_workers - 1) |t| {
-        threads[t] = std.Thread.spawn(.{}, workerFn, .{&contexts[t + 1]}) catch return BlstError.VerifyFail;
+        threads[t] = std.Thread.spawn(.{}, workerFn, .{&contexts[t + 1]}) catch break;
         spawned += 1;
     }
+
+    // Main thread does worker 0's work in parallel with spawned threads
+    workerFn(&contexts[0]);
 
     for (threads[0..spawned]) |t| t.join();
 
