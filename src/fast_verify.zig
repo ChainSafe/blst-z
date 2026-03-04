@@ -11,7 +11,7 @@ const MIN_ELEMS_TO_THREAD = 4;
 const MAX_WORKERS = 8;
 
 const WorkerContext = struct {
-    pairing_buf: *[Pairing.sizeOf()]u8,
+    pairing_buf: *align(Pairing.buf_align) [Pairing.sizeOf()]u8,
     msgs: []const [32]u8,
     dst: []const u8,
     pks: []const *PublicKey,
@@ -104,7 +104,7 @@ pub fn verifyMultipleAggregateSignatures(
     for (0..n_workers) |w| {
         const count = elems_per_worker + if (w < remainder) @as(usize, 1) else @as(usize, 0);
         contexts[w] = .{
-            .pairing_buf = if (w == 0) pairing_buf else &extra_bufs[w - 1],
+            .pairing_buf = if (w == 0) pairing_buf else @alignCast(&extra_bufs[w - 1]),
             .msgs = msgs,
             .dst = dst,
             .pks = pks,
