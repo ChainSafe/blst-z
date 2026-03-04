@@ -11,6 +11,13 @@ pub fn FuzzOptions(comptime T: type) type {
     };
 }
 
+pub fn errorIn(err: anyerror, comptime allowed: anytype) bool {
+    inline for (allowed) |allowed_err| {
+        if (err == allowed_err) return true;
+    }
+    return false;
+}
+
 pub fn runRoundTripFuzz(
     comptime T: type,
     options: FuzzOptions(T),

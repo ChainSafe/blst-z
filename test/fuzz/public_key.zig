@@ -5,19 +5,21 @@ const fuzzUtils = @import("fuzzUtils");
 const PublicKey = blst.PublicKey;
 const BlstError = blst.BlstError;
 
+fn ignoreDecodeError(err: anyerror) bool {
+    return fuzzUtils.errorIn(err, .{
+        BlstError.BadEncoding,
+        BlstError.PointNotOnCurve,
+        BlstError.PointNotInGroup,
+        BlstError.PkIsInfinity,
+    });
+}
+
 fn deserializePublicKey(input: []const u8) !void {
     const result = PublicKey.deserialize(input);
     if (result) |pk| {
         pk.validate() catch {};
     } else |err| {
-        switch (err) {
-            BlstError.BadEncoding,
-            BlstError.PointNotOnCurve,
-            BlstError.PointNotInGroup,
-            BlstError.PkIsInfinity,
-            => {},
-            else => return err,
-        }
+        if (!ignoreDecodeError(err)) return err;
     }
 }
 
@@ -30,17 +32,6 @@ fn decodePublicKeyFromReader(_: std.mem.Allocator, reader: anytype) !PublicKey {
 fn encodePublicKeyToWriter(writer: anytype, pk: PublicKey) !void {
     const encoded = pk.serialize();
     try writer.writeAll(&encoded);
-}
-
-fn ignoreDecodeError(err: anyerror) bool {
-    return switch (err) {
-        BlstError.BadEncoding,
-        BlstError.PointNotOnCurve,
-        BlstError.PointNotInGroup,
-        BlstError.PkIsInfinity,
-        => true,
-        else => false,
-    };
 }
 
 test "fuzz public key deserialize" {

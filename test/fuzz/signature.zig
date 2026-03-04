@@ -9,12 +9,10 @@ fn deserializeSignature(input: []const u8) !void {
     const result = Signature.deserialize(input);
     if (result) |sig| {
         sig.validate(true) catch |err| {
-            switch (err) {
+            if (!fuzzUtils.errorIn(err, .{
                 BlstError.PointNotInGroup,
                 BlstError.PkIsInfinity,
-                => {},
-                else => return err,
-            }
+            })) return err;
         };
     } else |err| {
         if (!ignoreDecodeError(err)) return err;
@@ -33,14 +31,11 @@ fn encodeSignatureToWriter(writer: anytype, sig: Signature) !void {
 }
 
 fn ignoreDecodeError(err: anyerror) bool {
-    return switch (err) {
+    return fuzzUtils.errorIn(err, .{
         BlstError.BadEncoding,
-        BlstError.PointNotOnCurve,
         BlstError.PointNotInGroup,
         BlstError.PkIsInfinity,
-        => true,
-        else => false,
-    };
+    });
 }
 
 test "fuzz signature deserialize" {
@@ -65,4 +60,3 @@ test "fuzz signature roundtrip" {
         encodeSignatureToWriter,
     );
 }
-
