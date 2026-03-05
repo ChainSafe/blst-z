@@ -4,152 +4,128 @@ const RAND_BYTES = 8;
 /// Number of random bits used for verification.
 const RAND_BITS = 8 * RAND_BYTES;
 
-/// Minimum number of elements to use multi-threaded verification.
-const MIN_ELEMS_TO_THREAD = 4;
-
-/// Maximum number of worker threads to use.
-const MAX_WORKERS = 8;
-
-const WorkerContext = struct {
-    pairing_buf: *align(Pairing.buf_align) [Pairing.sizeOf()]u8,
-    msgs: []const [32]u8,
-    dst: []const u8,
-    pks: []const *PublicKey,
-    pks_validate: bool,
-    sigs: []const *Signature,
-    sigs_groupcheck: bool,
-    rands: []const [32]u8,
-    start: usize,
-    end: usize,
-    err: bool = false,
-};
-
-fn workerFn(ctx: *WorkerContext) void {
-    var pairing = Pairing.init(ctx.pairing_buf, true, ctx.dst);
-    for (ctx.start..ctx.end) |i| {
-        pairing.mulAndAggregate(
-            ctx.pks[i],
-            ctx.pks_validate,
-            ctx.sigs[i],
-            ctx.sigs_groupcheck,
-            &ctx.rands[i],
-            RAND_BITS,
-            &ctx.msgs[i],
-        ) catch {
-            ctx.err = true;
-            return;
-        };
-    }
-    pairing.commit();
-}
-
 /// Verify multiple aggregate signatures efficiently using random coefficients.
 ///
-/// Uses multiple threads when the number of elements exceeds `MIN_ELEMS_TO_THREAD`.
-/// Each thread gets its own `Pairing` context, processes a chunk of elements, commits,
-/// and results are merged via `blst_pairing_merge` before final verification.
+/// Uses multiple threads when available. Each thread gets its own `Pairing`
+/// context, processes work items via atomic counter, commits, and results are
+/// merged sequentially on the main thread before final verification.
 ///
 /// Source: https://ethresear.ch/t/fast-verification-of-multiple-bls-signatures/5407
 ///
-/// Returns true if verification succeeds, false if verification fails, `BlstError` on error.
+/// Returns true if verification succeeds, false otherwise.
 pub fn verifyMultipleAggregateSignatures(
-    pairing_buf: *align(Pairing.buf_align) [Pairing.sizeOf()]u8,
-    n_elems: usize,
     msgs: []const [32]u8,
     dst: []const u8,
-    pks: []const *PublicKey,
+    pks: []const *const PublicKey,
     pks_validate: bool,
-    sigs: []const *Signature,
+    sigs: []const *const Signature,
     sigs_groupcheck: bool,
     rands: []const [32]u8,
+    alloc: Allocator,
 ) BlstError!bool {
-    if (n_elems == 0) {
+    const n_elems = pks.len;
+    if (n_elems == 0 or
+        msgs.len != n_elems or
+        sigs.len != n_elems or
+        rands.len != n_elems)
+    {
         return BlstError.VerifyFail;
     }
 
-    const cpu_count = std.Thread.getCpuCount() catch 1;
-    const n_workers: usize = if (n_elems < MIN_ELEMS_TO_THREAD) 1 else @min(@min(cpu_count, n_elems), MAX_WORKERS);
+    const cpu_count = @max(1, std.Thread.getCpuCount() catch 1);
+    const n_workers = @min(@min(cpu_count, n_elems), MAX_WORKERS);
 
-    if (n_workers <= 1) {
-        var pairing = Pairing.init(pairing_buf, true, dst);
-        for (0..n_elems) |i| {
-            try pairing.mulAndAggregate(
-                pks[i],
-                pks_validate,
-                sigs[i],
-                sigs_groupcheck,
-                &rands[i],
-                RAND_BITS,
-                &msgs[i],
-            );
-        }
-        pairing.commit();
-        return pairing.finalVerify(null);
+    var wg = std.Thread.WaitGroup{};
+    const valid = std.atomic.Value(bool).init(true);
+
+    // Each worker gets its own pairing buffer and Pairing context.
+    // After all workers finish, we merge sequentially on the main thread.
+    var pairing_bufs: [MAX_WORKERS][]align(Pairing.buf_align) u8 = undefined;
+    var pairings: [MAX_WORKERS]Pairing = undefined;
+    var worker_count: usize = 0;
+
+    defer {
+        for (0..worker_count) |i| alloc.free(pairing_bufs[i]);
     }
 
-    const allocator = std.heap.c_allocator;
-
-    // Allocate pairing buffers for worker threads (worker 0 uses the caller's pairing_buf)
-    const extra_bufs = allocator.alloc([Pairing.sizeOf()]u8, n_workers - 1) catch return BlstError.VerifyFail;
-    defer allocator.free(extra_bufs);
-
-    const contexts = allocator.alloc(WorkerContext, n_workers) catch return BlstError.VerifyFail;
-    defer allocator.free(contexts);
-
-    // Divide work evenly across workers
-    const elems_per_worker = n_elems / n_workers;
-    const remainder = n_elems % n_workers;
-
-    var offset: usize = 0;
-    for (0..n_workers) |w| {
-        const count = elems_per_worker + if (w < remainder) @as(usize, 1) else @as(usize, 0);
-        contexts[w] = .{
-            .pairing_buf = if (w == 0) pairing_buf else @alignCast(&extra_bufs[w - 1]),
-            .msgs = msgs,
-            .dst = dst,
-            .pks = pks,
-            .pks_validate = pks_validate,
-            .sigs = sigs,
-            .sigs_groupcheck = sigs_groupcheck,
-            .rands = rands,
-            .start = offset,
-            .end = offset + count,
-        };
-        offset += count;
+    for (0..n_workers) |i| {
+        pairing_bufs[i] = alloc.alignedAlloc(u8, Pairing.buf_align, Pairing.sizeOf()) catch return BlstError.VerifyFail;
+        pairings[i] = Pairing.init(
+            @ptrCast(pairing_bufs[i].ptr),
+            true,
+            dst,
+        );
+        worker_count += 1;
     }
 
-    // Spawn n_workers - 1 threads, then do worker 0 on the main thread
-    const threads = allocator.alloc(std.Thread, n_workers - 1) catch return BlstError.VerifyFail;
-    defer allocator.free(threads);
+    const counter = std.atomic.Value(usize).init(0);
 
-    var spawned: usize = 0;
-    for (0..n_workers - 1) |t| {
-        threads[t] = std.Thread.spawn(.{}, workerFn, .{&contexts[t + 1]}) catch break;
-        spawned += 1;
+    for (0..n_workers) |i| {
+        tp.spawnTaskWg(&wg, struct {
+            fn run(
+                pairing: *Pairing,
+                _valid: *const std.atomic.Value(bool),
+                _counter: *const std.atomic.Value(usize),
+                _n_elems: usize,
+                _pks: []const *const PublicKey,
+                _pks_validate: bool,
+                _sigs: []const *const Signature,
+                _sigs_groupcheck: bool,
+                _rands: []const [32]u8,
+                _msgs: []const [32]u8,
+            ) void {
+                while (_valid.load(.monotonic)) {
+                    const work = @as(*std.atomic.Value(usize), @constCast(_counter)).fetchAdd(1, .monotonic);
+                    if (work >= _n_elems) break;
+
+                    pairing.mulAndAggregate(
+                        _pks[work],
+                        _pks_validate,
+                        _sigs[work],
+                        _sigs_groupcheck,
+                        &_rands[work],
+                        RAND_BITS,
+                        &_msgs[work],
+                    ) catch {
+                        @as(*std.atomic.Value(bool), @constCast(_valid)).store(false, .monotonic);
+                        return;
+                    };
+                }
+
+                if (_valid.load(.monotonic)) {
+                    pairing.commit();
+                }
+            }
+        }.run, .{
+            &pairings[i],
+            &valid,
+            &counter,
+            n_elems,
+            pks,
+            pks_validate,
+            sigs,
+            sigs_groupcheck,
+            rands,
+            msgs,
+        });
     }
 
-    // Main thread does worker 0's work in parallel with spawned threads
-    workerFn(&contexts[0]);
+    tp.waitAndWork(&wg);
 
-    for (threads[0..spawned]) |t| t.join();
-
-    for (contexts[0..n_workers]) |ctx| {
-        if (ctx.err) return BlstError.VerifyFail;
+    for (1..n_workers) |i| {
+        pairings[0].merge(&pairings[i]) catch return BlstError.VerifyFail;
     }
 
-    // Merge all worker pairings into the first one
-    var main_pairing: Pairing = .{ .ctx = @ptrCast(pairing_buf) };
-    for (1..n_workers) |w| {
-        const worker_pairing: Pairing = .{ .ctx = @ptrCast(&extra_bufs[w - 1]) };
-        try main_pairing.merge(&worker_pairing);
-    }
-
-    return main_pairing.finalVerify(null);
+    return valid.load(.monotonic) and pairings[0].finalVerify(null);
 }
 
+const MAX_WORKERS = 8;
+
+const Allocator = std.mem.Allocator;
 const BlstError = @import("error.zig").BlstError;
 const Pairing = @import("Pairing.zig");
 const blst = @import("root.zig");
 const PublicKey = blst.PublicKey;
 const Signature = blst.Signature;
 const std = @import("std");
+const tp = @import("thread_pool.zig");
