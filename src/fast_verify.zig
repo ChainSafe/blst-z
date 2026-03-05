@@ -38,20 +38,29 @@ pub fn verifyMultipleAggregateSignatures(
     var wg = std.Thread.WaitGroup{};
     const valid = std.atomic.Value(bool).init(true);
 
+    const mem_pool = tp.getMemoryPool();
+
     // Each worker gets its own pairing buffer and Pairing context.
     // After all workers finish, we merge sequentially on the main thread.
-    var pairing_bufs: [MAX_WORKERS][]align(Pairing.buf_align) u8 = undefined;
+    var pairing_bufs: [MAX_WORKERS][]u8 = undefined;
     var pairings: [MAX_WORKERS]Pairing = undefined;
     var worker_count: usize = 0;
 
     defer {
-        for (0..worker_count) |i| alloc.free(pairing_bufs[i]);
+        if (mem_pool) |pool| {
+            for (0..worker_count) |i| pool.returnPairingBuffer(pairing_bufs[i]) catch {};
+        } else {
+            for (0..worker_count) |i| alloc.free(pairing_bufs[i]);
+        }
     }
 
     for (0..n_workers) |i| {
-        pairing_bufs[i] = alloc.alignedAlloc(u8, Pairing.buf_align, Pairing.sizeOf()) catch return BlstError.VerifyFail;
+        pairing_bufs[i] = if (mem_pool) |pool|
+            pool.getPairingBuffer() catch return BlstError.VerifyFail
+        else
+            alloc.alloc(u8, Pairing.sizeOf()) catch return BlstError.VerifyFail;
         pairings[i] = Pairing.init(
-            @ptrCast(pairing_bufs[i].ptr),
+            @ptrCast(@alignCast(pairing_bufs[i].ptr)),
             true,
             dst,
         );

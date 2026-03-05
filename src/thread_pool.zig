@@ -1,8 +1,10 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const WaitGroup = std.Thread.WaitGroup;
+const MemoryPoolMinPk = @import("memory_pool.zig").MemoryPoolMinPk;
 
 var thread_pool: ?*std.Thread.Pool = null;
+var memory_pool: ?*MemoryPoolMinPk = null;
 var pool_mutex = std.Thread.Mutex{};
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
@@ -18,15 +20,29 @@ pub fn initializeThreadPool(inAllocator: ?Allocator) !void {
     var pool = try allocator.create(std.Thread.Pool);
     try pool.init(.{ .allocator = allocator });
     thread_pool = pool;
+
+    var mem_pool = try allocator.create(MemoryPoolMinPk);
+    try mem_pool.init(allocator);
+    memory_pool = mem_pool;
 }
 
 pub fn isInitialized() bool {
     return thread_pool != null;
 }
 
+pub fn getMemoryPool() ?*MemoryPoolMinPk {
+    return memory_pool;
+}
+
 pub fn deinitializeThreadPool() void {
     pool_mutex.lock();
     defer pool_mutex.unlock();
+    if (memory_pool) |mem_pool| {
+        const allocator = mem_pool.allocator;
+        mem_pool.deinit();
+        allocator.destroy(mem_pool);
+    }
+    memory_pool = null;
     if (thread_pool) |pool| {
         const allocator = pool.allocator;
         pool.deinit();
