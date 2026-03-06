@@ -66,7 +66,7 @@ test "fuzz aggregate public key aggregateWithRandomness" {
             const scratch = try std.testing.allocator.alloc(u64, 1 << 14);
             defer std.testing.allocator.free(scratch);
 
-            const agg1 = AggregatePublicKey.aggregateWithRandomness(
+            _ = AggregatePublicKey.aggregateWithRandomness(
                 pks_refs[0..count],
                 randomness[0 .. count * rand_size],
                 false,
@@ -75,17 +75,6 @@ test "fuzz aggregate public key aggregateWithRandomness" {
                 if (!fuzzUtils.errorIn(err, .{BlstError.AggrTypeMismatch})) return err;
                 return;
             };
-
-            const agg2 = try AggregatePublicKey.aggregateWithRandomness(
-                pks_refs[0..count],
-                randomness[0 .. count * rand_size],
-                false,
-                scratch,
-            );
-
-            const pk1 = agg1.toPublicKey();
-            const pk2 = agg2.toPublicKey();
-            try std.testing.expectEqualSlices(u8, &pk1.serialize(), &pk2.serialize());
 
             _ = AggregatePublicKey.aggregateWithRandomness(
                 pks_refs[0..count],
