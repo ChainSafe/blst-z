@@ -4,6 +4,7 @@ const afl = @import("afl");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const afl_out = b.option([]const u8, "afl_out", "AFL output base dir") orelse "afl-out";
 
     const blst_z = b.dependency("blst_z", .{
         .target = target,
@@ -84,15 +85,16 @@ pub fn build(b: *std.Build) void {
         const mkdir = b.addSystemCommand(&.{
             "mkdir", "-p",
         });
-        mkdir.addDirectoryArg(
-            b.path(b.fmt("afl-out/{s}", .{fuzzer.name})),
-        );
+        const afl_out_path = std.Build.LazyPath{
+            .cwd_relative = b.fmt("{s}/{s}", .{ afl_out, fuzzer.name }),
+        };
+        mkdir.addDirectoryArg(afl_out_path);
 
         const run = afl.addFuzzerRun(
             b,
             exe,
             b.path(fuzzer.corpus()),
-            b.path(b.fmt("afl-out/{s}", .{fuzzer.name})),
+            afl_out_path,
         );
         run.step.dependOn(&mkdir.step);
         run_step.dependOn(&run.step);
