@@ -16,6 +16,7 @@ pub const AggregateSignature = @import("AggregateSignature.zig");
 pub const BlstError = @import("error.zig").BlstError;
 
 pub const verifyMultipleAggregateSignatures = @import("fast_verify.zig").verifyMultipleAggregateSignatures;
+pub const ThreadPool = @import("ThreadPool.zig");
 
 /// Maximum number of signatures that can be aggregated in a single job.
 pub const MAX_AGGREGATE_PER_JOB: usize = 128;
@@ -33,4 +34,5 @@ test {
     testing.refAllDecls(Signature);
     testing.refAllDecls(AggregatePublicKey);
     testing.refAllDecls(AggregateSignature);
+    testing.refAllDecls(ThreadPool);
 }
