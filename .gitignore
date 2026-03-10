@@ -2,3 +2,4 @@ zig-out/
 .zig-cache/
 test/spec/spec_tests
 test/spec/spec_tests.zig
+test/fuzz/afl-out/

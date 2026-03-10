@@ -1,0 +1,11 @@
+.{
+    .name = .blst_z_fuzz,
+    .version = "0.1.0",
+    .fingerprint = 0xa5c0fe485cb1aa46,
+    .minimum_zig_version = "0.14.1",
+    .dependencies = .{
+        .blst_z = .{ .path = "../../" },
+        .afl = .{ .path = "../../pkg/afl++" },
+    },
+    .paths = .{ "build.zig", "build.zig.zon", "src" },
+}

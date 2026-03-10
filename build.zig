@@ -63,7 +63,11 @@ pub fn build(b: *std.Build) !void {
     options_spec_test_options.addOption([]const u8, "spec_test_version", option_spec_test_version);
     const option_spec_test_out_dir = b.option([]const u8, "spec_test_out_dir", "") orelse "test/spec/spec_tests";
     options_spec_test_options.addOption([]const u8, "spec_test_out_dir", option_spec_test_out_dir);
-    const options_module_spec_test_options = options_spec_test_options.createModule();
+    const options_module_spec_test_options = b.addModule("spec_test_options", .{
+        .root_source_file = options_spec_test_options.getOutput(),
+        .target = target,
+        .optimize = optimize,
+    });
 
     const exe_download_spec_tests = b.addExecutable(.{
         .name = "download_spec_tests",
