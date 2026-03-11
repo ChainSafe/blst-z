@@ -40,9 +40,12 @@ pairing_bufs: [MAX_WORKERS]PairingBuf = [_]PairingBuf{.{}} ** MAX_WORKERS,
 partial_p1: [MAX_WORKERS]c.blst_p1 = undefined,
 partial_p2: [MAX_WORKERS]c.blst_p2 = undefined,
 has_work: [MAX_WORKERS]bool = [_]bool{false} ** MAX_WORKERS,
+/// Mutex for dispatching multi-threaded verification work.
+dispatch_mutex: std.Thread.Mutex = .{},
 
 var instance: ?*ThreadPool = null;
-var mutex: std.Thread.Mutex = .{};
+/// Mutex responsible for access to the global `ThreadPool` singleton.
+var pool_mutex: std.Thread.Mutex = .{};
 
 /// Pairing size is = ~3.1KB * `MAX_WORKERS` = ~50KB
 /// We allocate 4 pages (4 * 16KB) for this at startup.
@@ -50,8 +53,8 @@ const allocator = std.heap.page_allocator;
 
 /// Returns the global thread pool singleton, creating it if necessary.
 pub fn get() *ThreadPool {
-    mutex.lock();
-    defer mutex.unlock();
+    pool_mutex.lock();
+    defer pool_mutex.unlock();
 
     if (instance) |pool| return pool;
     const pool = allocator.create(ThreadPool) catch
@@ -86,9 +89,9 @@ pub fn deinit(pool: *ThreadPool) void {
     for (pool.threads[0 .. n_workers - 1]) |t| {
         t.join();
     }
-    mutex.lock();
+    pool_mutex.lock();
     if (instance == pool) instance = null;
-    mutex.unlock();
+    pool_mutex.unlock();
     allocator.destroy(pool);
 }
 
@@ -209,6 +212,9 @@ pub fn verifyMultipleAggregateSignatures(
         rands.len != n_elems)
         return BlstError.VerifyFail;
 
+    pool.dispatch_mutex.lock();
+    defer pool.dispatch_mutex.unlock();
+
     // Single-threaded fallback for small inputs or single worker
     if (n_elems <= 2 or pool.n_workers <= 1) {
         const fast_verify = @import("fast_verify.zig");
@@ -307,6 +313,9 @@ pub fn aggregateVerify(
 ) BlstError!bool {
     const n_elems = pks.len;
     if (n_elems == 0 or msgs.len != n_elems) return BlstError.VerifyFail;
+
+    pool.dispatch_mutex.lock();
+    defer pool.dispatch_mutex.unlock();
 
     // Single-threaded fallback
     if (n_elems <= 2 or pool.n_workers <= 1) {
