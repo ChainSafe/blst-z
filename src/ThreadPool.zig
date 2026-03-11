@@ -298,16 +298,16 @@ pub fn aggregateVerify(
     dst: []const u8,
     pks: []const *PublicKey,
     pks_validate: bool,
-) bool {
+) BlstError!bool {
     const n_elems = pks.len;
-    if (n_elems == 0 or msgs.len != n_elems) return false;
+    if (n_elems == 0 or msgs.len != n_elems) return BlstError.VerifyFail;
 
     // Single-threaded fallback
     if (n_elems <= 2 or pool.n_workers <= 1) {
         var pairing = Pairing.init(&pool.pairing_bufs[0].data, true, dst);
-        pairing.aggregate(pks[0], pks_validate, sig, sig_groupcheck, &msgs[0], null) catch return false;
+        try pairing.aggregate(pks[0], pks_validate, sig, sig_groupcheck, &msgs[0], null);
         for (1..n_elems) |i| {
-            pairing.aggregate(pks[i], pks_validate, null, false, &msgs[i], null) catch return false;
+            try pairing.aggregate(pks[i], pks_validate, null, false, &msgs[i], null);
         }
         pairing.commit();
         var gtsig = c.blst_fp12{};
@@ -459,14 +459,12 @@ test "aggregateVerify multi-threaded" {
     const agg_sig = AggregateSignature.aggregate(&sigs, false) catch return error.AggregationFailed;
     const final_sig = agg_sig.toSignature();
 
-    const result = pool.aggregateVerify(
+    try std.testing.expect(try pool.aggregateVerify(
         &final_sig,
         false,
         &msgs,
         blst.DST,
         &pk_ptrs,
         true,
-    );
-
-    try std.testing.expect(result);
+    ));
 }
