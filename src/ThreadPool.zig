@@ -42,6 +42,7 @@ partial_p2: [MAX_WORKERS]c.blst_p2 = undefined,
 has_work: [MAX_WORKERS]bool = [_]bool{false} ** MAX_WORKERS,
 
 var instance: ?*ThreadPool = null;
+var mutex: std.Thread.Mutex = .{};
 
 /// Pairing size is = ~3.1KB * `MAX_WORKERS` = ~50KB
 /// We allocate 4 pages (4 * 16KB) for this at startup.
@@ -49,6 +50,9 @@ const allocator = std.heap.page_allocator;
 
 /// Returns the global thread pool singleton, creating it if necessary.
 pub fn get() *ThreadPool {
+    mutex.lock();
+    defer mutex.unlock();
+
     if (instance) |pool| return pool;
     const pool = allocator.create(ThreadPool) catch
         @panic("ThreadPool: failed to allocate");
@@ -82,7 +86,9 @@ pub fn deinit(pool: *ThreadPool) void {
     for (pool.threads[0 .. n_workers - 1]) |t| {
         t.join();
     }
+    mutex.lock();
     if (instance == pool) instance = null;
+    mutex.unlock();
     allocator.destroy(pool);
 }
 
