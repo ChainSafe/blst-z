@@ -343,7 +343,7 @@ pub fn aggregateVerify(
 /// Merges all of `pool`'s `pairing_bufs` and execute `finalVerify` on the accumulated `acc`.
 ///
 /// Perform final verification of `gtsig`, returning `false` if verification fails.
-fn mergeAndVerify(pool: *ThreadPool, n_active: usize, gtsig: ?*const c.blst_fp12) bool {
+fn mergeAndVerify(pool: *ThreadPool, n_active: usize, gtsig: ?*const c.blst_fp12) BlstError!bool {
     var acc_idx: ?usize = null;
     for (0..n_active) |i| {
         if (pool.has_work[i]) {
@@ -352,13 +352,13 @@ fn mergeAndVerify(pool: *ThreadPool, n_active: usize, gtsig: ?*const c.blst_fp12
         }
     }
 
-    const first = acc_idx orelse return false;
+    const first = acc_idx orelse return BlstError.MergeError;
     var acc = Pairing{ .ctx = @ptrCast(&pool.pairing_bufs[first].data) };
 
     for (first + 1..n_active) |i| {
         if (pool.has_work[i]) {
             const other = Pairing{ .ctx = @ptrCast(&pool.pairing_bufs[i].data) };
-            acc.merge(&other) catch return false;
+            try acc.merge(&other);
         }
     }
 
