@@ -61,6 +61,8 @@ pub fn get() *ThreadPool {
             break :blk @min(@max(cpu_count * 3 / 4, 2), MAX_WORKERS);
         },
     };
+    // Workers start from index 1 but executes as worker 0 inside dispatch() to avoid wasting a core.
+    // 0 is reserved for main thread.
     for (1..pool.n_workers) |i| {
         pool.threads[i - 1] = std.Thread.spawn(.{}, workerLoop, .{ pool, i }) catch
             @panic("ThreadPool: failed to spawn worker");
@@ -194,7 +196,12 @@ pub fn verifyMultipleAggregateSignatures(
     sigs_groupcheck: bool,
     rands: []const [32]u8,
 ) BlstError!bool {
-    if (n_elems == 0) return BlstError.VerifyFail;
+    if (n_elems == 0 or
+        pks.len != n_elems or
+        sigs.len != n_elems or
+        msgs.len != n_elems or
+        rands.len != n_elems)
+        return BlstError.VerifyFail;
 
     // Single-threaded fallback for small inputs or single worker
     if (n_elems <= 2 or pool.n_workers <= 1) {
@@ -276,7 +283,7 @@ fn execAggVerify(pool: *ThreadPool, job: *AggVerifyJob, worker_index: usize) voi
     }
 
     if (did_work) pairing.commit();
-    pool.has_work[worker_index] = true;
+    pool.has_work[worker_index] = did_work;
 }
 
 /// Verifies an aggregated signature against multiple messages and public keys
@@ -310,6 +317,8 @@ pub fn aggregateVerify(
 
     const n_active = @min(pool.n_workers, n_elems);
 
+    // Validate `sig` on the main thread (runs concurrently with merge below)
+    if (sig_groupcheck) sig.validate(false) catch return false;
     var job = AggVerifyJob{
         .pks = pks[0..n_elems],
         .msgs = msgs[0..n_elems],
@@ -325,8 +334,6 @@ pub fn aggregateVerify(
 
     if (job.err_flag.load(.acquire)) return false;
 
-    // Compute sig→GT on the main thread (runs concurrently with merge below)
-    if (sig_groupcheck) sig.validate(false) catch return false;
     var gtsig = c.blst_fp12{};
     Pairing.aggregated(&gtsig, sig);
 
@@ -335,7 +342,7 @@ pub fn aggregateVerify(
 
 /// Merges all of `pool`'s `pairing_bufs` and execute `finalVerify` on the accumulated `acc`.
 ///
-/// Stores the result in `gtsig`, returning `false` if verification fails.
+/// Perform final verification of `gtsig`, returning `false` if verification fails.
 fn mergeAndVerify(pool: *ThreadPool, n_active: usize, gtsig: ?*const c.blst_fp12) bool {
     var acc_idx: ?usize = null;
     for (0..n_active) |i| {
