@@ -30,6 +30,11 @@ const WorkItem = union(enum) {
     aggregate_verify: *AggVerifyJob,
 };
 
+pub const Opts = struct {
+    n_workers: u16 = 1,
+};
+
+allocator: std.mem.Allocator,
 n_workers: usize,
 threads: [MAX_WORKERS - 1]std.Thread = undefined,
 work_ready: [MAX_WORKERS]std.Thread.ResetEvent = [_]std.Thread.ResetEvent{.{}} ** MAX_WORKERS,
@@ -43,38 +48,19 @@ has_work: [MAX_WORKERS]bool = [_]bool{false} ** MAX_WORKERS,
 /// Mutex for dispatching multi-threaded verification work.
 dispatch_mutex: std.Thread.Mutex = .{},
 
-var instance: ?*ThreadPool = null;
-/// Mutex responsible for access to the global `ThreadPool` singleton.
-var pool_mutex: std.Thread.Mutex = .{};
-
-/// Pairing size is = ~3.1KB * `MAX_WORKERS` = ~50KB
-/// We allocate 4 pages (4 * 16KB) for this at startup.
-const allocator = std.heap.page_allocator;
-
-/// Returns the global thread pool singleton, creating it if necessary.
-pub fn get() *ThreadPool {
-    pool_mutex.lock();
-    defer pool_mutex.unlock();
-
-    if (instance) |pool| return pool;
+/// Creates a thread pool with the specified number of workers.
+/// The caller owns the returned pool and must call `deinit` when done.
+pub fn init(allocator: std.mem.Allocator, opts: Opts) *ThreadPool {
+    std.debug.assert(opts.n_workers >= 1 and opts.n_workers <= MAX_WORKERS);
     const pool = allocator.create(ThreadPool) catch
         @panic("ThreadPool: failed to allocate");
-    pool.* = .{
-        .n_workers = blk: {
-            const cpu_count = std.Thread.getCpuCount() catch 1;
-            // Use 3/4 of available cores: aggregation saturates early so doesn't
-            // need all cores, while leaving headroom for the host application
-            // (e.g. Node.js event loop, libuv I/O threads).
-            break :blk @min(@max(cpu_count * 3 / 4, 2), MAX_WORKERS);
-        },
-    };
-    // Workers start from index 1 but executes as worker 0 inside dispatch() to avoid wasting a core.
-    // 0 is reserved for main thread.
+    pool.* = .{ .allocator = allocator, .n_workers = opts.n_workers };
+    // Workers start from index 1; index 0 is reserved for the calling thread
+    // which executes as worker 0 inside dispatch() to avoid wasting a core.
     for (1..pool.n_workers) |i| {
         pool.threads[i - 1] = std.Thread.spawn(.{}, workerLoop, .{ pool, i }) catch
             @panic("ThreadPool: failed to spawn worker");
     }
-    instance = pool;
     return pool;
 }
 
@@ -89,10 +75,7 @@ pub fn deinit(pool: *ThreadPool) void {
     for (pool.threads[0 .. n_workers - 1]) |t| {
         t.join();
     }
-    pool_mutex.lock();
-    if (instance == pool) instance = null;
-    pool_mutex.unlock();
-    allocator.destroy(pool);
+    pool.allocator.destroy(pool);
 }
 
 /// Handles a `WorkItem`.
@@ -381,7 +364,7 @@ fn mergeAndVerify(pool: *ThreadPool, n_active: usize, gtsig: ?*const c.blst_fp12
 }
 
 test "verifyMultipleAggregateSignatures multi-threaded" {
-    const pool = ThreadPool.get();
+    const pool = ThreadPool.init(std.testing.allocator, .{ .n_workers = 4 });
     defer pool.deinit();
 
     const ikm: [32]u8 = .{
@@ -435,7 +418,7 @@ test "verifyMultipleAggregateSignatures multi-threaded" {
 }
 
 test "aggregateVerify multi-threaded" {
-    const pool = ThreadPool.get();
+    const pool = ThreadPool.init(std.testing.allocator, .{ .n_workers = 4 });
     defer pool.deinit();
 
     const AggregateSignature = blst.AggregateSignature;
