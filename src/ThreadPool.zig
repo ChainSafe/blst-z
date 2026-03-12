@@ -128,8 +128,8 @@ fn dispatch(pool: *ThreadPool, item: WorkItem, n_active: usize) void {
 }
 
 const VerifyMultiJob = struct {
-    pks: []const *PublicKey,
-    sigs: []const *Signature,
+    pks: []const *const PublicKey,
+    sigs: []const *const Signature,
     msgs: []const [32]u8,
     rands: []const [32]u8,
     dst: []const u8,
@@ -182,9 +182,9 @@ pub fn verifyMultipleAggregateSignatures(
     n_elems: usize,
     msgs: []const [32]u8,
     dst: []const u8,
-    pks: []const *PublicKey,
+    pks: []const *const PublicKey,
     pks_validate: bool,
-    sigs: []const *Signature,
+    sigs: []const *const Signature,
     sigs_groupcheck: bool,
     rands: []const [32]u8,
 ) BlstError!bool {
@@ -237,7 +237,7 @@ pub fn verifyMultipleAggregateSignatures(
 }
 
 const AggVerifyJob = struct {
-    pks: []const *PublicKey,
+    pks: []const *const PublicKey,
     msgs: []const [32]u8,
     dst: []const u8,
     pks_validate: bool,
@@ -291,7 +291,7 @@ pub fn aggregateVerify(
     sig_groupcheck: bool,
     msgs: []const [32]u8,
     dst: []const u8,
-    pks: []const *PublicKey,
+    pks: []const *const PublicKey,
     pks_validate: bool,
 ) BlstError!bool {
     const n_elems = pks.len;
@@ -302,15 +302,7 @@ pub fn aggregateVerify(
 
     // Single-threaded fallback
     if (n_elems <= 2 or pool.n_workers <= 1) {
-        var pairing = Pairing.init(&pool.pairing_bufs[0].data, true, dst);
-        try pairing.aggregate(pks[0], pks_validate, sig, sig_groupcheck, &msgs[0], null);
-        for (1..n_elems) |i| {
-            try pairing.aggregate(pks[i], pks_validate, null, false, &msgs[i], null);
-        }
-        pairing.commit();
-        var gtsig = c.blst_fp12{};
-        Pairing.aggregated(&gtsig, sig);
-        return pairing.finalVerify(&gtsig);
+        return sig.aggregateVerify(sig_groupcheck, &pool.pairing_bufs[0].data, msgs, dst, pks, pks_validate);
     }
 
     const n_active = @min(pool.n_workers, n_elems);

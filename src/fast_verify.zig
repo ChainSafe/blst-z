@@ -14,9 +14,9 @@ pub fn verifyMultipleAggregateSignatures(
     n_elems: usize,
     msgs: []const [32]u8,
     dst: []const u8,
-    pks: []const *PublicKey,
+    pks: []const *const PublicKey,
     pks_validate: bool,
-    sigs: []const *Signature,
+    sigs: []const *const Signature,
     sigs_groupcheck: bool,
     rands: []const [32]u8,
 ) BlstError!bool {

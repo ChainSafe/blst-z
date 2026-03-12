@@ -80,6 +80,8 @@ pub fn aggregate_verify(gpa: Allocator, path: std.fs.Dir) !void {
 
         const pubkeys = try allocator.alloc(blst.PublicKey, num_sigs);
         defer allocator.free(pubkeys);
+        const pk_ptrs = try allocator.alloc(*const blst.PublicKey, num_sigs);
+        defer allocator.free(pk_ptrs);
         const messages = try allocator.alloc([32]u8, num_sigs);
         defer allocator.free(messages);
 
@@ -93,6 +95,7 @@ pub fn aggregate_verify(gpa: Allocator, path: std.fs.Dir) !void {
                 pk_hex_bytes[2..], // skip "0x" prefix
             );
             pubkeys[i] = try blst.PublicKey.deserialize(pk_bytes);
+            pk_ptrs[i] = &pubkeys[i];
         }
 
         for (aggregate_verify_test_data.input.messages, 0..) |msg_hex_bytes, i| {
@@ -117,7 +120,7 @@ pub fn aggregate_verify(gpa: Allocator, path: std.fs.Dir) !void {
             &pairing_buf,
             messages,
             blst.DST,
-            pubkeys,
+            pk_ptrs,
             true,
         ) catch false;
         try std.testing.expectEqual(aggregate_verify_test_data.output, result);
