@@ -5,6 +5,7 @@
 const ThreadPool = @This();
 
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 const c = @cImport({
     @cInclude("blst.h");
 });
@@ -34,7 +35,7 @@ pub const Opts = struct {
     n_workers: u16 = 1,
 };
 
-allocator: std.mem.Allocator,
+allocator: Allocator,
 n_workers: usize,
 threads: [MAX_WORKERS - 1]std.Thread = undefined,
 work_ready: [MAX_WORKERS]std.Thread.ResetEvent = [_]std.Thread.ResetEvent{.{}} ** MAX_WORKERS,
@@ -50,16 +51,14 @@ dispatch_mutex: std.Thread.Mutex = .{},
 
 /// Creates a thread pool with the specified number of workers.
 /// The caller owns the returned pool and must call `deinit` when done.
-pub fn init(allocator: std.mem.Allocator, opts: Opts) *ThreadPool {
+pub fn init(allocator: Allocator, opts: Opts) (Allocator.Error || std.Thread.SpawnError)!*ThreadPool {
     std.debug.assert(opts.n_workers >= 1 and opts.n_workers <= MAX_WORKERS);
-    const pool = allocator.create(ThreadPool) catch
-        @panic("ThreadPool: failed to allocate");
+    const pool = try allocator.create(ThreadPool);
     pool.* = .{ .allocator = allocator, .n_workers = opts.n_workers };
     // Workers start from index 1; index 0 is reserved for the calling thread
     // which executes as worker 0 inside dispatch() to avoid wasting a core.
     for (1..pool.n_workers) |i| {
-        pool.threads[i - 1] = std.Thread.spawn(.{}, workerLoop, .{ pool, i }) catch
-            @panic("ThreadPool: failed to spawn worker");
+        pool.threads[i - 1] = try std.Thread.spawn(.{}, workerLoop, .{ pool, i });
     }
     return pool;
 }
@@ -364,7 +363,7 @@ fn mergeAndVerify(pool: *ThreadPool, n_active: usize, gtsig: ?*const c.blst_fp12
 }
 
 test "verifyMultipleAggregateSignatures multi-threaded" {
-    const pool = ThreadPool.init(std.testing.allocator, .{ .n_workers = 4 });
+    const pool = try ThreadPool.init(std.testing.allocator, .{ .n_workers = 4 });
     defer pool.deinit();
 
     const ikm: [32]u8 = .{
@@ -418,7 +417,7 @@ test "verifyMultipleAggregateSignatures multi-threaded" {
 }
 
 test "aggregateVerify multi-threaded" {
-    const pool = ThreadPool.init(std.testing.allocator, .{ .n_workers = 4 });
+    const pool = try ThreadPool.init(std.testing.allocator, .{ .n_workers = 4 });
     defer pool.deinit();
 
     const AggregateSignature = blst.AggregateSignature;
