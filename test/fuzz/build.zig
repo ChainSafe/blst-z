@@ -42,9 +42,8 @@ pub fn build(b: *std.Build) void {
     const Fuzzer = struct {
         name: []const u8,
 
-        // TODO: change to cmin
         fn corpus(comptime self: @This()) []const u8 {
-            return "corpus/" ++ self.name ++ "-initial";
+            return "corpus/" ++ self.name ++ "-cmin";
         }
 
         fn source(comptime self: @This()) []const u8 {
