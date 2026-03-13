@@ -3,3 +3,4 @@ zig-out/
 test/spec/spec_tests
 test/spec/spec_tests.zig
 test/fuzz/afl-out/
+test/fuzz/logs/
