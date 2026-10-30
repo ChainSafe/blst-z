@@ -1,3 +1,7 @@
+# Notice
+
+This repo is archived. Development continues at https://github.com/chainsafe/lodestar.
+
 # blst-z
 Zig bindings for [supranational's blst](https://github.com/supranational/blst) native bindings, a highly performant BLS12-381 signature library.
 
